@@ -1,0 +1,253 @@
+/* ── Page ── */
+.page { height: 100vh; background: var(--b2b-page); color: var(--b2b-text); overflow-y: auto;
+  overflow-x: hidden; }
+.container { max-width: 1320px; margin: 0 auto; padding: 100px 24px 80px; }
+.layout { display: flex; gap: 32px; align-items: flex-start; }
+.main { flex: 1; min-width: 0; }
+
+/* ── Top Bar ── */
+.topBar { margin-bottom: 36px; }
+.searchRow {
+  display: flex; align-items: center;
+  background: var(--b2b-search); border-radius: 999px;
+  padding: 0 22px; height: 54px;
+  max-width: 540px; margin: 0 auto 16px; gap: 12px;
+}
+.searchIcon { color: var(--b2b-text3); flex-shrink: 0; }
+.searchSelect {
+  flex: 1; background: none; border: none; outline: none;
+  font-size: 18px; font-weight: 600; color: var(--b2b-text);
+  text-align: center; cursor: pointer;
+  appearance: none; -webkit-appearance: none;
+}
+.periodRow { display: flex; gap: 6px; justify-content: center; align-items: center; }
+.pdfBtn {
+  flex-shrink: 0; width: 36px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.06); border: 1px solid rgba(0,0,0,0.1);
+  border-radius: 10px; color: var(--b2b-text3); cursor: pointer; transition: background 0.15s;
+}
+.pdfBtn:hover { background: rgba(0,0,0,0.1); }
+.pdfBtn svg { width: 18px; height: 18px; }
+
+/* ── Sections ── */
+.section { margin-bottom: 20px; }
+.sectionLabel {
+  font-size: 11px; font-weight: 700; color: var(--b2b-muted);
+  text-transform: uppercase; letter-spacing: 0.1em;
+  margin-bottom: 10px; padding-left: 4px;
+}
+
+/* ── Cards ── */
+.card {
+  background: var(--b2b-card); border-radius: 20px; padding: 24px;
+  box-shadow: var(--b2b-shadow);
+}
+.cardTitle { font-size: 16px; font-weight: 800; color: var(--b2b-text); margin-bottom: 4px; }
+.cardSub { font-size: 11px; color: var(--b2b-muted); margin-bottom: 16px; }
+
+/* ── Dark Brand Card ── */
+.darkCard {
+  background: #1a1a1a; border-radius: 20px; padding: 24px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.12), 0 4px 20px rgba(0,0,0,0.1);
+}
+.darkCardTitle { font-size: 16px; font-weight: 800; color: #fff; margin-bottom: 4px; }
+.darkCardSub { font-size: 11px; color: rgba(255,255,255,0.4); margin-bottom: 16px; }
+
+/* ── Metrics 3-col ── */
+.metricsRow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.metricCard {
+  background: var(--b2b-card); border-radius: 20px; padding: 22px 18px;
+  box-shadow: var(--b2b-shadow);
+}
+.metricLabel { font-size: 11px; font-weight: 700; color: var(--b2b-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; }
+.metricVal { font-size: 22px; font-weight: 900; letter-spacing: -0.5px; line-height: 1.1; margin-bottom: 6px; }
+.metricSub { font-size: 11px; color: var(--b2b-muted); }
+
+/* ── Two-col grid ── */
+.twoCol { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+/* ── Brand Table (dark) ── */
+.brandTable { width: 100%; border-collapse: collapse; font-size: 13px; }
+.brandTable thead tr { border-bottom: 1px solid rgba(255,255,255,0.08); }
+.brandTable th {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; color: rgba(255,255,255,0.35);
+  padding: 6px 10px; text-align: left;
+}
+.brandTable td { padding: 10px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.brandTable tbody tr:last-child td { border-bottom: none; }
+
+.btBrand { display: flex; align-items: center; gap: 8px; font-weight: 600; color: #fff; }
+.btDot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.btPrice { color: rgba(255,255,255,0.7); font-weight: 600; }
+
+.tierBadge {
+  display: inline-block; padding: 3px 10px; border-radius: 999px;
+  font-size: 11px; font-weight: 700;
+}
+
+/* ── Deals Table ── */
+.dealsTable { width: 100%; border-collapse: collapse; font-size: 13px; }
+.dealsTable thead tr { border-bottom: 1px solid var(--b2b-line); }
+.dealsTable th {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--b2b-muted); padding: 8px 12px; text-align: left;
+}
+.dealsTable td { padding: 11px 12px; border-bottom: 1px solid var(--b2b-line); }
+.dealsTable tbody tr:last-child td { border-bottom: none; }
+
+
+.dtRank { font-weight: 700; color: var(--b2b-muted); width: 32px; }
+.dtBrand { font-weight: 700; color: #6366f1; }
+.dtTitle a { color: var(--b2b-text); text-decoration: none; }
+.dtTitle a:hover { text-decoration: underline; }
+.dtPrice { font-weight: 700; color: #10b981; white-space: nowrap; }
+
+/* ── AI 가격 인사이트 Banner ── */
+.insightBanner {
+  border-radius: 20px; padding: 24px 28px;
+  display: flex; gap: 28px; align-items: flex-start;
+  box-shadow: var(--b2b-shadow);
+}
+.insightLeft { flex: 1; min-width: 0; }
+.insightSignalRow { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.insightSignal { font-size: 26px; font-weight: 900; letter-spacing: -0.5px; }
+.insightBrandBadge {
+  display: inline-block; padding: 3px 12px; border-radius: 999px;
+  background: rgba(0,0,0,0.06); font-size: 12px; font-weight: 700; color: var(--b2b-text2);
+}
+.insightReason { font-size: 13.5px; color: var(--b2b-text2); line-height: 1.6; margin-bottom: 6px; }
+.insightStrategy { font-size: 12.5px; color: var(--b2b-text3); line-height: 1.6; font-style: italic; }
+.insightRight {
+  min-width: 220px; max-width: 300px; flex-shrink: 0;
+  border-left: 1px solid rgba(0,0,0,0.07); padding-left: 24px;
+}
+.insightSummary { font-size: 12.5px; color: var(--b2b-text2); line-height: 1.75; }
+
+/* ── 가격 변동률 Card ── */
+.priceChangeBox {
+  display: flex; flex-direction: column; gap: 14px; padding-top: 4px;
+}
+.priceChangeRow { display: flex; flex-direction: column; gap: 4px; }
+.priceChangeTimeLabel {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--b2b-muted);
+}
+.priceChangePastVal {
+  font-size: 28px; font-weight: 900; letter-spacing: -0.5px; color: var(--b2b-text3);
+}
+.priceChangeCurrentVal {
+  font-size: 28px; font-weight: 900; letter-spacing: -0.5px; color: var(--b2b-text);
+}
+.priceChangeDivider { width: 100%; height: 1px; background: var(--b2b-line); }
+.priceChangePct { font-size: 30px; font-weight: 900; letter-spacing: -1px; }
+.priceChangeUp   { color: #ef4444; }
+.priceChangeDown { color: #10b981; }
+
+/* ── Loading ── */
+.spinner {
+  width: 28px; height: 28px;
+  border: 3px solid rgba(99,102,241,0.15); border-top-color: #6366f1;
+  border-radius: 50%; animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+.loadingWrap {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 14px; padding: 80px 0; color: var(--b2b-muted); font-size: 13px;
+}
+.error { text-align: center; padding: 40px; color: #ef4444; font-size: 13px; }
+.noData { font-size: 12px; color: var(--b2b-muted); text-align: center; padding: 24px 0; }
+
+/* ── Access Denied ── */
+.denied {
+  display: flex; flex-direction: column; align-items: center;
+  text-align: center; padding: 120px 24px; gap: 14px;
+}
+.deniedTitle { font-size: 20px; font-weight: 800; color: var(--b2b-text); }
+.deniedDesc { font-size: 14px; color: var(--b2b-muted); }
+.deniedBtn {
+  margin-top: 10px; padding: 12px 28px; border-radius: 12px;
+  font-size: 14px; font-weight: 700; color: #fff;
+  background: #6366f1; border: none; cursor: pointer; transition: opacity 0.15s;
+}
+.deniedBtn:hover { opacity: 0.85; }
+
+/* ── Print ── */
+@media print {
+  .no-print { display: none !important; }
+  .page { background: var(--b2b-card); }
+  .card, .darkCard, .metricCard { box-shadow: none; border: 1px solid #e8e8ed; }
+}
+
+/* ── Responsive ── */
+@media (max-width: 760px) {
+  .metricsRow { grid-template-columns: repeat(2, 1fr); }
+  .twoCol { grid-template-columns: 1fr; }
+}
+
+/* ── Section Label Row (분석 제품 수 인라인) ── */
+.sectionLabelRow { display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px; }
+.sectionLabelRow .sectionLabel { margin-bottom: 0; }
+.sectionMeta { font-size: 11px; color: var(--b2b-muted); }
+
+/* ── 가격 수준별 브랜드 비중 바 ── */
+.tierBars { display: flex; flex-direction: column; gap: 14px; padding: 4px 0; }
+.tierBarRow { display: flex; align-items: center; gap: 12px; }
+.tierBarLabel { font-size: 12px; color: var(--b2b-text2); min-width: 148px; flex-shrink: 0; }
+.tierBarTrack {
+  flex: 1; height: 8px; background: var(--b2b-border);
+  border-radius: 999px; overflow: hidden;
+}
+.tierBarFill { height: 100%; border-radius: 999px; transition: width 0.5s ease; }
+.tierBarPct { font-size: 12px; font-weight: 800; min-width: 36px; text-align: right; }
+
+/* ── AI 가격 인사이트 (①②③④) ── */
+.insightCard {
+  border-radius: 16px;
+  border: 1px solid;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.insightHeader { display: flex; align-items: center; gap: 14px; }
+.insightSignalBig {
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+}
+.insightPoints { display: flex; flex-direction: column; gap: 12px; }
+.insightPointRow { display: flex; gap: 10px; align-items: flex-start; }
+.insightNum {
+  font-size: 18px;
+  font-weight: 900;
+  flex-shrink: 0;
+  line-height: 1.4;
+}
+.insightPointText {
+  font-size: 14px;
+  color: var(--b2b-text2);
+  line-height: 1.7;
+  margin: 0;
+  padding-top: 1px;
+}
+.insightSummaryBox {
+  padding-top: 16px;
+  border-top: 1px solid var(--b2b-line);
+}
+.insightSummaryText {
+  font-size: 13px;
+  color: var(--b2b-text3);
+  line-height: 1.75;
+  margin: 0;
+}
+
+/* ── 빈 예비 공간 ── */
+.emptyPlaceholder {
+  height: 200px;
+  border: 1.5px dashed var(--b2b-border);
+  border-radius: 16px;
+  background: transparent;
+}

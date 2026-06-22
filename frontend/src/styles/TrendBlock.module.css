@@ -1,0 +1,152 @@
+.wrap {
+  margin-bottom: 28px;
+  background: var(--surface);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  padding: 16px 20px 18px;
+}
+.label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.fire { font-size: 15px; }
+
+.labelText {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  flex: 1;
+}
+
+.liveBadge {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #f97316;
+  background: rgba(249, 115, 22, 0.1);
+  border: 1px solid rgba(249, 115, 22, 0.22);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+.track {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+
+.track::-webkit-scrollbar { display: none; }
+.card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 10px 14px;
+  cursor: pointer;
+  flex-shrink: 0;
+  width: 210px;
+  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+}
+
+.card:hover {
+  border-color: rgba(99, 102, 241, 0.35);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+.card:first-child {
+  border-color: rgba(251, 191, 36, 0.22);
+  background: rgba(251, 191, 36, 0.04);
+}
+.rank {
+  font-size: 17px;
+  font-weight: 900;
+  color: var(--text-muted);
+  opacity: 0.35;
+  flex-shrink: 0;
+  width: 18px;
+  text-align: center;
+  letter-spacing: -1px;
+}
+
+.card:first-child .rank {
+  color: #fbbf24;
+  opacity: 1;
+}
+.thumb {
+  width: 46px;
+  height: 46px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  font-size: 20px;
+}
+
+.thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 4px;
+}
+.info {
+  flex: 1;
+  min-width: 0;
+}
+
+.title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0 0 3px;
+}
+
+.price {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--text);
+  margin: 0 0 2px;
+}
+
+.stars {
+  font-size: 10px;
+  color: #fbbf24;
+  margin: 0;
+  letter-spacing: 0.5px;
+}
+
+.starsNum {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+.skelCard {
+  flex-shrink: 0;
+  width: 210px;
+  height: 70px;
+  border-radius: 12px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 25%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0.04) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

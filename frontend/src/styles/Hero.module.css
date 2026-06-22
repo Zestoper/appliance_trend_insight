@@ -1,0 +1,175 @@
+.hero {
+  position: relative;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 120px 24px 80px;
+}
+
+/* ── 배경 Blob ── */
+.blobWrap {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.35;
+}
+
+[data-theme="light"] .blob {
+  opacity: 0.25;
+}
+
+.blobIndigo {
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, #6366f1, #4338ca);
+  top: -100px;
+  left: -100px;
+  animation: blobFloat1 10s ease-in-out infinite;
+}
+
+.blobPurple {
+  width: 420px;
+  height: 420px;
+  background: radial-gradient(circle, #a855f7, #7c3aed);
+  top: 30%;
+  right: -80px;
+  animation: blobFloat2 12s ease-in-out infinite;
+}
+
+.blobPink {
+  width: 360px;
+  height: 360px;
+  background: radial-gradient(circle, #ec4899, #db2777);
+  bottom: -60px;
+  left: 35%;
+  animation: blobFloat3 9s ease-in-out infinite;
+}
+
+@keyframes blobFloat1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%       { transform: translate(50px, -40px) scale(1.08); }
+  66%       { transform: translate(-30px, 25px) scale(0.95); }
+}
+@keyframes blobFloat2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%       { transform: translate(-40px, 30px) scale(1.06); }
+  66%       { transform: translate(35px, -25px) scale(0.97); }
+}
+@keyframes blobFloat3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%       { transform: translate(30px, 40px) scale(1.05); }
+}
+
+/* ── 콘텐츠 ── */
+.content {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  max-width: 720px;
+  gap: 28px;
+  animation: fadeUp 0.8s ease forwards;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── 뱃지 ── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #c7d2fe;
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  letter-spacing: 0.3px;
+}
+
+[data-theme="light"] .badge {
+  color: #4f46e5;
+  background: rgba(99, 102, 241, 0.08);
+  border-color: rgba(99, 102, 241, 0.25);
+}
+
+/* ── 헤드라인 ── */
+.headline {
+  font-size: clamp(36px, 5vw, 60px);
+  font-weight: 900;
+  line-height: 1.15;
+  letter-spacing: -1.5px;
+  color: var(--text);
+}
+
+.gradientText {
+  display: block;
+  background: linear-gradient(90deg, #818cf8, #c084fc, #f472b6, #818cf8);
+  background-size: 300%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradientMove 5s linear infinite;
+}
+
+@keyframes gradientMove {
+  0%   { background-position: 0%; }
+  100% { background-position: 300%; }
+}
+
+/* ── 타이핑 서브타이틀 ── */
+.subtitle {
+  font-size: 16px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 24px;
+}
+
+.typingText {
+  color: var(--text-dim);
+  font-weight: 500;
+  white-space: nowrap;
+  border-right: 2px solid #818cf8;
+  animation: blink 0.7s step-end infinite;
+  display: inline-block;
+}
+
+@keyframes blink {
+  50% { border-color: transparent; }
+}
+
+/* ── 스크롤 힌트 ── */
+.scrollHint {
+  position: absolute;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 11px;
+  animation: scrollBounce 2s ease-in-out infinite;
+}
+
+@keyframes scrollBounce {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50%       { transform: translateX(-50%) translateY(6px); }
+}

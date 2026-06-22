@@ -1,0 +1,757 @@
+/* ── B2B Dashboard — Light Redesign ── */
+.page {
+  height: 100vh;
+  background: var(--b2b-page);
+  color: var(--b2b-text);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.container {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 100px 24px 80px;
+}
+.layout { display: flex; gap: 32px; align-items: flex-start; }
+.main { flex: 1; min-width: 0; }
+
+/* ── Top bar ── */
+.topBar { margin-bottom: 36px; }
+
+.searchRow {
+  display: flex;
+  align-items: center;
+  background: var(--b2b-search);
+  border-radius: 999px;
+  padding: 0 22px;
+  height: 54px;
+  max-width: 540px;
+  margin: 0 auto 16px;
+  gap: 12px;
+}
+
+.searchSelect {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--b2b-text);
+  text-align: center;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.searchSelect option { background: var(--b2b-card); color: var(--b2b-text); }
+
+.searchIcon { color: var(--b2b-text3); flex-shrink: 0; }
+
+.periodRow {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+
+.periodBtn {
+  padding: 7px 18px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  background: transparent;
+  color: var(--b2b-text3);
+  transition: all 0.15s;
+}
+
+.periodBtnActive {
+  background: var(--b2b-period-active-bg);
+  color: var(--b2b-period-active-color);
+}
+
+/* ── Section ── */
+.section { margin-bottom: 20px; }
+
+.sectionLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--b2b-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 10px;
+  padding-left: 4px;
+}
+
+/* ── Card base ── */
+.card {
+  background: var(--b2b-card);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: var(--b2b-shadow);
+}
+
+.cardTitle {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--b2b-text);
+  margin-bottom: 4px;
+}
+
+.cardSub {
+  font-size: 11px;
+  color: var(--b2b-muted);
+  margin-bottom: 16px;
+}
+
+.noData {
+  font-size: 12px;
+  color: var(--b2b-muted);
+  text-align: center;
+  padding: 20px 0;
+}
+
+/* ── Section 1: Market now ── */
+.marketNowGrid {
+  display: grid;
+  grid-template-columns: 1fr 200px;
+  gap: 14px;
+  align-items: stretch;
+}
+
+.trendCard {
+  background: var(--b2b-card);
+  border-radius: 20px;
+  padding: 24px 24px 16px;
+  box-shadow: var(--b2b-shadow);
+  height: 100%;
+}
+
+.chartLabel {
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--b2b-text);
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.chartDivider {
+  width: 100%;
+  height: 3px;
+  background: var(--b2b-text);
+  border-radius: 2px;
+  margin: 12px 0 6px;
+}
+
+.sourceNote { font-size: 11px; color: var(--b2b-muted); margin-top: 4px; }
+
+.metricsCol {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+}
+
+.metricCard {
+  background: var(--b2b-surface);
+  border-radius: 14px;
+  padding: 12px 16px;
+  border: 2px solid transparent;
+  text-align: center;
+  transition: border-color 0.15s, background 0.15s;
+
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.metricCardActive {
+  background: var(--b2b-card);
+  border-color: #6366f1;
+  box-shadow: 0 0 0 1px rgba(99,102,241,0.15);
+}
+
+.metricCardLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--b2b-muted);
+  margin-bottom: 3px;
+}
+
+.metricCardValue {
+  font-size: 20px;
+  font-weight: 900;
+  color: var(--b2b-text);
+  letter-spacing: -0.5px;
+}
+
+.metricUp { color: #10b981; }
+.metricDown { color: #ef4444; }
+
+/* ── Section 2: Brand & Age ── */
+.twoCol {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+/* Donut */
+.donutWrap {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.donutLegend {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.donutLegendRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--b2b-text);
+}
+
+.donutDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.donutPct {
+  margin-left: auto;
+  color: var(--b2b-muted);
+  font-weight: 700;
+}
+
+/* Age bars */
+.ageBarList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ageBarRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ageBarLabel {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--b2b-text3);
+  width: 32px;
+  flex-shrink: 0;
+}
+
+.ageBarTrack {
+  flex: 1;
+  height: 10px;
+  background: var(--b2b-surface);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.ageBarFill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #818cf8, #6366f1);
+  transition: width 0.6s ease;
+}
+
+.ageBarPct {
+  font-size: 12px;
+  font-weight: 700;
+  color: #6366f1;
+  width: 34px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* ── Keyword / Complaint card ── */
+.kwCard {
+  background: var(--b2b-card);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: var(--b2b-shadow);
+}
+
+.kwHeader {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.kwTitle {
+  font-size: 18px;
+  font-weight: 900;
+  color: var(--b2b-text);
+}
+
+.kwNote { font-size: 11px; color: var(--b2b-muted); }
+
+.tagRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 14px 0 0;
+}
+
+.tag {
+  padding: 8px 20px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+  background: var(--b2b-surface);
+  color: var(--b2b-text);
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.tag:hover { background: var(--b2b-line); }
+
+.tagActive {
+  background: #eef0fe;
+  border-color: #6366f1;
+  color: #6366f1;
+}
+
+.tagComplaintActive {
+  background: #fff0f0;
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.tagCountBadge {
+  display: inline-flex; align-items: center; justify-content: center;
+  margin-left: 6px; padding: 0 5px; min-width: 18px; height: 18px;
+  border-radius: 999px; font-size: 10px; font-weight: 800;
+  background: rgba(239,68,68,0.12); color: #ef4444;
+  vertical-align: middle;
+}
+.tagCountBadgeActive {
+  background: #ef4444; color: #fff;
+}
+
+.kwDetails {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--b2b-surface);
+}
+
+.kwSubTitle {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--b2b-text);
+  margin-bottom: 8px;
+}
+
+.kwRelatedItem {
+  display: block;
+  font-size: 12px;
+  color: var(--b2b-text3);
+  line-height: 2.2;
+}
+
+.kwRelatedItem::before { content: "└ "; }
+
+.kwSummary {
+  font-size: 12px;
+  color: var(--b2b-text3);
+  line-height: 1.8;
+  white-space: pre-wrap;
+}
+
+/* ── Complaint redesign ── */
+.kwComplaintDetail {
+  display: grid;
+  grid-template-columns: 1fr 240px;
+  gap: 20px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--b2b-surface);
+}
+
+.kwQuoteCol { display: flex; flex-direction: column; gap: 10px; }
+
+.kwQuote {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  background: var(--b2b-surface);
+  border-radius: 12px;
+  padding: 10px 14px;
+}
+
+.kwQuoteNum {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ef4444;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.kwQuoteText {
+  font-size: 12.5px;
+  color: var(--b2b-text2);
+  line-height: 1.65;
+  font-style: italic;
+}
+
+.kwRightCol { display: flex; flex-direction: column; gap: 14px; }
+
+.kwAssocBox {
+  background: var(--b2b-surface);
+  border-radius: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--b2b-line);
+}
+
+/* ── AI 근거 문장 박스 ── */
+.kwEvidenceBox {
+  background: rgba(239,68,68,0.06); border-left: 3px solid #ef4444;
+  border-radius: 0 8px 8px 0; padding: 8px 12px; margin-bottom: 4px;
+}
+.kwEvidenceLabel {
+  font-size: 10px; font-weight: 800; color: #ef4444;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  display: block; margin-bottom: 4px;
+}
+.kwEvidenceText {
+  font-size: 12px; color: var(--b2b-text2); line-height: 1.6; font-style: italic;
+}
+
+/* ── Source cards (불만 키워드 클릭 가능 카드) ── */
+.kwSourceCard {
+  display: block; text-decoration: none; color: inherit;
+  background: var(--b2b-surface); border-radius: 10px;
+  padding: 10px 12px; margin-bottom: 6px;
+  border: 1px solid transparent;
+  transition: border-color 0.15s, background 0.15s;
+}
+.kwSourceCard:hover { border-color: rgba(99,102,241,0.3); background: var(--b2b-line); }
+
+.kwSourceMeta { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.kwSourceBadge {
+  display: inline-block; padding: 2px 8px; border-radius: 999px;
+  font-size: 10px; font-weight: 700;
+}
+.kwBadgeYt   { background: rgba(255,0,0,0.1);        color: #cc0000; }
+.kwBadgeCafe { background: rgba(0,200,100,0.1);       color: #00a050; }
+.kwBadgeNews { background: rgba(37,99,235,0.1);       color: #2563eb; }
+.kwBadgeBlog { background: rgba(245,158,11,0.1);      color: #d97706; }
+
+.kwSourceDate { font-size: 10px; color: var(--b2b-muted); }
+.kwSourceTitle {
+  font-size: 12.5px; font-weight: 600; color: var(--b2b-text);
+  line-height: 1.4; margin-bottom: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.kwSourceDesc { font-size: 11px; color: var(--b2b-text3); line-height: 1.5; }
+
+.showMoreBtn {
+  width: 100%;
+  margin-top: 6px;
+  padding: 7px 0;
+  background: none;
+  border: 1px solid var(--b2b-line);
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--b2b-text3);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.showMoreBtn:hover { background: var(--b2b-line); color: var(--b2b-text2); }
+
+/* ── Context grid (트렌드 분석3) ── */
+.contextGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+/* ── Loading / Error / Denied ── */
+.loadingWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 80px 0;
+  color: var(--b2b-muted);
+  font-size: 13px;
+}
+
+.spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid rgba(99,102,241,0.15);
+  border-top-color: #6366f1;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.error {
+  text-align: center;
+  padding: 40px;
+  color: #ef4444;
+  font-size: 13px;
+}
+
+.denied {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 100px 24px;
+  gap: 12px;
+}
+
+.deniedTitle { font-size: 20px; font-weight: 800; color: var(--b2b-text); }
+.deniedDesc { font-size: 13px; color: var(--b2b-text3); }
+
+.deniedBtn {
+  margin-top: 8px;
+  padding: 10px 24px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  background: #6366f1;
+  border: none;
+  cursor: pointer;
+}
+
+/* ── Complaint source modal ── */
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.modalBox {
+  background: var(--b2b-card);
+  border-radius: 20px;
+  padding: 24px;
+  width: 100%;
+  max-width: 560px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.modalTag {
+  display: inline-block;
+  padding: 4px 14px;
+  border-radius: 999px;
+  background: #eef0fe;
+  color: #6366f1;
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.modalProduct { font-size: 12px; color: var(--b2b-muted); }
+
+.modalClose {
+  background: var(--b2b-surface);
+  border: none;
+  border-radius: 8px;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--b2b-text3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.modalEmpty { font-size: 13px; color: var(--b2b-muted); text-align: center; padding: 20px 0; }
+
+.modalArticle {
+  display: block;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--b2b-surface);
+  margin-bottom: 8px;
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.12s;
+}
+
+.modalArticle:hover { background: #f8f8fb; }
+
+.modalArticleMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.modalSourceBadge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.modalSourceNews { background: #e8f4ff; color: #0066cc; }
+.modalSourceBlog { background: #e8ffe8; color: #007a00; }
+
+.modalArticleDate { font-size: 10px; color: var(--b2b-muted); }
+.modalArticleTitle { font-size: 13px; font-weight: 700; color: var(--b2b-text); margin-bottom: 2px; }
+.modalArticleDesc { font-size: 12px; color: var(--b2b-text3); }
+
+/* ── PDF btn ── */
+.pdfBtn {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.06);
+  border: 1px solid rgba(0,0,0,0.1);
+  border-radius: 10px;
+  color: var(--b2b-text3);
+  cursor: pointer;
+  transition: background 0.15s;
+  align-self: center;
+}
+
+.pdfBtn:hover { background: rgba(0,0,0,0.1); }
+.pdfBtn svg { width: 18px; height: 18px; }
+
+/* ── 관심 키워드 그룹 ── */
+.kwGroupList { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+.kwGroupRow { display: flex; align-items: flex-start; gap: 10px; }
+.kwGroupLabel {
+  flex-shrink: 0;
+  width: 68px;
+  font-size: 11px;
+  font-weight: 700;
+  padding-top: 5px;
+  letter-spacing: 0.02em;
+}
+.kwGroupTags { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* ── 키워드 연관도 수치 ── */
+.kwRelatedRow { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+.kwRelatedPct {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--b2b-text3);
+  min-width: 32px;
+  text-align: right;
+}
+
+/* ── AI 종합 분석 구조화 보고서 ── */
+.aiReport { display: flex; flex-direction: column; gap: 16px; padding: 4px 0; }
+.aiReportRow { display: flex; gap: 12px; align-items: flex-start; }
+.aiReportNum {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(99,102,241,0.1);
+  color: #6366f1;
+  font-size: 12px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+}
+.aiReportLabel {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--b2b-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+.aiReportBadge {
+  display: inline-block;
+  padding: 3px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  margin-left: 8px;
+}
+.aiBadgeHigh { background: rgba(16,185,129,0.1); color: #10b981; }
+.aiBadgeMid  { background: rgba(245,158,11,0.1);  color: #f59e0b; }
+.aiBadgeLow  { background: rgba(239,68,68,0.1);   color: #ef4444; }
+.aiTagList { display: flex; flex-wrap: wrap; gap: 6px; }
+.aiTag {
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(99,102,241,0.07);
+  color: #6366f1;
+  border: 1px solid rgba(99,102,241,0.15);
+}
+.aiTagRisk {
+  background: rgba(239,68,68,0.07);
+  color: #ef4444;
+  border-color: rgba(239,68,68,0.15);
+}
+.aiConclusion {
+  font-size: 13px;
+  color: var(--b2b-text2);
+  line-height: 1.75;
+  margin: 0;
+}
+
+/* ── 관심 키워드 빈도 바 ── */
+.kwFreqBar {
+  height: 6px;
+  background: var(--b2b-border);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+.kwFreqFill {
+  height: 100%;
+  background: linear-gradient(90deg, #6366f1, #a78bfa);
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}

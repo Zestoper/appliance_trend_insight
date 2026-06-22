@@ -1,0 +1,286 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 26px;
+}
+
+.eyebrow {
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: #6366f1;
+  margin-bottom: 8px;
+}
+
+.header h1 {
+  font-size: 32px;
+  margin: 0 0 8px;
+  letter-spacing: -1px;
+}
+
+.header p {
+  margin: 0;
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.searchBox {
+  display: flex;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 999px;
+  background: white;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+}
+
+.searchBox input {
+  width: 280px;
+  border: none;
+  outline: none;
+  padding: 0 14px;
+  font-weight: 700;
+}
+
+.searchBox button {
+  border: none;
+  border-radius: 999px;
+  padding: 12px 20px;
+  color: white;
+  font-weight: 900;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  cursor: pointer;
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-bottom: 22px;
+}
+
+.productCard,
+.comparePanel,
+.panel,
+.aiPanel {
+  background: white;
+  border-radius: 22px;
+  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.08);
+}
+
+.productCard {
+  padding: 24px;
+}
+
+.brand {
+  margin: 0 0 10px;
+  color: #6366f1;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+
+.productCard h2 {
+  min-height: 58px;
+  margin: 0 0 14px;
+  font-size: 22px;
+  line-height: 1.35;
+}
+
+.productCard strong {
+  display: block;
+  font-size: 24px;
+  margin-bottom: 18px;
+}
+
+.scoreBox {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px;
+  border-radius: 16px;
+  background: #f8fafc;
+  margin-bottom: 18px;
+}
+
+.scoreBox span {
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.scoreBox b {
+  color: #6366f1;
+  font-size: 28px;
+}
+
+.productCard button {
+  width: 100%;
+  padding: 13px;
+  border: none;
+  border-radius: 14px;
+  color: white;
+  font-weight: 900;
+  cursor: pointer;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+}
+
+.comparePanel,
+.panel,
+.aiPanel {
+  padding: 24px;
+}
+
+.comparePanel {
+  margin-bottom: 22px;
+}
+
+.panelHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 22px;
+}
+
+.panelHeader h3 {
+  margin: 0 0 6px;
+  font-size: 18px;
+}
+
+.panelHeader p,
+.panelHeader span {
+  margin: 0;
+  color: #9ca3af;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.compareTable {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #eef2f7;
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.tableRow {
+  display: grid;
+  grid-template-columns: 160px repeat(3, 1fr);
+}
+
+.tableRow:not(:last-child) {
+  border-bottom: 1px solid #eef2f7;
+}
+
+.tableHead {
+  padding: 16px;
+  background: #f8fafc;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.labelCell {
+  padding: 16px;
+  background: #fbfdff;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.valueCell {
+  padding: 16px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.bottomGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+  margin-bottom: 22px;
+}
+
+.tagCompare {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.tagCompare b {
+  display: block;
+  margin-bottom: 10px;
+}
+
+.tagCompare div div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.goodTag,
+.badTag {
+  padding: 7px 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.goodTag {
+  color: #16a34a;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.18);
+}
+
+.badTag {
+  color: #dc2626;
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid rgba(248, 113, 113, 0.18);
+}
+
+.aiPanel {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(168, 85, 247, 0.1));
+  border: 1px solid rgba(99, 102, 241, 0.16);
+}
+
+.aiPanel p {
+  margin: 0 0 10px;
+  color: #6366f1;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 2px;
+}
+
+.aiPanel h3 {
+  margin: 0 0 12px;
+  font-size: 22px;
+  line-height: 1.5;
+}
+
+.aiPanel span {
+  color: #6b7280;
+  font-size: 14px;
+  line-height: 1.8;
+  font-weight: 700;
+}
+
+@media (max-width: 1100px) {
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .summaryGrid,
+  .bottomGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .tableRow {
+    grid-template-columns: 120px repeat(3, 220px);
+  }
+
+  .compareTable {
+    overflow-x: auto;
+  }
+}

@@ -1,0 +1,72 @@
+.page {
+  min-height: 100vh;
+  display: flex;
+  background: #f4f7fb;
+  color: #111827;
+}
+
+.sidebar {
+  width: 240px;
+  padding: 28px 20px;
+  background: #070712;
+  color: white;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 19px;
+  font-weight: 900;
+  margin-bottom: 36px;
+  cursor: pointer;
+}
+
+.logoIcon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+}
+
+.menu {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.menu button {
+  padding: 13px 14px;
+  border-radius: 12px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  text-align: left;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.menu button:hover {
+  color: white;
+  background: rgba(139, 92, 246, 0.22);
+}
+
+.menu .active {
+  color: white;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+}
+
+.main {
+  flex: 1;
+  padding: 32px;
+  overflow: auto;
+}
+
+@media (max-width: 1100px) {
+  .sidebar {
+    display: none;
+  }
+}

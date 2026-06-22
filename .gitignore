@@ -1,0 +1,32 @@
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Python
+backend/venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+
+# 환경변수
+.env
+.env.local
+.env.*.local
+
+# Frontend (frontend/.gitignore에도 있지만 루트에서도 명시)
+frontend/node_modules/
+frontend/dist/
+
+# IDE
+.idea/
+.vscode/
+
+backend/.venv/
+.venv/
+venv/
+
+# ChromaDB
+chroma_db/
+chromadb/

@@ -1,0 +1,327 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 26px;
+}
+
+.eyebrow {
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: #6366f1;
+  margin-bottom: 8px;
+}
+
+.header h1 {
+  font-size: 32px;
+  margin: 0 0 8px;
+  letter-spacing: -1px;
+}
+
+.header p {
+  margin: 0;
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.addBtn {
+  border: none;
+  border-radius: 999px;
+  padding: 14px 22px;
+  color: white;
+  font-weight: 900;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  cursor: pointer;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+}
+
+.topGrid {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 22px;
+  margin-bottom: 22px;
+}
+
+.formPanel,
+.aiPanel,
+.panel,
+.panelLarge,
+.alertPanel {
+  background: white;
+  border-radius: 22px;
+  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.08);
+}
+
+.formPanel,
+.aiPanel,
+.panel,
+.panelLarge,
+.alertPanel {
+  padding: 24px;
+}
+
+.panelHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 22px;
+}
+
+.panelHeader h3 {
+  margin: 0 0 6px;
+  font-size: 18px;
+}
+
+.panelHeader p,
+.panelHeader span {
+  margin: 0;
+  color: #9ca3af;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr 180px 130px;
+  gap: 12px;
+}
+
+.formGrid input {
+  padding: 15px 16px;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  outline: none;
+  background: #f8fafc;
+  color: #111827;
+  font-weight: 800;
+}
+
+.formGrid button {
+  border: none;
+  border-radius: 14px;
+  color: white;
+  font-weight: 900;
+  cursor: pointer;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+}
+
+.notice {
+  margin: 14px 0 0;
+  color: #9ca3af;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.aiPanel {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(168, 85, 247, 0.1));
+  border: 1px solid rgba(99, 102, 241, 0.16);
+}
+
+.aiPanel p {
+  margin: 0 0 12px;
+  color: #6366f1;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 2px;
+}
+
+.aiPanel h2 {
+  margin: 0 0 14px;
+  font-size: 24px;
+  line-height: 1.45;
+}
+
+.aiPanel span {
+  color: #6b7280;
+  font-size: 14px;
+  line-height: 1.8;
+  font-weight: 700;
+}
+
+.contentGrid {
+  display: grid;
+  grid-template-columns: 1.35fr 1fr;
+  gap: 22px;
+  margin-bottom: 22px;
+}
+
+.priceChart {
+  height: 260px;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 18px;
+  align-items: end;
+}
+
+.chartItem {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.barWrap {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.bar {
+  width: 70%;
+  border-radius: 18px 18px 8px 8px;
+  background: linear-gradient(180deg, #6366f1, #a855f7);
+}
+
+.chartItem b {
+  margin-top: 12px;
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.statusList {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.statusList div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px;
+  border-radius: 16px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+}
+
+.statusList b {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.statusList strong {
+  color: #6366f1;
+  font-size: 22px;
+}
+
+.alertList {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+
+.alertCard {
+  padding: 20px;
+  border-radius: 18px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+}
+
+.alertTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.alertTop h4 {
+  margin: 0 0 6px;
+  font-size: 18px;
+  line-height: 1.4;
+}
+
+.alertTop p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.activeBadge,
+.waitBadge {
+  flex-shrink: 0;
+  padding: 7px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.activeBadge {
+  color: #16a34a;
+  background: rgba(34, 197, 94, 0.12);
+}
+
+.waitBadge {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+}
+
+.priceRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.priceRow div {
+  padding: 14px;
+  border-radius: 14px;
+  background: white;
+}
+
+.priceRow span {
+  display: block;
+  margin-bottom: 6px;
+  color: #9ca3af;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.priceRow b {
+  font-size: 14px;
+}
+
+.progress {
+  height: 9px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.progress span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #6366f1, #a855f7);
+}
+
+.alertCard button {
+  width: 100%;
+  padding: 13px;
+  border: none;
+  border-radius: 14px;
+  color: white;
+  font-weight: 900;
+  cursor: pointer;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+}
+
+@media (max-width: 1100px) {
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .topGrid,
+  .contentGrid,
+  .alertList,
+  .formGrid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,605 @@
+.page {
+  height: 100vh;
+  overflow-y: auto;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.layout {
+  display: flex;
+  padding-top: 80px;
+  min-height: 100vh;
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+  padding: 28px 32px 80px;
+  max-width: 1100px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* ── Header ── */
+.header { margin-bottom: 20px; }
+
+.badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #818cf8;
+  background: rgba(99,102,241,0.1);
+  border: 1px solid rgba(99,102,241,0.25);
+  margin-bottom: 8px;
+}
+
+.title {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* ── Search ── */
+.searchWrap {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.searchInput {
+  flex: 1;
+  padding: 12px 18px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.searchInput:focus {
+  border-color: rgba(99,102,241,0.5);
+}
+
+.searchInput::placeholder { color: var(--text-muted); }
+
+.searchBtn {
+  padding: 12px 24px;
+  border-radius: 12px;
+  border: none;
+  font-size: 13px;
+  font-weight: 700;
+  color: white;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: box-shadow 0.2s;
+}
+
+.searchBtn:hover { box-shadow: 0 0 20px rgba(99,102,241,0.4); }
+
+/* ── Example tags ── */
+.exampleWrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 32px;
+}
+
+.exampleTag {
+  padding: 5px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.exampleTag:hover {
+  border-color: rgba(99,102,241,0.4);
+  color: #818cf8;
+  background: rgba(99,102,241,0.06);
+}
+
+/* ── Loading / Error ── */
+.loadingWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 80px 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid rgba(99,102,241,0.2);
+  border-top-color: #6366f1;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.error {
+  text-align: center;
+  padding: 40px;
+  color: #f87171;
+  font-size: 13px;
+}
+
+.accessDenied {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 120px 24px;
+  gap: 12px;
+  margin-top: 80px;
+}
+
+.accessTitle { font-size: 18px; font-weight: 700; color: var(--text); }
+
+.accessBtn {
+  padding: 10px 24px;
+  border-radius: 8px;
+  border: none;
+  font-size: 13px;
+  font-weight: 700;
+  color: white;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  cursor: pointer;
+}
+
+/* ── Result header ── */
+.resultHeader {
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.resultQuery {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.modelBadge {
+  display: inline-block;
+  margin-left: 10px;
+  padding: 2px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: monospace;
+  color: #a855f7;
+  background: rgba(168,85,247,0.1);
+  border: 1px solid rgba(168,85,247,0.25);
+}
+
+.catBadge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #06b6d4;
+  background: rgba(6,182,212,0.1);
+  border: 1px solid rgba(6,182,212,0.25);
+}
+
+/* ── Grid ── */
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+/* 가격 카드는 왼쪽 전체 높이 차지 */
+.cardPrice {
+  grid-row: span 2;
+}
+
+/* ── Card ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+  min-width: 0;
+}
+
+.cardHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  gap: 8px;
+}
+
+.cardTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 3px;
+}
+
+.cardSub {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.signalBadge {
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── Price stats ── */
+.priceStats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.priceStat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 8px;
+  gap: 3px;
+  border-right: 1px solid var(--border);
+  text-align: center;
+}
+
+.priceStat:last-child { border-right: none; }
+
+.psLabel {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.psValue {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.5px;
+}
+
+.psNote {
+  font-size: 9px;
+  color: var(--text-muted);
+}
+
+/* ── Reason box ── */
+.reasonBox {
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid;
+  background: rgba(99,102,241,0.04);
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+
+/* ── Mall list ── */
+.mallListLabel {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.mallRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px;
+  border-radius: 7px;
+  font-size: 12px;
+  border: 1px solid transparent;
+  transition: background 0.15s;
+}
+
+.mallRow:hover { background: rgba(255,255,255,0.03); }
+
+.mallRowBest {
+  background: rgba(34,197,94,0.06);
+  border-color: rgba(34,197,94,0.2);
+}
+
+.mallName {
+  color: var(--text-muted);
+  flex: 1;
+}
+
+.mallPrice {
+  font-weight: 700;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.bestTag {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: #22c55e;
+  background: rgba(34,197,94,0.12);
+  border: 1px solid rgba(34,197,94,0.25);
+}
+
+.mallLink {
+  font-size: 10px;
+  font-weight: 600;
+  color: #818cf8;
+  text-decoration: none;
+  padding: 2px 7px;
+  border-radius: 5px;
+  border: 1px solid rgba(99,102,241,0.25);
+  margin-left: 6px;
+  transition: background 0.15s;
+}
+
+.mallLink:hover { background: rgba(99,102,241,0.1); }
+
+/* ── Chart commons ── */
+.chartLegend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.xAxis {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* ── Trend stats ── */
+.trendStats {
+  display: flex;
+  gap: 0;
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.trendStat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 6px;
+  gap: 3px;
+  border-right: 1px solid var(--border);
+  font-size: 10px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.trendStat:last-child { border-right: none; }
+
+.trendStat strong {
+  font-size: 16px;
+  font-weight: 800;
+  color: #818cf8;
+  letter-spacing: -0.3px;
+}
+
+/* ── Sentiment ── */
+.sentScore {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  flex-shrink: 0;
+}
+
+.sentBar {
+  height: 6px;
+  background: var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.sentBarFill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.6s ease;
+}
+
+.sentCount {
+  display: flex;
+  gap: 14px;
+  font-size: 11px;
+  margin-bottom: 12px;
+}
+
+.kwCloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+  padding: 10px;
+  background: rgba(255,255,255,0.02);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.kwTag {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(99,102,241,0.08);
+  border: 1px solid rgba(99,102,241,0.15);
+  color: #a5b4fc;
+  font-weight: 500;
+  transition: background 0.15s;
+}
+
+.kwTag:hover { background: rgba(99,102,241,0.16); }
+
+/* ── Reviews ── */
+.reviewList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.reviewItem {
+  display: block;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.reviewItem:hover {
+  background: rgba(255,255,255,0.03);
+  border-color: rgba(99,102,241,0.25);
+}
+
+.reviewMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.reviewSource {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: #6366f1;
+  background: rgba(99,102,241,0.1);
+}
+
+.reviewTitle {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.reviewText {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* ── Competitors ── */
+.competitorList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.competitorRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.competitorInfo {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.competitorBrand {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  min-width: 40px;
+}
+
+.competitorTitle {
+  font-size: 11px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.competitorBarWrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.competitorBarTrack {
+  flex: 1;
+  height: 6px;
+  background: var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.competitorBarFill {
+  height: 100%;
+  border-radius: 999px;
+  opacity: 0.8;
+  transition: width 0.6s ease;
+}
+
+.competitorPrice {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  min-width: 60px;
+  text-align: right;
+}
+
+.noData {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 28px 0;
+}

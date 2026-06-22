@@ -1,0 +1,33 @@
+.hidden {
+  opacity: 0;
+  transform: translateY(36px);
+}
+.visible {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.65s ease, transform 0.65s ease;
+}
+.hiddenLeft {
+  opacity: 0;
+  transform: translateX(-40px);
+}
+
+.visibleLeft {
+  opacity: 1;
+  transform: translateX(0);
+  transition: opacity 0.65s ease, transform 0.65s ease;
+}
+.hiddenRight {
+  opacity: 0;
+  transform: translateX(40px);
+}
+
+.visibleRight {
+  opacity: 1;
+  transform: translateX(0);
+  transition: opacity 0.65s ease, transform 0.65s ease;
+}
+.delay0  { transition-delay: 0ms; }
+.delay100 { transition-delay: 100ms; }
+.delay200 { transition-delay: 200ms; }
+.delay300 { transition-delay: 300ms; }

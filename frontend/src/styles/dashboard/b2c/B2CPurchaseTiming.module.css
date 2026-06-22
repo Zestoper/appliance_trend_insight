@@ -1,0 +1,357 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 26px;
+}
+
+.eyebrow {
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: #6366f1;
+  margin-bottom: 8px;
+}
+
+.header h1 {
+  font-size: 32px;
+  margin: 0 0 8px;
+  letter-spacing: -1px;
+}
+
+.header p {
+  margin: 0;
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.searchBox {
+  display: flex;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 999px;
+  background: white;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+}
+
+.searchBox input {
+  width: 280px;
+  border: none;
+  outline: none;
+  padding: 0 14px;
+  font-weight: 700;
+}
+
+.searchBox button {
+  border: none;
+  border-radius: 999px;
+  padding: 12px 20px;
+  color: white;
+  font-weight: 900;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  cursor: pointer;
+}
+
+.topGrid {
+  display: grid;
+  grid-template-columns: 1.6fr 0.7fr;
+  gap: 22px;
+  margin-bottom: 22px;
+}
+
+.heroCard,
+.scoreCard,
+.panel,
+.panelLarge,
+.productList {
+  background: white;
+  border-radius: 22px;
+  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.08);
+}
+
+.heroCard {
+  padding: 28px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(168, 85, 247, 0.1));
+  border: 1px solid rgba(99, 102, 241, 0.16);
+}
+
+.heroCard p {
+  margin: 0 0 12px;
+  color: #6366f1;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 2px;
+}
+
+.heroCard h2 {
+  margin: 0 0 14px;
+  font-size: 28px;
+  line-height: 1.45;
+}
+
+.heroCard span {
+  color: #6b7280;
+  font-size: 14px;
+  line-height: 1.8;
+  font-weight: 700;
+}
+
+.scoreCard {
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.scoreCard p {
+  margin: 0 0 8px;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.scoreCard strong {
+  font-size: 58px;
+  line-height: 1;
+  color: #6366f1;
+}
+
+.scoreCard span {
+  margin-top: 8px;
+  color: #9ca3af;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.contentGrid {
+  display: grid;
+  grid-template-columns: 1.35fr 1fr;
+  gap: 22px;
+  margin-bottom: 22px;
+}
+
+.panel,
+.panelLarge,
+.productList {
+  padding: 24px;
+}
+
+.panelHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 22px;
+}
+
+.panelHeader h3 {
+  margin: 0 0 6px;
+  font-size: 18px;
+}
+
+.panelHeader p,
+.panelHeader span {
+  margin: 0;
+  color: #9ca3af;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.seasonChart {
+  height: 300px;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 18px;
+  align-items: end;
+}
+
+.seasonItem {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.seasonItem > span {
+  height: 28px;
+  color: #6366f1;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.barWrap {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.bar {
+  width: 72%;
+  border-radius: 18px 18px 8px 8px;
+  background: linear-gradient(180deg, #6366f1, #a855f7);
+}
+
+.seasonItem b {
+  margin-top: 12px;
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.factorList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.factorList div {
+  padding: 16px;
+  border-radius: 16px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+}
+
+.factorList b {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.factorList p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.6;
+  font-weight: 600;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+
+.productCard {
+  padding: 20px;
+  border-radius: 18px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+}
+
+.cardTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.cardTop p {
+  margin: 0 0 6px;
+  color: #6366f1;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.cardTop h4 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.4;
+}
+
+.badge {
+  flex-shrink: 0;
+  padding: 7px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.wait {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+}
+
+.buy {
+  color: #16a34a;
+  background: rgba(34, 197, 94, 0.12);
+}
+
+.alert {
+  color: #6366f1;
+  background: rgba(99, 102, 241, 0.12);
+}
+
+.priceGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.priceGrid div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.priceGrid span {
+  color: #9ca3af;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.priceGrid b {
+  font-size: 14px;
+}
+
+.reason {
+  margin: 0 0 16px;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.7;
+  font-weight: 600;
+}
+
+.confidence > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.confidence span {
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.confidence b {
+  color: #6366f1;
+}
+
+.progress {
+  height: 8px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  overflow: hidden;
+}
+
+.progress span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #6366f1, #a855f7);
+}
+
+@media (max-width: 1100px) {
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .topGrid,
+  .contentGrid,
+  .cards {
+    grid-template-columns: 1fr;
+  }
+}
