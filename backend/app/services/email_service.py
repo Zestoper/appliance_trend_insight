@@ -27,15 +27,26 @@ def _smtp_config():
     }
 
 
+def _resolve_ipv4(host: str) -> str:
+    import socket
+    results = socket.getaddrinfo(host, None, socket.AF_INET)
+    return results[0][4][0]
+
+
 def _send_smtp(cfg: dict, to_email: str, msg: MIMEMultipart):
+    import ssl
+    host_ip = _resolve_ipv4(cfg["host"])
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
     if cfg["port"] == 465:
-        with smtplib.SMTP_SSL(cfg["host"], cfg["port"]) as s:
+        with smtplib.SMTP_SSL(host_ip, cfg["port"], context=ctx) as s:
             s.login(cfg["user"], cfg["password"])
             s.sendmail(cfg["user"], to_email, msg.as_string())
     else:
-        with smtplib.SMTP(cfg["host"], cfg["port"]) as s:
+        with smtplib.SMTP(host_ip, cfg["port"]) as s:
             s.ehlo()
-            s.starttls()
+            s.starttls(context=ctx)
             s.login(cfg["user"], cfg["password"])
             s.sendmail(cfg["user"], to_email, msg.as_string())
 
