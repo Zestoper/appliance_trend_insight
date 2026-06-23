@@ -1,7 +1,21 @@
 import os
 import smtplib
+import httpx
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+
+_RESEND_FROM = "가전무쌍 <onboarding@resend.dev>"
+
+
+def _send_resend(to_email: str, subject: str, html: str):
+    api_key = os.getenv("RESEND_API_KEY")
+    resp = httpx.post(
+        "https://api.resend.com/emails",
+        headers={"Authorization": f"Bearer {api_key}"},
+        json={"from": _RESEND_FROM, "to": [to_email], "subject": subject, "html": html},
+        timeout=15,
+    )
+    resp.raise_for_status()
 
 
 def _smtp_config():
@@ -26,18 +40,8 @@ def _send_smtp(cfg: dict, to_email: str, msg: MIMEMultipart):
             s.sendmail(cfg["user"], to_email, msg.as_string())
 
 
-def send_verification_email(to_email: str, code: str):
-    cfg = _smtp_config()
-    if not cfg["user"] or not cfg["password"]:
-        print(f"\n[DEV] 인증코드 → {to_email} : {code}\n")
-        return
-
-    msg = MIMEMultipart()
-    msg["From"] = cfg["user"]
-    msg["To"] = to_email
-    msg["Subject"] = "[가전무쌍] 이메일 인증코드"
-
-    html = f"""
+def _make_verification_html(code: str) -> str:
+    return f"""
 <!DOCTYPE html>
 <html lang="ko">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
@@ -88,22 +92,26 @@ def send_verification_email(to_email: str, code: str):
   </table>
 </body>
 </html>"""
-    msg.attach(MIMEText(html, "html", "utf-8"))
+
+
+def send_verification_email(to_email: str, code: str):
+    if os.getenv("RESEND_API_KEY"):
+        _send_resend(to_email, "[가전무쌍] 이메일 인증코드", _make_verification_html(code))
+        return
+    cfg = _smtp_config()
+    if not cfg["user"] or not cfg["password"]:
+        print(f"\n[DEV] 인증코드 → {to_email} : {code}\n")
+        return
+    msg = MIMEMultipart()
+    msg["From"] = cfg["user"]
+    msg["To"] = to_email
+    msg["Subject"] = "[가전무쌍] 이메일 인증코드"
+    msg.attach(MIMEText(_make_verification_html(code), "html", "utf-8"))
     _send_smtp(cfg, to_email, msg)
 
 
 def send_rejection_email(to_email: str, company_name: str):
-    cfg = _smtp_config()
-    if not cfg["user"] or not cfg["password"]:
-        print(f"\n[DEV] 거절 이메일 → {to_email} ({company_name})\n")
-        return
-
-    msg = MIMEMultipart()
-    msg["From"] = cfg["user"]
-    msg["To"] = to_email
-    msg["Subject"] = "[가전무쌍] 사업자 계정 가입 심사 결과 안내"
     display = company_name or "귀사"
-
     html = f"""
 <!DOCTYPE html>
 <html lang="ko">
@@ -154,6 +162,17 @@ def send_rejection_email(to_email: str, company_name: str):
   </table>
 </body>
 </html>"""
+    if os.getenv("RESEND_API_KEY"):
+        _send_resend(to_email, "[가전무쌍] 사업자 계정 가입 심사 결과 안내", html)
+        return
+    cfg = _smtp_config()
+    if not cfg["user"] or not cfg["password"]:
+        print(f"\n[DEV] 거절 이메일 → {to_email} ({display})\n")
+        return
+    msg = MIMEMultipart()
+    msg["From"] = cfg["user"]
+    msg["To"] = to_email
+    msg["Subject"] = "[가전무쌍] 사업자 계정 가입 심사 결과 안내"
     msg.attach(MIMEText(html, "html", "utf-8"))
     _send_smtp(cfg, to_email, msg)
 
@@ -162,16 +181,8 @@ def send_buy_signal_alert(to_email: str, company_name: str, buy_categories: list
     """매입 적기 신호 발생 시 B2B 유저에게 알림 이메일 발송.
     buy_categories: [{"category": str, "avg_price": int, "week_change_pct": float}, ...]
     """
-    cfg = _smtp_config()
-    if not cfg["user"] or not cfg["password"]:
-        print(f"\n[DEV] 매입 알림 → {to_email} | 카테고리: {[c['category'] for c in buy_categories]}\n")
-        return
-
-    msg = MIMEMultipart()
-    msg["From"] = cfg["user"]
-    msg["To"] = to_email
-    msg["Subject"] = f"[가전무쌍] 매입 적기 알림 — {', '.join(c['category'] for c in buy_categories[:3])}"
     display = company_name or "담당자"
+    subject = f"[가전무쌍] 매입 적기 알림 — {', '.join(c['category'] for c in buy_categories[:3])}"
 
     rows_html = ""
     for c in buy_categories:
@@ -248,23 +259,25 @@ def send_buy_signal_alert(to_email: str, company_name: str, buy_categories: list
   </table>
 </body>
 </html>"""
-    msg.attach(MIMEText(html, "html", "utf-8"))
     try:
-        _send_smtp(cfg, to_email, msg)
+        if os.getenv("RESEND_API_KEY"):
+            _send_resend(to_email, subject, html)
+        else:
+            cfg = _smtp_config()
+            if not cfg["user"] or not cfg["password"]:
+                print(f"\n[DEV] 매입 알림 → {to_email} | 카테고리: {[c['category'] for c in buy_categories]}\n")
+                return
+            msg = MIMEMultipart()
+            msg["From"] = cfg["user"]
+            msg["To"] = to_email
+            msg["Subject"] = subject
+            msg.attach(MIMEText(html, "html", "utf-8"))
+            _send_smtp(cfg, to_email, msg)
     except Exception as e:
         print(f"[email] 매입 알림 발송 실패 → {to_email}: {e}")
 
 
 def send_approval_email(to_email: str, company_name: str):
-    cfg = _smtp_config()
-    if not cfg["user"] or not cfg["password"]:
-        print(f"\n[DEV] 승인 이메일 → {to_email} ({company_name})\n")
-        return
-
-    msg = MIMEMultipart()
-    msg["From"] = cfg["user"]
-    msg["To"] = to_email
-    msg["Subject"] = "[가전무쌍] 사업자 계정이 승인되었습니다 🎉"
     display = company_name or "귀사"
 
     html = f"""
@@ -317,6 +330,17 @@ def send_approval_email(to_email: str, company_name: str):
   </table>
 </body>
 </html>"""
+    if os.getenv("RESEND_API_KEY"):
+        _send_resend(to_email, "[가전무쌍] 사업자 계정이 승인되었습니다 🎉", html)
+        return
+    cfg = _smtp_config()
+    if not cfg["user"] or not cfg["password"]:
+        print(f"\n[DEV] 승인 이메일 → {to_email} ({display})\n")
+        return
+    msg = MIMEMultipart()
+    msg["From"] = cfg["user"]
+    msg["To"] = to_email
+    msg["Subject"] = "[가전무쌍] 사업자 계정이 승인되었습니다 🎉"
     msg.attach(MIMEText(html, "html", "utf-8"))
     _send_smtp(cfg, to_email, msg)
 
@@ -324,19 +348,10 @@ def send_approval_email(to_email: str, company_name: str):
 def send_price_alert_email(to_email: str, company_name: str, category: str,
                             target_price: int, current_price: int):
     """사용자 설정 목표가 이하로 가격이 떨어졌을 때 발송"""
-    cfg = _smtp_config()
     def fmt(p): return f"{p // 10000}만원" if p >= 10000 else f"{p:,}원"
-    if not cfg["user"] or not cfg["password"]:
-        print(f"\n[DEV] 가격 알림 → {to_email} | {category} 현재 {fmt(current_price)} (목표 {fmt(target_price)})\n")
-        return
-
     display = company_name or "담당자"
     diff_pct = round((target_price - current_price) / target_price * 100, 1)
-
-    msg = MIMEMultipart()
-    msg["From"] = cfg["user"]
-    msg["To"] = to_email
-    msg["Subject"] = f"[가전무쌍] {category} 목표가 달성 — 현재 {fmt(current_price)}"
+    subject = f"[가전무쌍] {category} 목표가 달성 — 현재 {fmt(current_price)}"
 
     html = f"""<!DOCTYPE html><html lang="ko">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
@@ -384,8 +399,19 @@ def send_price_alert_email(to_email: str, company_name: str, category: str,
 </td></tr>
 </table>
 </body></html>"""
-    msg.attach(MIMEText(html, "html", "utf-8"))
     try:
-        _send_smtp(cfg, to_email, msg)
+        if os.getenv("RESEND_API_KEY"):
+            _send_resend(to_email, subject, html)
+        else:
+            cfg = _smtp_config()
+            if not cfg["user"] or not cfg["password"]:
+                print(f"\n[DEV] 가격 알림 → {to_email} | {category} 현재 {fmt(current_price)} (목표 {fmt(target_price)})\n")
+                return
+            msg = MIMEMultipart()
+            msg["From"] = cfg["user"]
+            msg["To"] = to_email
+            msg["Subject"] = subject
+            msg.attach(MIMEText(html, "html", "utf-8"))
+            _send_smtp(cfg, to_email, msg)
     except Exception as e:
         print(f"[email] 가격 알림 발송 실패 → {to_email}: {e}")
