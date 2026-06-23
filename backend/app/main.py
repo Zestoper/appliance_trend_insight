@@ -90,3 +90,8 @@ app.include_router(admin_router)
 app.include_router(user_router)
 app.include_router(analysis_router)
 app.include_router(b2b_router)
+
+
+@app.get("/")
+async def root():
+    return {"status": "ok"}
