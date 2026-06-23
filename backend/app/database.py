@@ -1,7 +1,26 @@
 import os
 import re
+from datetime import date as _date
 import asyncpg
 from dotenv import load_dotenv
+
+_DATE_RE = re.compile(r'^\d{4}-\d{2}-\d{2}$')
+
+
+def _fix_args(args):
+    """DATE 컬럼용: 'YYYY-MM-DD' 문자열을 datetime.date로 자동 변환 (asyncpg 요구사항)"""
+    if not args:
+        return args
+    result = []
+    for a in args:
+        if isinstance(a, str) and _DATE_RE.match(a):
+            try:
+                result.append(_date.fromisoformat(a))
+            except ValueError:
+                result.append(a)
+        else:
+            result.append(a)
+    return tuple(result)
 
 load_dotenv()
 
@@ -56,14 +75,14 @@ async def close_pool():
 async def fetchone(sql: str, args=None) -> dict | None:
     pool = await get_pool()
     async with pool.acquire() as conn:
-        row = await conn.fetchrow(_to_pg(sql), *(args or ()))
+        row = await conn.fetchrow(_to_pg(sql), *_fix_args(args or ()))
         return dict(row) if row else None
 
 
 async def fetchall(sql: str, args=None) -> list[dict]:
     pool = await get_pool()
     async with pool.acquire() as conn:
-        rows = await conn.fetch(_to_pg(sql), *(args or ()))
+        rows = await conn.fetch(_to_pg(sql), *_fix_args(args or ()))
         return [dict(r) for r in rows]
 
 
@@ -71,7 +90,7 @@ async def execute(sql: str, args=None) -> int:
     """INSERT/UPDATE/DELETE — 0 반환 (lastrowid 불필요 시 사용)"""
     pool = await get_pool()
     async with pool.acquire() as conn:
-        await conn.execute(_to_pg(sql), *(args or ()))
+        await conn.execute(_to_pg(sql), *_fix_args(args or ()))
         return 0
 
 
@@ -79,7 +98,7 @@ async def _execute_returning(sql: str, args=None) -> int:
     """INSERT ... RETURNING id → id 반환"""
     pool = await get_pool()
     async with pool.acquire() as conn:
-        row = await conn.fetchrow(_to_pg(sql), *(args or ()))
+        row = await conn.fetchrow(_to_pg(sql), *_fix_args(args or ()))
         return row[0] if row else 0
 
 
