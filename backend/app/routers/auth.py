@@ -55,7 +55,8 @@ async def send_code(body: SendCodeRequest):
         raise HTTPException(status_code=400, detail="존재하지 않는 이메일 주소입니다")
     except smtplib.SMTPAuthenticationError:
         raise HTTPException(status_code=500, detail="메일 서버 인증 오류입니다")
-    except Exception:
+    except Exception as e:
+        print(f"[email] SMTP 에러: {type(e).__name__}: {e}")
         raise HTTPException(status_code=500, detail="이메일 발송에 실패했습니다. 주소를 확인해주세요")
     return {"message": "인증코드가 발송되었습니다"}
 
