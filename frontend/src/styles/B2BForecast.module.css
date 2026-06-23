@@ -44,6 +44,35 @@
   text-transform: uppercase; letter-spacing: 0.1em;
   margin-bottom: 10px; padding-left: 4px;
 }
+/* ── 리포트 헤더 ── */
+.reportHeader {
+  background: var(--b2b-card); border-radius: 20px;
+  border: 1px solid var(--b2b-line); padding: 28px 32px 0;
+  margin-bottom: 28px; box-shadow: var(--b2b-shadow); overflow: hidden;
+}
+.reportHeaderTop {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 24px;
+  padding-bottom: 20px; border-bottom: 1px solid var(--b2b-line);
+}
+.reportLabel { font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--b2b-muted); margin-bottom: 6px; }
+.reportTitle { font-size: 28px; font-weight: 900; letter-spacing: -1px; color: var(--b2b-text); margin-bottom: 8px; line-height: 1.1; }
+.reportMeta  { font-size: 12px; color: var(--b2b-muted); }
+.reportStatusBadge { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 12px 20px; border-radius: 14px; border: 1.5px solid; flex-shrink: 0; }
+.reportStatusIcon  { font-size: 20px; font-weight: 900; line-height: 1; }
+.reportStatusText  { font-size: 13px; font-weight: 800; }
+.reportKpiRow { display: flex; }
+.reportKpi { flex: 1; padding: 16px 20px; border-right: 1px solid var(--b2b-line); }
+.reportKpi:last-child { border-right: none; }
+.reportKpiLabel { font-size: 10px; font-weight: 700; color: var(--b2b-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+.reportKpiVal   { font-size: 18px; font-weight: 900; letter-spacing: -0.5px; color: var(--b2b-text); margin-bottom: 3px; }
+.reportKpiSub   { font-size: 11px; color: var(--b2b-muted); }
+/* ── 섹션 번호 헤더 ── */
+.sectionHead { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.sectionNum  { font-size: 11px; font-weight: 900; color: #6366f1; letter-spacing: 0.04em; flex-shrink: 0; background: rgba(99,102,241,0.1); padding: 3px 9px; border-radius: 6px; }
+.sectionTitle { font-size: 16px; font-weight: 800; color: var(--b2b-text); letter-spacing: -0.3px; }
+.sectionLine  { flex: 1; height: 1px; background: var(--b2b-line); }
+/* ── 리포트 푸터 ── */
+.reportFooter { display: flex; justify-content: space-between; align-items: center; margin-top: 40px; padding: 16px 20px; border-top: 1px solid var(--b2b-line); font-size: 11px; color: var(--b2b-muted); }
 
 /* ── Cards ── */
 .card {
@@ -239,8 +268,29 @@
   flex-shrink: 0; margin-top: 1px;
 }
 
+/* ── 매입 타이밍 신호 배너 ── */
+.timingBanner {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  border-left: 4px solid; border-radius: 14px;
+  padding: 16px 20px; margin-bottom: 20px;
+  border-top: 1px solid var(--b2b-line);
+  border-right: 1px solid var(--b2b-line);
+  border-bottom: 1px solid var(--b2b-line);
+}
+.timingBannerLeft { display: flex; align-items: flex-start; gap: 14px; flex: 1; }
+.timingBannerIcon { font-size: 22px; line-height: 1; flex-shrink: 0; margin-top: 2px; }
+.timingBannerLabel { font-size: 15px; font-weight: 900; }
+.timingBannerDays  { font-size: 13px; font-weight: 700; margin-left: 2px; }
+.timingBannerMsg   { font-size: 12.5px; color: var(--b2b-text2); margin-top: 4px; line-height: 1.55; }
+.timingBannerCta {
+  flex-shrink: 0; padding: 10px 18px; border-radius: 10px;
+  color: #fff; font-size: 12px; font-weight: 800;
+  text-decoration: none; white-space: nowrap;
+}
+
 @media print {
   .no-print { display: none !important; }
   .page { background: var(--b2b-card); }
   .card, .metricCard { box-shadow: none; border: 1px solid #e8e8ed; }
+  .timingBanner { page-break-inside: avoid; }
 }

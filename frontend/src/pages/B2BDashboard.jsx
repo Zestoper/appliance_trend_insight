@@ -13,7 +13,18 @@ const PERIODS = [
   { label: '6개월', value: '6m' },
   { label: '1년',   value: '1y' },
 ]
+const PERIOD_LABEL = { '1m': '최근 1개월', '3m': '최근 3개월', '6m': '최근 6개월', '1y': '최근 1년' }
 const BRAND_COLORS = ['#6366f1', '#a855f7', '#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6']
+
+function SectionHead({ num, title }) {
+  return (
+    <div className={s.sectionHead}>
+      <span className={s.sectionNum}>{num}</span>
+      <span className={s.sectionTitle}>{title}</span>
+      <span className={s.sectionLine} />
+    </div>
+  )
+}
 
 /* ── Trend chart (bold black) ── */
 function TrendChart({ data }) {
@@ -610,6 +621,7 @@ export default function B2BDashboard() {
   const age = data?.age_distribution ?? []
   const keywords = data?.keywords ?? []
   const complaints = data?.complaints ?? []
+  const complaintSummary = data?.complaint_summary ?? []
 
   const topAge = age.length > 0 ? age.reduce((a, b) => a.pct > b.pct ? a : b) : null
   const growthPositive = (report?.growth_rate ?? 0) >= 0
@@ -632,9 +644,48 @@ export default function B2BDashboard() {
 
         {!loading && data && (
           <>
+            {/* ── 리포트 헤더 ── */}
+            {(() => {
+              const today = fetchedAt
+                ? fetchedAt.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })
+                : new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })
+              const growth = report?.growth_rate ?? 0
+              const growthColor = growth >= 0 ? '#10b981' : '#ef4444'
+              return (
+                <div className={s.reportHeader}>
+                  <div className={s.reportHeaderTop}>
+                    <div>
+                      <p className={s.reportLabel}>B2B 시장 현황 분석 리포트</p>
+                      <h1 className={s.reportTitle}>{category} 시장 동향 분석</h1>
+                      <p className={s.reportMeta}>{today} 기준 · {PERIOD_LABEL[period]} · DataLab + Groq LLM + RAG</p>
+                    </div>
+                    <div className={s.reportStatusBadge} style={{ borderColor: `${growthColor}40`, background: `${growthColor}08` }}>
+                      <span className={s.reportStatusIcon} style={{ color: growthColor }}>{growth >= 0 ? '↑' : '↓'}</span>
+                      <span className={s.reportStatusText} style={{ color: growthColor }}>{growth >= 0 ? '성장세' : '하락세'}</span>
+                    </div>
+                  </div>
+                  <div className={s.reportKpiRow}>
+                    {[
+                      { label: '검색 관심도',  val: report?.trend_score ?? '-',         sub: '현재 지수 (0~100)' },
+                      { label: '증감률',        val: growth != null ? `${growth >= 0 ? '+' : ''}${growth}%` : '-', sub: '전기 대비', color: growthColor },
+                      { label: '대표 브랜드',   val: report?.brand_focus ?? brands[0]?.brand ?? '-', sub: '검색 점유 1위' },
+                      { label: '핵심 소비층',   val: topAge?.label ?? '-',               sub: 'DataLab 연령 분석' },
+                      { label: '브랜드 수',     val: brands.length > 0 ? `${brands.length}개` : '-', sub: '검색 노출 기준' },
+                    ].map(({ label, val, sub, color }) => (
+                      <div key={label} className={s.reportKpi}>
+                        <p className={s.reportKpiLabel}>{label}</p>
+                        <p className={s.reportKpiVal} style={color ? { color } : {}}>{val}</p>
+                        <p className={s.reportKpiSub}>{sub}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
+
             {/* ── Section 1: 시장 현황 ── */}
             <div className={s.section}>
-              <p className={s.sectionLabel}>시장분석 · 현재</p>
+              <SectionHead num="01" title="시장 현황 · 관심도 추이" />
               <div className={s.marketNowGrid}>
                 <div className={s.trendCard}>
                   <TrendChart data={trend} />
@@ -667,7 +718,7 @@ export default function B2BDashboard() {
 
             {/* ── Section 2: 브랜드 & 소비층 ── */}
             <div className={s.section}>
-              <p className={s.sectionLabel}>브랜드 & 소비층</p>
+              <SectionHead num="02" title="브랜드 점유율 · 핵심 소비층" />
               <div className={s.twoCol}>
                 <div className={s.card}>
                   <p className={s.cardTitle}>브랜드 점유율</p>
@@ -685,7 +736,7 @@ export default function B2BDashboard() {
             {/* ── Section 3: 관심 키워드 ── */}
             {keywords.length > 0 && (
               <div className={s.section}>
-                <p className={s.sectionLabel}>트렌드 분석 · 관심 요인</p>
+                <SectionHead num="03" title="트렌드 분석 · 관심 키워드" />
                 <KeywordSection title="주요 관심 키워드" items={keywords} isComplaint={false} token={token} category={category} />
               </div>
             )}
@@ -693,15 +744,42 @@ export default function B2BDashboard() {
             {/* ── Section 4: 불만 키워드 ── */}
             {complaints.length > 0 && (
               <div className={s.section}>
-                <p className={s.sectionLabel}>트렌드 분석 · 불만 요인</p>
+                <SectionHead num="04" title="트렌드 분석 · 소비자 불만 요인" />
                 <KeywordSection title="불만 키워드" items={complaints} isComplaint={true} />
+
+                {/* 불만 빈도 분석 */}
+                {complaintSummary.length > 0 && (
+                  <div className={s.complaintSummaryCard}>
+                    <p className={s.complaintSummaryTitle}>불만 빈도 분석 <span className={s.complaintSummaryNote}>제품 {complaints.length}개 기준</span></p>
+                    <div className={s.complaintBars}>
+                      {complaintSummary.map((item, i) => (
+                        <div key={item.tag} className={s.complaintBarRow}>
+                          <span className={s.complaintBarRank}>{i + 1}</span>
+                          <span className={s.complaintBarTag}>{item.tag}</span>
+                          <div className={s.complaintBarTrack}>
+                            <div
+                              className={s.complaintBarFill}
+                              style={{ width: `${item.pct}%` }}
+                            />
+                          </div>
+                          <span className={s.complaintBarPct}>{item.pct}%</span>
+                          <div className={s.complaintBrands}>
+                            {(item.brands ?? []).slice(0, 3).map(b => (
+                              <span key={b} className={s.complaintBrandChip}>{b}</span>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
             {/* ── Section 5: 트렌드 분석 · 사용 환경 ── */}
             {trendCtx && (
               <div className={s.section}>
-                <p className={s.sectionLabel}>트렌드 분석 · 사용 환경</p>
+                <SectionHead num="05" title="시장 구조 · 설치 환경 · 구매 목적" />
                 <div className={s.contextGrid}>
                   <div className={s.card}>
                     <p className={s.cardTitle}>주요 사용 환경</p>
@@ -730,7 +808,7 @@ export default function B2BDashboard() {
             {/* ── AI 요약 ── */}
             {report?.summary && (
               <div className={s.section}>
-                <p className={s.sectionLabel}>AI 종합 분석</p>
+                <SectionHead num="06" title="AI 종합 분석" />
                 <div className={s.card}>
                   {typeof report.summary === 'object' ? (
                     <div className={s.aiReport}>
@@ -794,6 +872,10 @@ export default function B2BDashboard() {
                 </div>
               </div>
             )}
+            <div className={s.reportFooter}>
+              <span>본 리포트는 네이버 DataLab 검색 데이터, Groq LLM 분석, RAG 소비자 반응 기반으로 생성되었습니다.</span>
+              <span>{fetchedAt ? fetchedAt.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' }) : ''} · {PERIOD_LABEL[period]}</span>
+            </div>
           </>
         )}
           </div>

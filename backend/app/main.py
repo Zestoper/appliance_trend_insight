@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import get_pool, close_pool
 import app.dependencies as deps
-from app.services.price_service import _init_tables, price_snapshot_loop
+from app.services.price_service import _init_tables, price_snapshot_loop, price_alert_loop
 from app.routers.insights import router as insights_router
 from app.routers.naver import router as naver_router
 from app.routers.auth import router as auth_router
@@ -60,9 +60,14 @@ async def lifespan(app: FastAPI):
         snapshot_task = asyncio.create_task(price_snapshot_loop())
     else:
         print("[snapshot] disabled by ENABLE_PRICE_SNAPSHOT")
+
+    alert_task = asyncio.create_task(price_alert_loop())
+
     yield
+
     if snapshot_task:
         snapshot_task.cancel()
+    alert_task.cancel()
     await close_pool()
 
 

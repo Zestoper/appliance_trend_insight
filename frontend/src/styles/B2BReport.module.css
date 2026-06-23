@@ -1,4 +1,284 @@
-/* ── AI 가격 인사이트 ── */
+/* ── 리포트 헤더 ── */
+.reportHeader {
+  background: var(--b2b-card);
+  border-radius: 20px;
+  border: 1px solid var(--b2b-line);
+  padding: 28px 32px 0;
+  margin-bottom: 28px;
+  box-shadow: var(--b2b-shadow);
+  overflow: hidden;
+}
+.reportHeaderTop {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--b2b-line);
+}
+.reportLabel {
+  font-size: 10px; font-weight: 800; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--b2b-muted); margin-bottom: 6px;
+}
+.reportTitle {
+  font-size: 28px; font-weight: 900; letter-spacing: -1px;
+  color: var(--b2b-text); margin-bottom: 8px; line-height: 1.1;
+}
+.reportMeta {
+  font-size: 12px; color: var(--b2b-muted);
+}
+.reportActionBadge {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px; padding: 16px 24px; border-radius: 16px;
+  border: 1.5px solid; flex-shrink: 0;
+}
+.reportActionIcon { font-size: 22px; font-weight: 900; line-height: 1; }
+.reportActionText { font-size: 14px; font-weight: 800; }
+
+.reportKpiRow {
+  display: flex; gap: 0;
+}
+.reportKpi {
+  flex: 1; padding: 18px 20px;
+  border-right: 1px solid var(--b2b-line);
+}
+.reportKpi:last-child { border-right: none; }
+.reportKpiLabel {
+  font-size: 10px; font-weight: 700; color: var(--b2b-muted);
+  text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px;
+}
+.reportKpiVal {
+  font-size: 20px; font-weight: 900; letter-spacing: -0.5px;
+  color: var(--b2b-text); margin-bottom: 3px;
+}
+.reportKpiSub { font-size: 11px; color: var(--b2b-muted); }
+
+/* ── 섹션 번호 헤더 ── */
+.sectionHead {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 14px;
+}
+.sectionNum {
+  font-size: 11px; font-weight: 900; color: #6366f1;
+  letter-spacing: 0.04em; flex-shrink: 0;
+  background: rgba(99,102,241,0.1);
+  padding: 3px 9px; border-radius: 6px;
+}
+.sectionTitle {
+  font-size: 16px; font-weight: 800; color: var(--b2b-text);
+  letter-spacing: -0.3px;
+}
+.sectionLine {
+  flex: 1; height: 1px;
+  background: var(--b2b-line);
+}
+
+/* ── 데이터 테이블 ── */
+.dataTable {
+  width: 100%; border-collapse: collapse;
+  font-size: 13px; color: var(--b2b-text2);
+}
+.dataTable thead th {
+  text-align: left; font-size: 10px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--b2b-muted); padding: 8px 12px;
+  border-bottom: 2px solid var(--b2b-line);
+  background: rgba(0,0,0,0.015);
+}
+.dataTable tbody tr {
+  border-bottom: 1px solid var(--b2b-line);
+  transition: background 0.1s;
+}
+.dataTable tbody tr:last-child { border-bottom: none; }
+.dataTable tbody tr:hover { background: rgba(99,102,241,0.03); }
+.dataTable td { padding: 10px 12px; }
+.numCell { text-align: right; font-variant-numeric: tabular-nums; }
+.metaLabel { color: var(--b2b-muted); font-size: 12px; font-weight: 600; }
+.barCol { width: 120px; }
+.barCell { padding: 10px 12px; }
+.barTrack { height: 6px; border-radius: 99px; background: rgba(0,0,0,0.07); overflow: hidden; }
+.barFill  { height: 100%; border-radius: 99px; transition: width 0.4s ease; }
+
+/* ── 브랜드 점 (테이블용) ── */
+.brandDot2 {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  flex-shrink: 0; margin-right: 6px; vertical-align: middle;
+}
+
+/* ── 두 컬럼 테이블 블록 ── */
+.twoColTable { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.tableBlock {
+  background: var(--b2b-card); border-radius: 16px; padding: 20px;
+  box-shadow: var(--b2b-shadow);
+}
+.tableBlockTitle {
+  font-size: 11px; font-weight: 800; color: var(--b2b-muted);
+  text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px;
+}
+
+/* ── 가격 시그널 ── */
+.priceSignalRow {
+  display: flex; align-items: center; gap: 16px;
+  border-radius: 14px; border: 1px solid;
+  padding: 14px 20px;
+}
+.priceSignalBadge {
+  font-size: 14px; font-weight: 900; border: 1.5px solid;
+  border-radius: 999px; padding: 4px 16px; flex-shrink: 0;
+}
+.priceSignalReason {
+  flex: 1; font-size: 13px; color: var(--b2b-text2); line-height: 1.5;
+}
+.priceBrandPick {
+  font-size: 13px; color: var(--b2b-muted); flex-shrink: 0;
+}
+.priceBrandPick strong { color: var(--b2b-text); }
+
+.strategyNote {
+  margin-top: 12px; font-size: 13px; color: var(--b2b-text2);
+  display: flex; align-items: flex-start; gap: 8px; line-height: 1.5;
+}
+.strategyNoteIcon { font-weight: 800; flex-shrink: 0; }
+
+/* ── 섹션 핵심 질문 ── */
+.sectionQuestion {
+  margin-top: 16px; padding: 10px 18px;
+  background: var(--b2b-search); border-radius: 10px;
+  font-size: 13px; font-weight: 700; color: var(--b2b-text2);
+  font-style: italic; text-align: right;
+}
+
+/* ── 제품 기획 브리프 배너 ── */
+.productBriefBanner {
+  display: flex; align-items: flex-start; gap: 12px;
+  background: var(--b2b-card); border-radius: 14px;
+  border: 1px solid var(--b2b-line);
+  padding: 16px 20px; margin-bottom: 14px;
+  box-shadow: var(--b2b-shadow);
+}
+.productBriefIcon { font-size: 18px; font-weight: 900; flex-shrink: 0; margin-top: 1px; }
+.productBriefText {
+  font-size: 14px; font-weight: 700; color: var(--b2b-text); line-height: 1.6;
+  margin: 0;
+}
+
+/* ── 상품 기획 그리드 ── */
+.planningGrid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+}
+.planningCard {
+  background: var(--b2b-card); border-radius: 16px;
+  border: 1px solid var(--b2b-line); padding: 18px 20px;
+  box-shadow: var(--b2b-shadow);
+}
+.planningCardHead {
+  border-left: 3px solid; padding-left: 10px; margin-bottom: 14px;
+}
+.planningCardTag {
+  display: inline-block; padding: 3px 10px; border-radius: 6px;
+  font-size: 11px; font-weight: 800; letter-spacing: 0.04em; margin-bottom: 4px;
+}
+.planningCardSub { font-size: 11px; color: var(--b2b-muted); margin: 0; }
+.planningList { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.planningItem {
+  display: flex; align-items: flex-start; gap: 8px;
+  font-size: 13px; color: var(--b2b-text2); line-height: 1.5;
+}
+.planningBullet {
+  font-size: 14px; font-weight: 900; flex-shrink: 0; line-height: 1.4; width: 14px;
+}
+
+/* ── 기능 칩 그리드 ── */
+.featureGrid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;
+}
+.featureChip {
+  display: flex; align-items: flex-start; gap: 8px;
+  background: var(--b2b-search); border-radius: 10px; padding: 10px 12px;
+}
+.featureNum {
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 900;
+  width: 22px; height: 22px; border-radius: 6px; flex-shrink: 0;
+}
+.featureText { font-size: 13px; color: var(--b2b-text2); line-height: 1.4; }
+
+.planningBasis {
+  font-size: 12.5px; color: var(--b2b-text2); line-height: 1.7;
+  padding: 12px 14px; background: var(--b2b-search); border-radius: 10px;
+  margin-bottom: 12px;
+}
+.planningFooter {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+}
+.planningPriceTag {
+  font-size: 12px; color: var(--b2b-text2);
+}
+.planningPriceTag strong { color: var(--b2b-text); font-weight: 800; }
+
+/* needsQuestion은 planningFooter 안에서도 사용 */
+.needsQuestion {
+  font-size: 11px; font-weight: 700; color: var(--b2b-muted); font-style: italic;
+  margin: 0;
+}
+
+/* ── 매입·가격 전략 하단 행 ── */
+.priceStrategyRow {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+  margin-top: 16px;
+  padding: 16px 20px;
+  background: var(--b2b-card); border-radius: 14px;
+  border: 1px solid var(--b2b-line);
+}
+.priceStrategyItem { display: flex; flex-direction: column; gap: 4px; }
+.priceStrategyLabel {
+  font-size: 10px; font-weight: 700; color: var(--b2b-muted);
+  text-transform: uppercase; letter-spacing: 0.08em;
+}
+.priceStrategyVal {
+  font-size: 14px; font-weight: 800; color: var(--b2b-text);
+  line-height: 1.3;
+}
+
+/* ── 예상 효과 섹션 ── */
+.effectGrid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;
+}
+.effectCard {
+  background: var(--b2b-card); border-radius: 16px;
+  border: 1px solid var(--b2b-line);
+  border-top: 3px solid;
+  padding: 20px;
+  box-shadow: var(--b2b-shadow);
+}
+.effectCardTitle {
+  font-size: 13px; font-weight: 800; color: var(--b2b-text);
+  margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+}
+.effectGrowthText {
+  font-size: 13px; color: var(--b2b-text2); line-height: 1.7;
+}
+.effectList { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.effectItem {
+  display: flex; align-items: flex-start; gap: 8px;
+  font-size: 13px; color: var(--b2b-text2); line-height: 1.5;
+}
+.effectBullet { font-weight: 900; font-size: 14px; flex-shrink: 0; line-height: 1.4; }
+.effectRiskRow { margin-bottom: 12px; }
+.effectRiskBadge {
+  display: inline-block; padding: 4px 12px; border-radius: 999px;
+  font-size: 12px; font-weight: 800;
+}
+.effectProjection {
+  font-size: 13px; color: var(--b2b-text2); line-height: 1.7;
+}
+
+/* ── 리포트 푸터 ── */
+.reportFooter {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 40px; padding: 16px 20px;
+  border-top: 1px solid var(--b2b-line);
+  font-size: 11px; color: var(--b2b-muted);
+}
+
+/* ── AI 가격 인사이트 (legacy, kept for compatibility) ── */
 .priceInsightCard {
   border-radius: 20px; border: 1px solid;
   padding: 24px 28px;
@@ -78,13 +358,35 @@
 .heroReason {
   font-size: 14px; color: var(--b2b-text2); line-height: 1.65;
 }
+.heroRecoRow {
+  display: flex; align-items: center; gap: 10px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255,255,255,0.07);
+}
+.heroRecoLabel {
+  font-size: 10px; font-weight: 800; color: var(--b2b-muted);
+  text-transform: uppercase; letter-spacing: 0.08em; flex-shrink: 0;
+}
+.heroRecoVal {
+  font-size: 14px; font-weight: 700;
+}
+.heroKwRow {
+  display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px;
+}
+.heroKwChip {
+  padding: 4px 12px; border-radius: 999px;
+  font-size: 12px; font-weight: 700;
+  border: 1px solid; background: rgba(255,255,255,0.04);
+}
+
 .heroRight {
   border-left: 1px solid rgba(0,0,0,0.08);
   padding-left: 28px; flex-shrink: 0;
 }
 .heroMetricGrid {
   display: grid; grid-template-columns: 1fr 1fr;
-  gap: 12px; min-width: 240px;
+  gap: 10px; min-width: 280px;
 }
 .heroMetric {
   display: flex; flex-direction: column; gap: 4px;
@@ -243,10 +545,106 @@
 
 /* ── Print ── */
 @media print {
+  /* 기본 리셋 */
+  @page { size: A4; margin: 14mm 12mm; }
+
+  .page {
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+    color: #111 !important;
+  }
+  .container {
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+
+  /* 숨김 요소 */
   .no-print { display: none !important; }
-  .page { background: var(--b2b-card); }
-  .heroBanner, .basisCard, .metricCard, .opportunityCard, .riskCard, .conclusionCard, .strategyCard {
-    box-shadow: none; border: 1px solid #e8e8ed;
+
+  /* 레이아웃: 단일 컬럼 */
+  .layout { flex-direction: column !important; gap: 0 !important; }
+  .main { width: 100% !important; }
+  .sidebar { display: none !important; }
+
+  /* 그리드: 단일 컬럼 */
+  .twoCol,
+  .twoColTable,
+  .strategyGrid,
+  .strategyGrid2,
+  .planningGrid,
+  .featureGrid,
+  .needsGrid,
+  .effectGrid,
+  .priceStrategyRow,
+  .metricsRow {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+
+  /* 보고서 헤더 */
+  .reportHeader {
+    border: 1px solid #d1d5db !important;
+    border-radius: 8px !important;
+    margin-bottom: 16px !important;
+    page-break-after: avoid !important;
+  }
+  .reportHeaderTop { padding-bottom: 12px !important; }
+  .reportKpiRow { flex-wrap: wrap !important; }
+  .reportKpi { flex: 0 0 25% !important; padding: 10px 12px !important; }
+  .reportKpiVal { font-size: 18px !important; }
+  .reportTitle { font-size: 22px !important; }
+
+  /* 히어로 배너 */
+  .heroBanner {
+    flex-direction: row !important;
+    page-break-inside: avoid !important;
+    border-radius: 8px !important;
+  }
+  .heroMetricGrid { grid-template-columns: repeat(2, 1fr) !important; }
+
+  /* 섹션 페이지 분리 */
+  .section {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    margin-bottom: 14px !important;
+  }
+  .sectionHead {
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+
+  /* 카드 — 그림자 제거, 테두리 유지 */
+  .heroBanner, .basisCard, .metricCard, .planningCard,
+  .opportunityCard, .riskCard, .conclusionCard, .strategyCard,
+  .effectCard, .priceTable, .card {
+    box-shadow: none !important;
+    border: 1px solid #d1d5db !important;
+    border-radius: 6px !important;
+  }
+  .featureChip {
+    box-shadow: none !important;
+    border: 1px solid #d1d5db !important;
+  }
+
+  /* 폰트 크기 조정 */
+  .sectionNum { font-size: 10px !important; }
+  .sectionTitle { font-size: 14px !important; }
+
+  /* 리포트 푸터 항상 표시 */
+  .reportFooter {
+    display: flex !important;
+    margin-top: 24px !important;
+    padding-top: 12px !important;
+    border-top: 1px solid #d1d5db !important;
+    page-break-before: avoid !important;
+  }
+
+  /* 색상 강제 출력 */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
   }
 }
 
@@ -257,6 +655,16 @@
   .heroMetricGrid { grid-template-columns: repeat(2, 1fr); }
   .metricsRow { grid-template-columns: 1fr; }
   .twoCol { grid-template-columns: 1fr; }
+  .twoColTable { grid-template-columns: 1fr; }
   .strategyGrid  { grid-template-columns: 1fr; }
   .strategyGrid2 { grid-template-columns: 1fr; }
+  .planningGrid { grid-template-columns: 1fr; }
+  .featureGrid { grid-template-columns: 1fr; }
+  .effectGrid { grid-template-columns: 1fr; }
+  .priceStrategyRow { grid-template-columns: repeat(2, 1fr); }
+  .reportHeaderTop { flex-direction: column; gap: 16px; }
+  .reportActionBadge { flex-direction: row; align-self: flex-start; }
+  .reportKpiRow { flex-wrap: wrap; }
+  .reportKpi { flex: 0 0 50%; border-right: 1px solid var(--b2b-line); border-bottom: 1px solid var(--b2b-line); }
+  .reportFooter { flex-direction: column; gap: 6px; text-align: center; }
 }

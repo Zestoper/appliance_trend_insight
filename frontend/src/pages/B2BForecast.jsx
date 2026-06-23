@@ -12,6 +12,17 @@ const PERIODS = [
   { label: '6개월', value: '6m' },
   { label: '1년',   value: '1y' },
 ];
+const PERIOD_LABEL = { '1m': '최근 1개월', '3m': '최근 3개월', '6m': '최근 6개월', '1y': '최근 1년' };
+
+function SectionHead({ num, title }) {
+  return (
+    <div className={s.sectionHead}>
+      <span className={s.sectionNum}>{num}</span>
+      <span className={s.sectionTitle}>{title}</span>
+      <span className={s.sectionLine} />
+    </div>
+  );
+}
 
 /* ── 선형회귀 — 추세선용 ── */
 function calcRegression(ys) {
@@ -287,9 +298,76 @@ export default function B2BForecast() {
 
             {!loading && data && (
               <>
+                {/* ── 리포트 헤더 ── */}
+                {(() => {
+                  const today = fetchedAt
+                    ? fetchedAt.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })
+                    : new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
+                  const dirColor = tcfg.color;
+                  return (
+                    <div className={s.reportHeader}>
+                      <div className={s.reportHeaderTop}>
+                        <div>
+                          <p className={s.reportLabel}>B2B 미래 수요 예측 리포트</p>
+                          <h1 className={s.reportTitle}>{category} 수요 예측 분석</h1>
+                          <p className={s.reportMeta}>{today} 기준 · {PERIOD_LABEL[period]} · DataLab + Prophet + XGBoost 앙상블</p>
+                        </div>
+                        <div className={s.reportStatusBadge} style={{ borderColor: `${dirColor}40`, background: `${dirColor}08` }}>
+                          <span className={s.reportStatusIcon} style={{ color: dirColor }}>{tcfg.icon}</span>
+                          <span className={s.reportStatusText} style={{ color: dirColor }}>{displayDir}</span>
+                        </div>
+                      </div>
+                      <div className={s.reportKpiRow}>
+                        {[
+                          { label: '수요 방향',   val: `${tcfg.icon} ${displayDir}`, sub: '향후 전망',          color: tcfg.color },
+                          { label: '향후 3개월',  val: trendPct != null ? `${trendPct >= 0 ? '+' : ''}${trendPct}%` : '-', sub: '현재 대비 예측 변화', color: trendPct != null ? (trendPct >= 0 ? '#10b981' : '#ef4444') : undefined },
+                          { label: '예상 피크',   val: peakMonth,       sub: '수요 최고점 시점' },
+                          { label: '성수기 기간', val: peakSeason ? `${peakSeason.start}~${peakSeason.end}월` : '-', sub: peakSeason ? `약 ${peakSeason.count}개월` : '계절 분석 기반' },
+                          { label: '분석 모델',   val: 'Prophet+XGB',   sub: '앙상블 예측 모델' },
+                        ].map(({ label, val, sub, color }) => (
+                          <div key={label} className={s.reportKpi}>
+                            <p className={s.reportKpiLabel}>{label}</p>
+                            <p className={s.reportKpiVal} style={color ? { color } : {}}>{val}</p>
+                            <p className={s.reportKpiSub}>{sub}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* ── 매입 타이밍 신호 배너 ── */}
+                {data?.timing_signal && (() => {
+                  const ts = data.timing_signal;
+                  const COLOR = { buy: '#10b981', wait: '#ef4444', hold: '#6366f1' };
+                  const ICON  = { buy: '▼', wait: '⏸', hold: '─' };
+                  const c = COLOR[ts.type] ?? '#6b7280';
+                  return (
+                    <div className={s.timingBanner} style={{ borderLeftColor: c, background: `${c}0d` }}>
+                      <div className={s.timingBannerLeft}>
+                        <span className={s.timingBannerIcon} style={{ color: c }}>{ICON[ts.type]}</span>
+                        <div>
+                          <span className={s.timingBannerLabel} style={{ color: c }}>{ts.label}</span>
+                          {ts.days_to_peak > 0 && (
+                            <span className={s.timingBannerDays} style={{ color: c }}>
+                              {ts.days_to_buy > 0
+                                ? ` · 매입까지 D-${ts.days_to_buy}일 · 피크 D-${ts.days_to_peak}일`
+                                : ` · 피크까지 D-${ts.days_to_peak}일 (${ts.peak_period?.slice(0,7)})`}
+                            </span>
+                          )}
+                          <p className={s.timingBannerMsg}>{ts.message}</p>
+                        </div>
+                      </div>
+                      <a className={s.timingBannerCta} href="/b2b/monitor" style={{ background: c }}>
+                        가격 모니터 →
+                      </a>
+                    </div>
+                  );
+                })()}
+
                 {/* ── Section 1: 예측 차트 ── */}
                 <div className={s.section}>
-                  <p className={s.sectionLabel}>관심도 추세</p>
+                  <SectionHead num="01" title="관심도 추세 · 예측 차트" />
                   <div className={s.card}>
                     <div className={s.cardHeader}>
                       <div>
@@ -304,7 +382,7 @@ export default function B2BForecast() {
 
                 {/* ── Section 2: 예측 지표 3카드 ── */}
                 <div className={s.section}>
-                  <p className={s.sectionLabel}>예측 지표</p>
+                  <SectionHead num="02" title="핵심 예측 지표" />
                   <div className={s.metricsRow}>
                     <div className={s.metricCard} style={{ borderTop: `3px solid ${tcfg.color}` }}>
                       <p className={s.metricLabel}>① 수요 방향</p>
@@ -346,7 +424,7 @@ export default function B2BForecast() {
                 {/* ── Section 3: 월별 수요 영향도 ── */}
                 {data.influence && (
                   <div className={s.section}>
-                    <p className={s.sectionLabel}>월별 수요 영향도</p>
+                    <SectionHead num="03" title="월별 수요 영향도 · 계절 분석" />
                     <div className={s.card}>
                       <div className={s.cardHeader}>
                         <div>
@@ -386,7 +464,7 @@ export default function B2BForecast() {
 
                 {/* ── Section 4: 5카드 시나리오 그리드 ── */}
                 <div className={s.section}>
-                  <p className={s.sectionLabel}>3개월 전망 시나리오</p>
+                  <SectionHead num="04" title="3개월 전망 시나리오 · 기회 및 전략" />
                   <div className={s.scenarioGrid}>
 
                     {/* ① 수요 시나리오 */}
@@ -520,6 +598,11 @@ export default function B2BForecast() {
                     </div>
 
                   </div>
+                </div>
+
+                <div className={s.reportFooter}>
+                  <span>본 리포트는 네이버 DataLab + Prophet + XGBoost 앙상블 모델 기반으로 생성되었습니다.</span>
+                  <span>{fetchedAt ? fetchedAt.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' }) : ''} · {PERIOD_LABEL[period]}</span>
                 </div>
               </>
             )}

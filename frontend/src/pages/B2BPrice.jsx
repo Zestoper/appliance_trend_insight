@@ -9,6 +9,16 @@ import { API_BASE } from '../config';
 const CATEGORIES = ['에어컨', '냉장고', '세탁기', '건조기', '공기청정기', '로봇청소기', '식기세척기', 'TV'];
 const BRAND_COLORS = ['#6366f1', '#a855f7', '#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
+function SectionHead({ num, title }) {
+  return (
+    <div className={s.sectionHead}>
+      <span className={s.sectionNum}>{num}</span>
+      <span className={s.sectionTitle}>{title}</span>
+      <span className={s.sectionLine} />
+    </div>
+  );
+}
+
 function fmtWon(p) {
   if (p == null) return '-';
   if (p >= 10000) return `${Math.round(p / 10000).toLocaleString()}만원`;
@@ -229,10 +239,56 @@ export default function B2BPrice() {
 
         {!loading && data && !data.error && (
           <>
+            {/* ── 리포트 헤더 ── */}
+            {(() => {
+              const today = fetchedAt
+                ? fetchedAt.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })
+                : new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
+              const pi = data.price_insight;
+              const signal = pi?.signal ?? '적정가';
+              const SIGNAL_COLOR = { '매입 적기': '#10b981', '관망 권장': '#f59e0b', '적정가': '#6366f1' };
+              const sigColor = SIGNAL_COLOR[signal] ?? '#6366f1';
+              const changePct = data.summary?.price_change_pct;
+              return (
+                <div className={s.reportHeader}>
+                  <div className={s.reportHeaderTop}>
+                    <div>
+                      <p className={s.reportLabel}>B2B 가격 인텔리전스 리포트</p>
+                      <h1 className={s.reportTitle}>{category} 가격 분석</h1>
+                      <p className={s.reportMeta}>{today} 기준 · 분석 제품 {totalProds?.toLocaleString() ?? '-'}개 · 네이버 쇼핑 + Danawa</p>
+                    </div>
+                    {pi && (
+                      <div className={s.reportStatusBadge} style={{ borderColor: `${sigColor}40`, background: `${sigColor}08` }}>
+                        <span className={s.reportStatusIcon} style={{ color: sigColor }}>
+                          {signal === '매입 적기' ? '↓' : signal === '관망 권장' ? '◎' : '→'}
+                        </span>
+                        <span className={s.reportStatusText} style={{ color: sigColor }}>{signal}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className={s.reportKpiRow}>
+                    {[
+                      { label: '시장 평균가', val: fmtWon(avgPrice),    sub: '전체 제품 평균' },
+                      { label: '최저가',      val: fmtWon(minPrice),    sub: '현재 최저 판매가', color: '#10b981' },
+                      { label: '중간가',      val: fmtWon(medianPrice), sub: '중앙값 기준' },
+                      { label: '가격 변동',   val: changePct != null ? `${changePct >= 0 ? '+' : ''}${changePct}%` : '-', sub: '전일 대비', color: changePct != null ? (changePct >= 0 ? '#ef4444' : '#10b981') : undefined },
+                      { label: 'AI 신호',     val: signal,              sub: 'AI 가격 판단', color: sigColor },
+                    ].map(({ label, val, sub, color }) => (
+                      <div key={label} className={s.reportKpi}>
+                        <p className={s.reportKpiLabel}>{label}</p>
+                        <p className={s.reportKpiVal} style={color ? { color } : {}}>{val}</p>
+                        <p className={s.reportKpiSub}>{sub}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* ── Section 1: Key Price Metrics ── */}
             <div className={s.section}>
               <div className={s.sectionLabelRow}>
-                <p className={s.sectionLabel}>핵심 가격 지표</p>
+                <SectionHead num="01" title="핵심 가격 지표" />
                 {totalProds != null && (
                   <span className={s.sectionMeta}>분석 제품 수 {totalProds.toLocaleString()}개 · 네이버 쇼핑 기준</span>
                 )}
@@ -258,7 +314,7 @@ export default function B2BPrice() {
 
             {/* ── Section 2: Brand Table + 가격 변동률 ── */}
             <div className={s.section}>
-              <p className={s.sectionLabel}>가격 경쟁력 분석</p>
+              <SectionHead num="02" title="브랜드별 가격 경쟁력 분석" />
               <div className={s.twoCol}>
 
                 {/* Brand Table */}
@@ -349,7 +405,7 @@ export default function B2BPrice() {
                 .filter(t => t.count > 0)
               return (
                 <div className={s.section}>
-                  <p className={s.sectionLabel}>가격 수준별 브랜드 비중</p>
+                  <SectionHead num="03" title="가격 수준별 브랜드 비중" />
                   <div className={s.card}>
                     <p className={s.cardTitle}>가격 수준별 브랜드 비중</p>
                     <p className={s.cardSub}>브랜드별 판매 제품 수 기준 · 네이버 쇼핑</p>
@@ -372,7 +428,7 @@ export default function B2BPrice() {
             {/* ── Section 4: 가격 이력 차트 ── */}
             {priceHistory.length > 0 && (
               <div className={s.section}>
-                <p className={s.sectionLabel}>가격 이력</p>
+                <SectionHead num="04" title="가격 이력 · 추이 분석" />
                 <div className={s.card}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
                     <div>
@@ -418,7 +474,7 @@ export default function B2BPrice() {
 
                 return (
                   <div className={s.section}>
-                    <p className={s.sectionLabel}>AI 가격 인사이트</p>
+                    <SectionHead num="05" title="AI 가격 인사이트" />
                     <div className={s.insightCard} style={{ background: scfg.bg, borderColor: scfg.border }}>
                       <div className={s.insightHeader}>
                         <span className={s.insightSignalBig} style={{ color: scfg.color }}>{pi.signal}</span>
@@ -447,9 +503,9 @@ export default function B2BPrice() {
               })()
             )}
 
-            {/* ── Section 6: 예비 공간 ── */}
-            <div className={s.section}>
-              <div className={s.emptyPlaceholder} />
+            <div className={s.reportFooter}>
+              <span>본 리포트는 네이버 쇼핑 API 및 Danawa 가격 데이터를 기반으로 생성되었습니다.</span>
+              <span>{fetchedAt ? fetchedAt.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' }) : ''} · 실시간 기준</span>
             </div>
           </>
         )}

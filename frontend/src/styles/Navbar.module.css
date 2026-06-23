@@ -634,3 +634,16 @@
   line-height: 1.5;
 }
 
+.b2bCardBadge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  background: #10b981;
+  color: #fff;
+  letter-spacing: 0.04em;
+  vertical-align: middle;
+}
+

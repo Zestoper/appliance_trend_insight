@@ -1,0 +1,90 @@
+.page { height: 100vh; background: var(--b2b-page); color: var(--b2b-text); overflow-y: auto; overflow-x: hidden; }
+.container { max-width: 1320px; margin: 0 auto; padding: 100px 24px 80px; }
+
+/* ── 리포트 헤더 ── */
+.reportHeader { background: var(--b2b-card); border-radius: 20px; border: 1px solid var(--b2b-line); padding: 28px 32px 0; margin-bottom: 24px; box-shadow: var(--b2b-shadow); overflow: hidden; }
+.reportHeaderTop { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; padding-bottom: 20px; border-bottom: 1px solid var(--b2b-line); }
+.reportLabel { font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--b2b-muted); margin-bottom: 6px; }
+.reportTitle { font-size: 26px; font-weight: 900; letter-spacing: -1px; color: var(--b2b-text); margin-bottom: 8px; line-height: 1.1; }
+.reportMeta  { font-size: 12px; color: var(--b2b-muted); }
+
+.summaryBadges { display: flex; gap: 12px; flex-shrink: 0; }
+.summaryBadge  { display: flex; flex-direction: column; align-items: center; padding: 12px 20px; border-radius: 14px; border: 1.5px solid; gap: 2px; }
+.summaryBadgeNum   { font-size: 28px; font-weight: 900; line-height: 1; }
+.summaryBadgeLabel { font-size: 11px; font-weight: 700; }
+
+/* 매입 적기 배너 */
+.buyBanner { display: flex; align-items: center; gap: 12px; padding: 14px 20px; background: #10b98112; }
+.buyBannerIcon { font-size: 16px; color: #10b981; }
+.buyBannerText { font-size: 13.5px; color: var(--b2b-text); flex: 1; }
+.buyBannerText strong { color: #10b981; }
+.buyBannerSub  { font-size: 11px; color: var(--b2b-muted); flex-shrink: 0; }
+
+/* ── 필터 탭 ── */
+.filterRow { display: flex; gap: 8px; margin-bottom: 20px; }
+.filterBtn {
+  padding: 8px 18px; border-radius: 999px; font-size: 13px; font-weight: 700;
+  background: var(--b2b-card); border: 1px solid var(--b2b-line); color: var(--b2b-text2);
+  cursor: pointer; transition: all 0.15s;
+}
+.filterBtn:hover { background: var(--b2b-search); }
+.filterBtnActive { background: #6366f1 !important; color: #fff !important; border-color: #6366f1 !important; }
+
+/* ── 카테고리 그리드 ── */
+.categoryGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+
+.categoryCard {
+  background: var(--b2b-card); border-radius: 18px;
+  border: 1px solid var(--b2b-line); padding: 20px;
+  box-shadow: var(--b2b-shadow); cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.categoryCard:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,0.12); }
+
+.cardHead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.cardCategory { font-size: 16px; font-weight: 900; color: var(--b2b-text); }
+.signalBadge { padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 800; }
+
+.cardPriceRow { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 14px; }
+.cardAvgPrice { font-size: 24px; font-weight: 900; letter-spacing: -0.5px; color: var(--b2b-text); margin-bottom: 2px; }
+.cardMinPrice { font-size: 11px; color: var(--b2b-muted); }
+
+/* 스파크라인 */
+.sparkline { display: block; }
+
+/* 변동률 행 */
+.changeRow { display: flex; align-items: center; gap: 0; margin-bottom: 14px; background: var(--b2b-search); border-radius: 10px; overflow: hidden; }
+.changeItem { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 10px; gap: 2px; }
+.changeLabel { font-size: 10px; font-weight: 700; color: var(--b2b-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.changeVal   { font-size: 16px; font-weight: 900; letter-spacing: -0.3px; }
+.changeValNA { font-size: 11px; font-weight: 600; color: var(--b2b-muted); }
+.changeDivider { width: 1px; height: 36px; background: var(--b2b-line); flex-shrink: 0; }
+
+/* 브랜드 변동 */
+.brandChanges { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.brandChangeRow { display: flex; align-items: center; gap: 8px; }
+.brandName { font-size: 11px; font-weight: 700; color: var(--b2b-text2); min-width: 52px; }
+.brandChangeBar { flex: 1; height: 4px; background: var(--b2b-border); border-radius: 999px; overflow: hidden; }
+.brandChangeBarFill { height: 100%; border-radius: 999px; transition: width 0.4s ease; }
+.brandChangePct { font-size: 11px; font-weight: 800; min-width: 40px; text-align: right; }
+
+.cardUpdated { font-size: 10px; color: var(--b2b-muted); text-align: right; }
+
+/* ── 로딩 / 에러 ── */
+.loadingWrap { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 80px 0; color: var(--b2b-muted); font-size: 13px; }
+.spinner { width: 28px; height: 28px; border: 3px solid rgba(99,102,241,0.15); border-top-color: #6366f1; border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.errorCard { text-align: center; padding: 60px 24px; background: var(--b2b-card); border-radius: 20px; border: 1px solid var(--b2b-line); }
+.errorIcon { font-size: 32px; margin-bottom: 12px; }
+.errorText { font-size: 14px; color: var(--b2b-text2); margin-bottom: 20px; line-height: 1.6; }
+.errorBtn { padding: 10px 24px; background: #6366f1; color: #fff; border: none; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; }
+
+.emptyCard { text-align: center; padding: 60px 24px; color: var(--b2b-muted); font-size: 13px; }
+
+/* ── 푸터 ── */
+.pageFooter { display: flex; justify-content: space-between; align-items: center; margin-top: 40px; padding: 16px 20px; border-top: 1px solid var(--b2b-line); font-size: 11px; color: var(--b2b-muted); }
+
+/* ── Responsive ── */
+@media (max-width: 900px) { .categoryGrid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 560px) { .categoryGrid { grid-template-columns: 1fr; } .summaryBadges { flex-direction: column; } }

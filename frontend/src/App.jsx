@@ -18,6 +18,8 @@ import B2BDashboard from './pages/B2BDashboard'
 import B2BPrice from './pages/B2BPrice'
 import B2BReport from './pages/B2BReport'
 import B2BForecast from './pages/B2BForecast'
+import B2BPriceMonitor from './pages/B2BPriceMonitor'
+import B2BIntelligence from './pages/B2BIntelligence'
 import Chat from './pages/Chat'
 
 export default function App() {
@@ -44,6 +46,8 @@ export default function App() {
             <Route path="/b2b/price"         element={<B2BPrice />} />
             <Route path="/b2b/report"        element={<B2BReport />} />
             <Route path="/b2b/forecast"      element={<B2BForecast />} />
+            <Route path="/b2b/monitor"       element={<B2BPriceMonitor />} />
+            <Route path="/b2b/intelligence"  element={<B2BIntelligence />} />
             <Route path="/chat"              element={<Chat />} />
           </Routes>
         </BrowserRouter>
