@@ -30,6 +30,7 @@ async def get_pool() -> asyncpg.Pool:
             ssl="require",
             min_size=1,
             max_size=10,
+            statement_cache_size=0,  # pgBouncer(Supabase pooler) 호환
         )
     return _pool
 
