@@ -103,3 +103,13 @@
   border-radius: 50%;
   flex-shrink: 0;
 }
+
+@media (max-width: 800px) {
+  .section { padding: 48px 24px 40px; }
+  .grid    { grid-template-columns: 1fr; gap: 14px; }
+  .header  { margin-bottom: 36px; }
+}
+@media (max-width: 480px) {
+  .section { padding: 36px 16px 32px; }
+  .card    { padding: 20px; }
+}

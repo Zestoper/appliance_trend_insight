@@ -956,6 +956,11 @@
 }
 .aiGateBtn:hover { opacity: 0.85; }
 
+@media (max-width: 800px) {
+  .page { height: auto; min-height: 100dvh; }
+  .grid { grid-template-columns: 1fr !important; }
+  .aiGrid { grid-template-columns: 1fr; }
+}
 @media (max-width: 600px) {
   .grid { grid-template-columns: 1fr; }
   .aiGrid { grid-template-columns: 1fr; }

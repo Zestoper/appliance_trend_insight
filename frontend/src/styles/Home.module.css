@@ -1,12 +1,25 @@
 .snapContainer {
   height: 100vh;
+  height: 100dvh;
   overflow-y: scroll;
   scroll-snap-type: y mandatory;
 }
 
 .snapSection {
   height: 100vh;
+  height: 100dvh;
   scroll-snap-align: start;
   scroll-snap-stop: always;
   overflow: hidden;
+}
+
+@media (max-width: 640px) {
+  .snapContainer {
+    scroll-snap-type: y proximity;
+  }
+  .snapSection {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
 }

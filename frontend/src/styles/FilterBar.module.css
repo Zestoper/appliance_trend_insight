@@ -225,3 +225,11 @@
   background: rgba(248, 113, 113, 0.15);
   border-color: rgba(248, 113, 113, 0.5);
 }
+
+@media (max-width: 640px) {
+  .bar        { flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+  .leftGroup  { flex-wrap: wrap; }
+  .searchExpanded { width: 200px; }
+  .filterBtn  { padding: 0 12px; font-size: 12px; }
+  .panel      { min-width: 150px; }
+}

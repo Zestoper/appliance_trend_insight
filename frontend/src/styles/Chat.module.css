@@ -480,3 +480,8 @@ details[open] .sourcesSummary::before {
   cursor: default;
   box-shadow: none;
 }
+
+@media (max-width: 640px) {
+  .page   { height: 100dvh; overflow: hidden; }
+  .layout { padding: 72px 12px 0; }
+}

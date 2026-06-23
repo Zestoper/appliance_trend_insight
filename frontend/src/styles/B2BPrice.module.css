@@ -1,7 +1,6 @@
 /* ── Page ── */
-.page { height: 100vh; background: var(--b2b-page); color: var(--b2b-text); overflow-y: auto;
-  overflow-x: hidden; }
-.container { max-width: 1320px; margin: 0 auto; padding: 100px 24px 80px; }
+.page { height: 100vh; background: var(--b2b-page); color: var(--b2b-text); overflow-y: auto; overflow-x: hidden; }
+.container { max-width: 1320px; margin: 0 auto; padding: 24px 24px 80px; }
 .layout { display: flex; gap: 32px; align-items: flex-start; }
 .main { flex: 1; min-width: 0; }
 
@@ -87,14 +86,15 @@
 .twoCol { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 
 /* ── Brand Table (dark) ── */
-.brandTable { width: 100%; border-collapse: collapse; font-size: 13px; }
+.brandTable { width: 100%; border-collapse: collapse; font-size: 13px; background: transparent; }
+.brandTable thead, .brandTable tbody, .brandTable tr { background: transparent; }
 .brandTable thead tr { border-bottom: 1px solid rgba(255,255,255,0.08); }
 .brandTable th {
   font-size: 10px; font-weight: 700; text-transform: uppercase;
   letter-spacing: 0.08em; color: rgba(255,255,255,0.35);
-  padding: 6px 10px; text-align: left;
+  padding: 6px 10px; text-align: left; background: transparent;
 }
-.brandTable td { padding: 10px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.brandTable td { padding: 10px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); background: transparent; }
 .brandTable tbody tr:last-child td { border-bottom: none; }
 
 .btBrand { display: flex; align-items: center; gap: 8px; font-weight: 600; color: #fff; }
@@ -201,9 +201,24 @@
 }
 
 /* ── Responsive ── */
-@media (max-width: 760px) {
-  .metricsRow { grid-template-columns: repeat(2, 1fr); }
-  .twoCol { grid-template-columns: 1fr; }
+@media (max-width: 800px) {
+  .page              { height: auto; min-height: 100dvh; overflow-y: visible; }
+  .container         { padding: 16px 16px 60px; }
+  .layout            { flex-direction: column; gap: 16px; }
+  .metricsRow        { grid-template-columns: repeat(2, 1fr); }
+  .twoCol            { grid-template-columns: 1fr; }
+  .reportHeaderTop   { flex-direction: column; gap: 10px; }
+  .reportStatusBadge { align-self: flex-start; padding: 8px 14px; }
+  .reportKpiRow      { display: grid; grid-template-columns: repeat(3, 1fr); }
+  .reportKpi         { padding: 10px 12px; border-right: none; border-bottom: 1px solid var(--b2b-line); }
+  .reportKpi:nth-last-child(-n+2) { border-bottom: none; }
+}
+@media (max-width: 480px) {
+  .metricsRow   { grid-template-columns: 1fr; }
+  .container    { padding: 12px 12px 48px; }
+  .reportKpiRow { grid-template-columns: repeat(2, 1fr); }
+  .reportKpi:nth-last-child(-n+2) { border-bottom: 1px solid var(--b2b-line); }
+  .reportKpi:nth-last-child(-n+1) { border-bottom: none; }
 }
 
 /* ── Section Label Row (분석 제품 수 인라인) ── */

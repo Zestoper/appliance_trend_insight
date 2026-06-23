@@ -335,7 +335,7 @@ async def get_ai_report(category: str = Query(..., min_length=1), period: str = 
             f'  "key_keywords": ["{category} 트렌드 키워드1", "키워드2", "키워드3", "키워드4"],\n'
             f'  "recommended_products": "구체적 추천 제품군 (예: {top_purpose}형 {category} 프리미엄 라인)",\n'
             f'  "risk_factor": "핵심 위험 요소 명사형 (20자 이내)",\n'
-            f'  "summary": "3문장 이상. 1문장: 검색 관심도 수치({current})와 {trend_dir_str} 흐름 해석. 2문장: 성수기({peak_months}) 수요 전망과 주요 브랜드 경쟁 구도. 3문장: 추천 타깃 소비층과 제품군, 핵심 위험 요소 포함. 각 문장은 완결된 분석 문장으로 자연스럽게.",\n'
+            f'  "summary": "4문장. 1문장: 검색 관심도 수치({current})와 {trend_dir_str} 흐름 기반 성수기({peak_months}) 수요 확대 가능성 해석. 2문장: {top_brand} 중심 시장에서 프리미엄 제품 전략과 경쟁 구도 분석. 3문장: 연관 가전 패키지 판매를 통한 객단가 상승 기회 서술. 4문장: 브랜드 경쟁 심화와 비수기 재고 부담 리스크 관리 방향 제언. 각 문장은 완결된 분석 문장으로 자연스럽게.",\n'
             f'  "product_strategy": [\n'
             f'    "{top_purpose} 중심 프리미엄 라인 비중 확대로 고마진 구조 구축",\n'
             f'    "{sec_purpose} 특화 기능 강화 모델 선별 매입으로 차별화 포지셔닝",\n'
@@ -377,9 +377,10 @@ async def get_ai_report(category: str = Query(..., min_length=1), period: str = 
             f'  "needs_basis": "2문장. 1문장: 쇼핑 키워드 상위({_first_kw} 등)와 불만({_first_comp} 등) 데이터를 교차하면 현재 시장에 [이런 제품 유형]이 부재하며 이것이 기획 기회다 — 구체적 키워드·수치 인용 필수. 2문장: 위 기능 4가지를 탑재한 제품이 {top_brand} 중심 경쟁에서 차별화되는 이유와 예상 시장 효과.",\n'
             f'  "expected_sales_growth": "{category} 수요 방향성 서술 (구체적 % 수치 없이, 방향+근거만. 예: 성수기({peak_months}) 진입 및 {trend_dir_str} 흐름으로 관심도 상승 기대, {top_brand} 중심 프리미엄 수요 확대 가능성 높음)",\n'
             f'  "expected_effects": [\n'
-            f'    "성수기·트렌드 기반 기대 효과1 (20자 이내, 예: {peak_months} 집중 매출 확대)",\n'
-            f'    "브랜드·제품 전략 기대 효과2 (예: {top_purpose} 특화 객단가 상승)",\n'
-            f'    "리스크 관리 기대 효과3 (예: {off_months} 재고 손실 최소화)"\n'
+            f'    "성수기 집중 매출 확대 (20자 이내, 예: {peak_months} 집중 매출 확대)",\n'
+            f'    "프리미엄 제품 중심 객단가 상승 (20자 이내, 예: {top_purpose} 프리미엄 객단가 상승)",\n'
+            f'    "연관 가전 패키지 판매 확대 (20자 이내, 예: 연관 가전 패키지 판매 확대)",\n'
+            f'    "비수기 재고 손실 최소화 (20자 이내, 예: {off_months} 재고 손실 최소화)"\n'
             f'  ],\n'
             f'  "projection_summary": "예상 결과 종합 판단 2~3문장. 시장 방향({trend_dir_str}·위험도 {risk})·성수기({peak_months})·추천 전략 효과를 종합해 B2B 유통 관점 기대 결과 서술. 마지막 문장은 핵심 위험 요소 언급."\n'
             f'}}\n\n'
@@ -992,7 +993,7 @@ async def get_demand_forecast(category: str = Query(..., min_length=1), period: 
             "days_to_peak": days_to_peak,
             "days_to_buy":  0,
             "peak_period":  peak_period[:10],
-            "message":      "수요가 안정적으로 유지될 것으로 예측됩니다. 현재 매입 수준을 유지하고 성수기 진입 시 증량을 검토하세요.",
+            "message":      "수요는 당분간 안정적으로 유지될 것으로 예상됩니다.\n현재 매입 수준을 유지하되, 성수기(6~8월) 진입 전 수요 증가에 대비해 단계적 재고 확대를 검토하는 것이 유리합니다.",
         }
 
     return {

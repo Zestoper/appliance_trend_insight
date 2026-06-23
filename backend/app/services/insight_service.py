@@ -2,16 +2,21 @@ import os
 from typing import TYPE_CHECKING
 
 from groq import AsyncGroq
+from dotenv import load_dotenv as _load_dotenv
 
 if TYPE_CHECKING:
     from app.rag_service import RAGService
 
 _groq_client: AsyncGroq | None = None
+_groq_active_key: str | None = None
 
 def _get_groq() -> AsyncGroq:
-    global _groq_client
-    if _groq_client is None:
-        _groq_client = AsyncGroq(api_key=os.getenv("GROQ_API_KEY"))
+    global _groq_client, _groq_active_key
+    _load_dotenv(override=True)
+    current_key = os.getenv("GROQ_API_KEY")
+    if _groq_client is None or current_key != _groq_active_key:
+        _groq_active_key = current_key
+        _groq_client = AsyncGroq(api_key=current_key)
     return _groq_client
 
 _CHUNK_MAX = 150

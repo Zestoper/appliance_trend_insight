@@ -259,10 +259,15 @@ export default function Recommend() {
           <div className={styles.results}>
             <div className={styles.resultsHeader}>
               <p className={styles.resultsLabel}>
-                <span className={styles.queryChip}>"{result.search_term}"</span> 기준 AI 추천 TOP 3
+                <span className={styles.queryChip}>"{result.search_term}"</span> 기준 {result.ai_limited ? '인기순 TOP 3' : 'AI 추천 TOP 3'}
               </p>
               <button className={styles.resetBtn} onClick={handleReset}>← 다시 선택</button>
             </div>
+            {result.ai_limited && (
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>
+                AI 분석이 일시적으로 제한되어 인기·평점 기준으로 정렬했습니다.
+              </p>
+            )}
 
             <div className={styles.cards}>
               {result.recommendations.map((item, i) => (

@@ -389,27 +389,58 @@ tr:last-child td { border-bottom: none; }
 
 /* ── Print ── */
 @media print {
-  .toolbar { display: none; }
+  @page { size: A4; margin: 14mm 12mm; }
 
-  .page { background: #fff; }
-
-  .doc {
-    margin: 0;
-    padding: 20px 28px;
-    box-shadow: none;
-    border-radius: 0;
-    max-width: 100%;
+  .toolbar { display: none !important; }
+  .page {
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+    min-height: unset !important;
   }
 
-  /* 제목이 페이지 끝에 혼자 남지 않도록 */
-  .pageBlockHeader { break-after: avoid; }
-  .subHead         { break-after: avoid; }
+  .doc {
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    max-width: 100% !important;
+  }
 
-  /* 섹션 단위 잘림 방지 (합리적인 크기의 섹션만) */
-  .secBlock        { break-inside: avoid; }
+  .docHeader { margin-bottom: 20px !important; padding-bottom: 14px !important; }
+  .docTitle  { font-size: 20px !important; }
 
-  /* KPI·테이블 행 잘림 방지 */
-  .kpiRow { break-inside: avoid; background: #f0f0f4; }
-  .kpi    { background: #f9f9fc; }
-  tr      { break-inside: avoid; }
+  .pageBlock       { margin-bottom: 24px !important; }
+  .pageBlockHeader { break-after: avoid; page-break-after: avoid; margin-bottom: 12px !important; }
+  .secBlock        { break-inside: avoid; page-break-inside: avoid; margin-bottom: 16px !important; }
+  .subHead         { break-after: avoid; page-break-after: avoid; }
+
+  .kpiRow {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    background: #f0f0f4 !important;
+    border-radius: 8px !important;
+    gap: 1px !important;
+  }
+  .kpi      { background: #f9f9fc !important; padding: 10px 10px !important; }
+  .kpiVal   { font-size: 14px !important; }
+  .kpiLabel { font-size: 9px !important; }
+  .kpiSub   { font-size: 8px !important; }
+
+  .table  { break-inside: avoid; page-break-inside: avoid; }
+  tr      { break-inside: avoid; page-break-inside: avoid; }
+  th      { background: #f3f4f6 !important; font-size: 10px !important; padding: 5px 8px !important; }
+  td      { font-size: 11px !important; padding: 5px 8px !important; }
+
+  .twoCol   { gap: 8px !important; }
+  .infoBox  { break-inside: avoid; page-break-inside: avoid; padding: 8px 12px !important; margin-bottom: 6px !important; }
+  .infoText { font-size: 11px !important; line-height: 1.6 !important; }
+  .tag      { font-size: 10px !important; padding: 2px 8px !important; }
+  .docFooter { margin-top: 20px !important; padding-top: 10px !important; }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
 }

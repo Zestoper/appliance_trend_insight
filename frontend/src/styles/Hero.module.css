@@ -8,6 +8,17 @@
   padding: 120px 24px 80px;
 }
 
+@media (max-width: 640px) {
+  .hero { padding: 80px 20px 60px; min-height: 100dvh; }
+  .headline { font-size: clamp(28px, 8vw, 40px); letter-spacing: -0.5px; }
+  .blobIndigo { width: 260px; height: 260px; top: -60px; left: -60px; }
+  .blobPurple { width: 220px; height: 220px; }
+  .blobPink   { width: 200px; height: 200px; }
+  .content    { gap: 18px; padding: 0 4px; }
+  .subtitle   { font-size: 14px; }
+  .scrollHint { bottom: 20px; font-size: 10px; }
+}
+
 /* ── 배경 Blob ── */
 .blobWrap {
   position: absolute;

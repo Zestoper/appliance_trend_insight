@@ -467,3 +467,26 @@
 .featureCta { font-size: 12.5px; font-weight: 700; color: var(--card-color, #818cf8); opacity: 0.85; transition: opacity 0.15s; }
 .featureCard:hover .featureCta { opacity: 1; }
 .featureLock { position: absolute; top: 16px; right: 16px; font-size: 14px; opacity: 0.45; }
+
+@media (max-width: 640px) {
+  .heroSection  { padding: 80px 20px 60px; min-height: 100dvh; }
+  .headline     { font-size: clamp(26px, 7vw, 36px); letter-spacing: -0.5px; }
+  .heroBtns     { flex-direction: column; align-items: stretch; }
+  .btnPrimary, .btnSecondary { text-align: center; }
+
+  .workflowSteps { flex-direction: column; align-items: stretch; }
+  .stepArrow    { display: none; }
+  .workflowStep { padding: 20px 16px; }
+  .stepWrap     { flex-direction: column; }
+
+  .statsRow     { flex-wrap: wrap; }
+  .statItem     { flex: 0 0 50%; border-right: none !important; border-bottom: 1px solid var(--border); }
+
+  .featureGrid  { grid-template-columns: 1fr; gap: 12px; }
+  .featureCard  { padding: 20px; }
+
+  .gateBtns     { flex-direction: column; align-items: stretch; }
+  .container    { padding: 0 16px 60px; }
+
+  .featSection  { min-height: auto; padding-top: 60px; }
+}

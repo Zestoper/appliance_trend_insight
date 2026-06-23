@@ -311,3 +311,9 @@
     margin-bottom: 28px;
     cursor: pointer;
 }
+
+@media (max-width: 640px) {
+    .page { height: auto; min-height: 100dvh; overflow-y: visible; padding: 16px; align-items: flex-start; padding-top: 80px; }
+    .blobIndigo { width: 220px; height: 220px; }
+    .blobPurple { width: 180px; height: 180px; }
+}

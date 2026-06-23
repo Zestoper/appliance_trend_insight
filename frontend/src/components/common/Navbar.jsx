@@ -141,11 +141,15 @@ export default function Navbar() {
   const location = useLocation()
   const [mode, setMode] = useState(() => localStorage.getItem('navMode') ?? 'b2c')
   const B2B_ONLY_PATHS = ['/b2b', '/b2b/dashboard', '/b2b/price', '/b2b/report', '/b2b/forecast']
+  const B2B_DASH_PATHS = ['/b2b/dashboard', '/b2b/price', '/b2b/report', '/b2b/forecast']
+  const isB2BDash = B2B_DASH_PATHS.includes(location.pathname)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [scrollProgress, setScrollProgress] = useState(0)
   const [isHidden, setIsHidden] = useState(false)
   const [openDropdown, setOpenDropdown] = useState(null)
   const [searchError, setSearchError] = useState('')
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [mobileAccordion, setMobileAccordion] = useState(null)
   const lastScrollY = useRef(0)
   const searchInputRef = useRef(null)
   const navRef = useRef(null)
@@ -172,9 +176,10 @@ export default function Navbar() {
     sessionStorage.setItem('navModeSet', '1')
   }, [user])
 
-  // 라우트 이동 시 항상 네비바 표시 (이전 페이지 스크롤 상태 초기화)
+  // 라우트 이동 시 항상 네비바 표시, 모바일 메뉴 닫기
   useEffect(() => {
     setIsHidden(false)
+    setMenuOpen(false)
   }, [location.pathname])
 
   useEffect(() => {
@@ -251,13 +256,15 @@ export default function Navbar() {
 
   return (
     <>
-      <div className={styles.progressBar}>
-        <div className={styles.progressFill} style={{ width: `${scrollProgress}%` }} />
-      </div>
+      {!isB2BDash && (
+        <div className={styles.progressBar}>
+          <div className={styles.progressFill} style={{ width: `${scrollProgress}%` }} />
+        </div>
+      )}
 
       <div
         ref={navRef}
-        className={`${styles.navOuter} ${isHidden ? styles.navHidden : ''}`}
+        className={`${styles.navOuter} ${isHidden && !isB2BDash ? styles.navHidden : ''} ${isB2BDash ? styles.navOuterStatic : ''}`}
       >
         <nav className={styles.navbar}>
 
@@ -321,6 +328,28 @@ export default function Navbar() {
           </ul>
 
           <div className={styles.navRight}>
+            {/* 모바일 전용: 로그인 상태 표시 */}
+            {isLoggedIn ? (
+              <button className={styles.mobileUserBtn} onClick={logout}>
+                로그아웃
+              </button>
+            ) : (
+              <button className={styles.mobileUserBtn} onClick={() => navigate('/login')}>
+                로그인
+              </button>
+            )}
+
+            {/* 모바일 햄버거 */}
+            <button
+              className={styles.hamburger}
+              onClick={() => setMenuOpen(o => !o)}
+              aria-label="메뉴"
+            >
+              <span className={`${styles.hamburgerLine} ${menuOpen ? styles.hamburgerTop : ''}`} />
+              <span className={`${styles.hamburgerLine} ${menuOpen ? styles.hamburgerMid : ''}`} />
+              <span className={`${styles.hamburgerLine} ${menuOpen ? styles.hamburgerBot : ''}`} />
+            </button>
+
             <div className={`${styles.searchToggle} ${isSearchOpen ? styles.searchOpen : ''}`}>
               <button className={styles.searchIconBtn} onClick={openSearch} aria-label="검색">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
@@ -407,6 +436,140 @@ export default function Navbar() {
           </div>
 
         </nav>
+
+        {/* ── 모바일 메뉴 ── */}
+        {menuOpen && (
+          <div className={styles.mobileMenu}>
+            <div className={styles.mobileMenuInner}>
+
+              {/* 모드 전환 */}
+              <div className={styles.mobileToggle}>
+                <button
+                  className={`${styles.mobileToggleBtn} ${mode === 'b2c' ? styles.mobileToggleActive : ''}`}
+                  onClick={() => { setMode('b2c'); localStorage.setItem('navMode','b2c'); navigate('/') }}
+                >개인</button>
+                <button
+                  className={`${styles.mobileToggleBtn} ${mode === 'b2b' ? styles.mobileToggleActive : ''}`}
+                  onClick={() => { setMode('b2b'); localStorage.setItem('navMode','b2b'); navigate('/b2b') }}
+                >기업 B2B</button>
+              </div>
+
+              {/* 제품 카테고리 아코디언 */}
+              <div className={styles.mobileSection}>
+                <button
+                  className={styles.mobileSectionHead}
+                  onClick={() => setMobileAccordion(a => a === 'product' ? null : 'product')}
+                >
+                  제품 카테고리
+                  <span className={mobileAccordion === 'product' ? styles.mobileCaretOpen : styles.mobileCaret}>▾</span>
+                </button>
+                {mobileAccordion === 'product' && (
+                  <div className={styles.mobileAccordionBody}>
+                    {PRODUCT_CATEGORIES.map(cat => (
+                      <div key={cat.name} className={styles.mobileCatGroup}>
+                        <p className={styles.mobileCatName}>{cat.name}</p>
+                        <div className={styles.mobileCatItems}>
+                          {cat.items.map(item => (
+                            <button key={item} className={styles.mobileCatItem}
+                              onClick={() => { setMenuOpen(false); navigate(`/products/${item}`) }}>
+                              {item}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* 서비스 */}
+              <div className={styles.mobileSection}>
+                <button
+                  className={styles.mobileSectionHead}
+                  onClick={() => setMobileAccordion(a => a === 'service' ? null : 'service')}
+                >
+                  서비스
+                  <span className={mobileAccordion === 'service' ? styles.mobileCaretOpen : styles.mobileCaret}>▾</span>
+                </button>
+                {mobileAccordion === 'service' && (
+                  <div className={styles.mobileAccordionBody}>
+                    {SERVICE_ITEMS.map(item => (
+                      <button key={item.path} className={styles.mobileServiceItem}
+                        onClick={() => { setMenuOpen(false); navigate(item.path) }}>
+                        <span className={styles.mobileServiceIcon}>{item.icon}</span>
+                        <span>
+                          <span className={styles.mobileServiceLabel}>{item.label}</span>
+                          <span className={styles.mobileServiceDesc}>{item.desc}</span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* 트렌드 */}
+              <div className={styles.mobileSection}>
+                <button className={styles.mobileSectionHead}
+                  onClick={() => { setMenuOpen(false); navigate('/trend') }}>
+                  트렌드
+                </button>
+              </div>
+
+              {/* B2B (b2b 모드일 때) */}
+              {mode === 'b2b' && (
+                <div className={styles.mobileSection}>
+                  <button
+                    className={styles.mobileSectionHead}
+                    onClick={() => setMobileAccordion(a => a === 'b2b' ? null : 'b2b')}
+                  >
+                    B2B 분석
+                    <span className={mobileAccordion === 'b2b' ? styles.mobileCaretOpen : styles.mobileCaret}>▾</span>
+                  </button>
+                  {mobileAccordion === 'b2b' && (
+                    <div className={styles.mobileAccordionBody}>
+                      {B2B_ITEMS.map(item => (
+                        <button key={item.path} className={styles.mobileServiceItem}
+                          onClick={() => { setMenuOpen(false); navigate(item.path) }}>
+                          <span className={styles.mobileServiceIcon}>{item.icon}</span>
+                          <span>
+                            <span className={styles.mobileServiceLabel}>{item.label}</span>
+                            <span className={styles.mobileServiceDesc}>{item.desc}</span>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 하단: 테마 + 로그인/로그아웃 */}
+              <div className={styles.mobileBottom}>
+                <button
+                  className={`${styles.themeToggle} ${isDark ? '' : styles.themeLightMode}`}
+                  onClick={toggle}
+                >
+                  <span className={`${styles.themeThumb} ${isDark ? '' : styles.themeThumbRight}`}>
+                    {isDark ? '🌙' : '☀️'}
+                  </span>
+                </button>
+                {isLoggedIn ? (
+                  <>
+                    <span className={styles.mobileUserName}
+                      onClick={() => { setMenuOpen(false); navigate('/mypage') }}>
+                      {user?.nickname || user?.company_name || user?.email}
+                    </span>
+                    <button className={styles.logoutBtn} onClick={logout}>로그아웃</button>
+                  </>
+                ) : (
+                  <button className={styles.ctaBtn} onClick={() => { setMenuOpen(false); navigate('/login') }}>
+                    시작하기 →
+                  </button>
+                )}
+              </div>
+
+            </div>
+          </div>
+        )}
 
         <div className={`${styles.dropdown} ${openDropdown === 'product' ? styles.dropdownOpen : ''}`}>
           <div className={styles.dropdownGrid}>

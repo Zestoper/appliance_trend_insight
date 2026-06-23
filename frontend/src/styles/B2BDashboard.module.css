@@ -10,7 +10,7 @@
 .container {
   max-width: 1320px;
   margin: 0 auto;
-  padding: 100px 24px 80px;
+  padding: 24px 24px 80px;
 }
 .layout { display: flex; gap: 32px; align-items: flex-start; }
 .main { flex: 1; min-width: 0; }
@@ -825,4 +825,26 @@
 .complaintBrandChip {
   padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700;
   background: rgba(99,102,241,0.1); color: #6366f1;
+}
+
+@media (max-width: 800px) {
+  .page              { height: auto; min-height: 100dvh; overflow-y: visible; }
+  .container         { padding: 16px 16px 60px; }
+  .layout            { flex-direction: column; gap: 16px; }
+  .twoCol            { grid-template-columns: 1fr !important; }
+  .marketNowGrid     { grid-template-columns: 1fr !important; }
+  .kwDetails         { grid-template-columns: 1fr !important; }
+  .kwComplaintDetail { grid-template-columns: 1fr !important; }
+  .contextGrid       { grid-template-columns: 1fr !important; }
+  .reportHeaderTop   { flex-direction: column; gap: 10px; }
+  .reportStatusBadge { align-self: flex-start; padding: 8px 14px; }
+  .reportKpiRow      { display: grid; grid-template-columns: repeat(3, 1fr); }
+  .reportKpi         { padding: 10px 12px; border-right: none; border-bottom: 1px solid var(--b2b-line); }
+  .reportKpi:nth-last-child(-n+2) { border-bottom: none; }
+}
+@media (max-width: 480px) {
+  .container    { padding: 12px 12px 48px; }
+  .reportKpiRow { grid-template-columns: repeat(2, 1fr); }
+  .reportKpi:nth-last-child(-n+2) { border-bottom: 1px solid var(--b2b-line); }
+  .reportKpi:nth-last-child(-n+1) { border-bottom: none; }
 }

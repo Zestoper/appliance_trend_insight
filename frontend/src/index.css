@@ -69,9 +69,15 @@ body {
   color: var(--text);
   overflow: hidden;
   transition: background 0.4s ease, color 0.4s ease;
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 
-#root { width: 100%; }
+#root { width: 100%; overflow-x: hidden; }
+
+@media (max-width: 800px) {
+  body { overflow: auto; }
+}
 
 /* B2B PDF 다운로드 버튼 */
 [class*="pdfBtn"] {

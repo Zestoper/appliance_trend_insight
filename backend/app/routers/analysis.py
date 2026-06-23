@@ -17,13 +17,18 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 import os as _os
+from dotenv import load_dotenv as _load_dotenv
 from groq import AsyncGroq as _AsyncGroq
 _groq_client: _AsyncGroq | None = None
+_groq_active_key: str | None = None
 
 def _get_groq() -> _AsyncGroq:
-    global _groq_client
-    if _groq_client is None:
-        _groq_client = _AsyncGroq(api_key=_os.getenv("GROQ_API_KEY"))
+    global _groq_client, _groq_active_key
+    _load_dotenv(override=True)
+    current_key = _os.getenv("GROQ_API_KEY")
+    if _groq_client is None or current_key != _groq_active_key:
+        _groq_active_key = current_key
+        _groq_client = _AsyncGroq(api_key=current_key)
     return _groq_client
 
 _RAG_CHUNK_MAX = 150
@@ -444,36 +449,46 @@ async def get_recommend(query: str = Query(..., min_length=1)):
         budget_match = re.search(r'(\d+(?:\.\d+)?)만원', query)
         budget_max = int(float(budget_match.group(1)) * 10000) if budget_match else None
 
-        parse_res = await groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "사용자의 가전제품 구매 요구사항을 분석해서 JSON으로만 반환하세요.\n"
-                        "【search_term 규칙】\n"
-                        "search_term은 네이버 쇼핑에서 검색할 2~3단어입니다. 반드시 다음을 지키세요:\n"
-                        "- 가격·금액·예산 표현(만원, 원, 이하, 이상 등)을 절대 포함하지 마세요\n"
-                        "- 사용 환경(자취, 1인, 가족, 사무실 등)도 포함하지 마세요\n"
-                        "- 제품 카테고리 + 핵심 스펙만 2~3단어로 추출하세요\n"
-                        "예시) '에어컨 1인 자취용 30만원 이하' → search_term: '벽걸이 에어컨'\n"
-                        "      '4인 가족 냉장고 200만원' → search_term: '양문형 냉장고'\n"
-                        "      '로봇청소기 가성비 30만원 이하' → search_term: '로봇청소기'\n"
-                        "【constraints 규칙】\n"
-                        "사용 환경·공간·기능 조건을 constraints 배열에 넣으세요.\n"
-                        '{"search_term": "카테고리+스펙 2~3단어", '
-                        '"constraints": ["조건1", "조건2"]}'
-                    ),
-                },
-                {"role": "user", "content": query},
-            ],
-            max_tokens=700,
-            temperature=0.1,
-            response_format={"type": "json_object"},
-        )
-        parsed = _parse_json(parse_res.choices[0].message.content)
-        search_term = parsed.get("search_term", query[:20]).strip()
-        constraints = parsed.get("constraints", [])
+        _ai_limited = False
+        try:
+            parse_res = await groq_client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "사용자의 가전제품 구매 요구사항을 분석해서 JSON으로만 반환하세요.\n"
+                            "【search_term 규칙】\n"
+                            "search_term은 네이버 쇼핑에서 검색할 2~3단어입니다. 반드시 다음을 지키세요:\n"
+                            "- 가격·금액·예산 표현(만원, 원, 이하, 이상 등)을 절대 포함하지 마세요\n"
+                            "- 사용 환경(자취, 1인, 가족, 사무실 등)도 포함하지 마세요\n"
+                            "- 제품 카테고리 + 핵심 스펙만 2~3단어로 추출하세요\n"
+                            "예시) '에어컨 1인 자취용 30만원 이하' → search_term: '벽걸이 에어컨'\n"
+                            "      '4인 가족 냉장고 200만원' → search_term: '양문형 냉장고'\n"
+                            "      '로봇청소기 가성비 30만원 이하' → search_term: '로봇청소기'\n"
+                            "【constraints 규칙】\n"
+                            "사용 환경·공간·기능 조건을 constraints 배열에 넣으세요.\n"
+                            '{"search_term": "카테고리+스펙 2~3단어", '
+                            '"constraints": ["조건1", "조건2"]}'
+                        ),
+                    },
+                    {"role": "user", "content": query},
+                ],
+                max_tokens=700,
+                temperature=0.1,
+                response_format={"type": "json_object"},
+            )
+            parsed = _parse_json(parse_res.choices[0].message.content)
+            search_term = parsed.get("search_term", query[:20]).strip()
+            constraints = parsed.get("constraints", [])
+        except Exception as parse_err:
+            if "429" in str(parse_err):
+                _ai_limited = True
+                price_words = {"만원", "원", "이하", "이상", "미만"}
+                search_term = " ".join(w for w in query.split() if w not in price_words)[:30]
+                constraints = []
+            else:
+                raise
 
         detected_cat = next(
             (cat for cat in CATEGORY_RULES if cat in query or cat in search_term), None
@@ -520,41 +535,59 @@ async def get_recommend(query: str = Query(..., min_length=1)):
         constraint_text = "\n".join(f"- {c}" for c in constraints) if constraints else "- 특별 조건 없음"
         budget_text = f"{budget_max:,}원 이하" if budget_max else "제한 없음"
 
-        rec_res = await groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "당신은 15년 경력의 가전제품 전문 컨설턴트입니다. 아래 규칙을 반드시 지켜 제품 3개를 추천하세요.\n"
-                        "규칙:\n"
-                        "1. 예산 초과 제품은 절대 추천하지 마세요\n"
-                        "2. 품질점수(평점×log리뷰수)가 높은 제품을 우선 고려하세요\n"
-                        "3. reason은 반드시 제품마다 달라야 합니다. 제품명·모델·평형수·브랜드 특성 등 이 제품만의 차별점을 언급하세요\n"
-                        "4. '가격이 저렴하다', '에너지 효율이 높다' 처럼 모든 제품에 쓸 수 있는 범용 문장은 금지입니다\n"
-                        "5. reason은 사용자의 핵심 조건(공간 크기·예산·기능 등)과 연결해 이 제품이 왜 적합한지 구체적으로 쓰세요 (한국어 1~2문장)\n"
-                        "6. highlight도 제품마다 달라야 합니다. 이 제품만의 핵심 한 줄 장점 (2~4단어)\n"
-                        "7. 1위가 가장 적합한 제품입니다\n"
-                        "JSON으로만 응답:\n"
-                        '{"recommendations": [{"index": 정수, "reason": "제품 고유 이유", "highlight": "고유 장점"}, ...]}'
-                    ),
-                },
-                {
-                    "role": "user",
-                    "content": (
-                        f"[요구사항] {query}\n"
-                        f"[예산] {budget_text}\n"
-                        f"[핵심 조건]\n{constraint_text}\n\n"
-                        f"[제품 목록]\n{product_list_text}"
-                    ),
-                },
-            ],
-            max_tokens=700,
-            temperature=0.2,
-            response_format={"type": "json_object"},
-        )
-        rec_data = _parse_json(rec_res.choices[0].message.content)
-        recommendations = rec_data.get("recommendations", [])
+        if _ai_limited:
+            top3 = sorted(items, key=lambda it: quality(it), reverse=True)[:3]
+            return {
+                "recommendations": [{**it, "reason": "", "highlight": ""} for it in top3],
+                "search_term": search_term,
+                "ai_limited": True,
+            }
+
+        try:
+            rec_res = await groq_client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "당신은 15년 경력의 가전제품 전문 컨설턴트입니다. 아래 규칙을 반드시 지켜 제품 3개를 추천하세요.\n"
+                            "규칙:\n"
+                            "1. 예산 초과 제품은 절대 추천하지 마세요\n"
+                            "2. 품질점수(평점×log리뷰수)가 높은 제품을 우선 고려하세요\n"
+                            "3. reason은 반드시 제품마다 달라야 합니다. 제품명·모델·평형수·브랜드 특성 등 이 제품만의 차별점을 언급하세요\n"
+                            "4. '가격이 저렴하다', '에너지 효율이 높다' 처럼 모든 제품에 쓸 수 있는 범용 문장은 금지입니다\n"
+                            "5. reason은 사용자의 핵심 조건(공간 크기·예산·기능 등)과 연결해 이 제품이 왜 적합한지 구체적으로 쓰세요 (한국어 1~2문장)\n"
+                            "6. highlight도 제품마다 달라야 합니다. 이 제품만의 핵심 한 줄 장점 (2~4단어)\n"
+                            "7. 1위가 가장 적합한 제품입니다\n"
+                            "JSON으로만 응답:\n"
+                            '{"recommendations": [{"index": 정수, "reason": "제품 고유 이유", "highlight": "고유 장점"}, ...]}'
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": (
+                            f"[요구사항] {query}\n"
+                            f"[예산] {budget_text}\n"
+                            f"[핵심 조건]\n{constraint_text}\n\n"
+                            f"[제품 목록]\n{product_list_text}"
+                        ),
+                    },
+                ],
+                max_tokens=700,
+                temperature=0.2,
+                response_format={"type": "json_object"},
+            )
+            rec_data = _parse_json(rec_res.choices[0].message.content)
+            recommendations = rec_data.get("recommendations", [])
+        except Exception as rec_err:
+            if "429" in str(rec_err):
+                top3 = sorted(items, key=lambda it: quality(it), reverse=True)[:3]
+                return {
+                    "recommendations": [{**it, "reason": "", "highlight": ""} for it in top3],
+                    "search_term": search_term,
+                    "ai_limited": True,
+                }
+            raise
 
         result = []
         for rec in recommendations[:3]:
@@ -569,7 +602,10 @@ async def get_recommend(query: str = Query(..., min_length=1)):
         return {"recommendations": result, "search_term": search_term}
 
     except Exception as e:
-        return {"recommendations": [], "error": str(e)}
+        err_str = str(e)
+        if "429" in err_str:
+            return {"recommendations": [], "error": "AI 분석 한도에 도달했습니다. 잠시 후 다시 시도해주세요."}
+        return {"recommendations": [], "error": err_str}
 
 
 @router.get("/api/report")

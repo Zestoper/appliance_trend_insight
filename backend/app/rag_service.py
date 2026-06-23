@@ -14,7 +14,7 @@ _DEFAULT_CHROMA_PATH = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)
 class RAGService:
     def __init__(self, db_path: str = _DEFAULT_CHROMA_PATH):
         print("[RAG] 임베딩 함수 초기화 중...")
-        self._ef = DefaultEmbeddingFunction(preferred_providers=["CPUExecutionProvider"])
+        self._ef = DefaultEmbeddingFunction()
         self.client = chromadb.PersistentClient(path=db_path)
         self.collection = self.client.get_or_create_collection(
             name="appliance_docs_v2",

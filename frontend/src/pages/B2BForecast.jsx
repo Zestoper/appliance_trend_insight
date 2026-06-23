@@ -354,7 +354,7 @@ export default function B2BForecast() {
                             <span className={s.timingBannerDays} style={{ color: c }}>
                               {ts.days_to_buy > 0
                                 ? ` · 매입까지 D-${ts.days_to_buy}일 · 피크 D-${ts.days_to_peak}일`
-                                : ` · 피크까지 D-${ts.days_to_peak}일 (${ts.peak_period?.slice(0,7)})`}
+                                : ` · 성수기 진입까지 D-${ts.days_to_peak}일 (${ts.peak_period?.slice(0,7)})`}
                             </span>
                           )}
                           <p className={s.timingBannerMsg}>{ts.message}</p>

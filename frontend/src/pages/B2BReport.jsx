@@ -369,6 +369,23 @@ export default function B2BReport() {
                   <div className={s.section}>
                     <SectionHead num="03" title="가격 전략 판단" />
 
+                    {/* 핵심 전략 카드 */}
+                    <div className={s.strategyTopGrid}>
+                      {[
+                        { label: '권장 판매가',   val: report.price_range !== '-' ? report.price_range : '-', color: acfg.color },
+                        { label: '재고 전략',     val: report.inventory_advice !== '-' ? report.inventory_advice : '-' },
+                        { label: '주력 브랜드',   val: report.brand_focus || (brands[0]?.brand ?? '-') },
+                        { label: '주력 제품군',   val: report.recommended_products !== '-' ? report.recommended_products : '-' },
+                        { label: '매입 시점',     val: report.timing !== '-' ? report.timing : (timing?.label ?? '-') },
+                        { label: '핵심 위험 요소', val: report.risk_factor !== '-' ? report.risk_factor : (riskList[0] ? normFactor(riskList[0]).title : '-') },
+                      ].map(({ label, val, color }) => (
+                        <div key={label} className={s.strategyTopItem}>
+                          <p className={s.strategyTopLabel}>{label}</p>
+                          <p className={s.strategyTopVal} style={color ? { color } : {}}>{val}</p>
+                        </div>
+                      ))}
+                    </div>
+
                     {/* 4 가격 KPI */}
                     <div className={s.priceKpiRow}>
                       {[
@@ -412,7 +429,7 @@ export default function B2BReport() {
                       {[
                         { label: '수요 피크',    val: forecastData.peak_period?.slice(0, 7) ?? '-' },
                         { label: '매입 권장',     val: timing.label, color: tcfg?.color },
-                        { label: '피크까지',      val: timing.days_to_peak > 0 ? `D-${timing.days_to_peak}일` : '피크 통과', color: tcfg?.color },
+                        { label: '성수기 진입까지', val: timing.days_to_peak > 0 ? `D-${timing.days_to_peak}일` : '피크 통과', color: tcfg?.color },
                         { label: '예측 신뢰도',   val: fcConf != null ? `${fcConf}%` : '-' },
                         { label: '트렌드',        val: fcDir === '상승' ? '↑ 상승' : fcDir === '하락' ? '↓ 하락' : '→ 안정', color: fcDir === '상승' ? '#10b981' : fcDir === '하락' ? '#ef4444' : '#6366f1' },
                       ].map(({ label, val, color }) => (
@@ -748,7 +765,7 @@ export default function B2BReport() {
                                   { label: '평균가', val: fmt만(productData.price.avg) },
                                   { label: '최저가', val: fmt만(productData.price.min) },
                                   { label: '중위가', val: fmt만(productData.price.median) },
-                                  { label: '조사 수', val: `${productData.price.count}건` },
+                                  { label: '비교 상품 수', val: `${productData.price.count}개` },
                                 ].map(({ label, val }) => (
                                   <div key={label} className={s.productPriceItem}>
                                     <p className={s.productPriceLabel}>{label}</p>

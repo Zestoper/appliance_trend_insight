@@ -446,8 +446,25 @@
   letter-spacing: 0.03em;
 }
 
+@media (max-width: 800px) {
+  .page      { height: auto; min-height: 100dvh; overflow-y: visible; }
+  .container { padding: 72px 16px 60px; }
+  .body      { flex-direction: column; gap: 16px; }
+  .hotBox    { width: 100%; order: -1; }
+  .hotList   { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0; }
+  .hotItem   { padding: 8px 12px; }
+  .hotTagSection { display: none; }
+  .header    { flex-direction: column; gap: 8px; margin-bottom: 20px; }
+  .row       { padding: 10px 14px; gap: 12px; }
+}
 @media (max-width: 600px) {
   .scoreWrap { display: none; }
-  .rankNum { font-size: 20px; width: 28px; }
-  .thumb { width: 52px; height: 52px; }
+  .rankNum   { font-size: 20px; width: 28px; }
+  .thumb     { width: 52px; height: 52px; }
+  .hotList   { grid-template-columns: 1fr; }
+}
+@media (max-width: 480px) {
+  .container { padding: 68px 12px 48px; }
+  .thumb     { width: 44px; height: 44px; }
+  .row       { padding: 8px 12px; gap: 10px; }
 }

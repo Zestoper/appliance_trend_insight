@@ -470,20 +470,13 @@
   font-weight: 700;
 }
 
-@media (max-width: 600px) {
-  .searchForm {
-    flex-direction: column;
-  }
-
-  .scoreCard {
-    flex-direction: column;
-  }
-
-  .scoreRight {
-    min-width: unset;
-  }
-
-  .productGrid {
-    grid-template-columns: repeat(2, 1fr);
-  }
+@media (max-width: 640px) {
+  .page      { height: auto; min-height: 100dvh; overflow-y: visible; }
+  .container { padding: 80px 16px 60px; }
+  .searchWrap { border-radius: 14px; }
+  .searchBtn  { padding: 9px 14px; font-size: 12px; }
+  .scoreCard  { padding: 18px; }
+  .scoreBig   { font-size: 28px; }
+  .productGrid { grid-template-columns: repeat(2, 1fr); }
+  .chartCard   { padding: 16px; overflow-x: auto; }
 }

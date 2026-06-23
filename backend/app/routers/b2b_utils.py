@@ -59,13 +59,18 @@ _GROQ_MODEL_EXHAUSTED: dict[str, float] = {}
 _GROQ_DAILY_LIMIT_RESET_SEC = 7200  # 2시간
 
 import os as _os
+from dotenv import load_dotenv as _load_dotenv
 from groq import AsyncGroq as _AsyncGroq
 _groq_singleton: _AsyncGroq | None = None
+_groq_active_key: str | None = None
 
 def _get_groq_client() -> _AsyncGroq:
-    global _groq_singleton
-    if _groq_singleton is None:
-        _groq_singleton = _AsyncGroq(api_key=_os.getenv("GROQ_API_KEY"))
+    global _groq_singleton, _groq_active_key
+    _load_dotenv(override=True)
+    current_key = _os.getenv("GROQ_API_KEY")
+    if _groq_singleton is None or current_key != _groq_active_key:
+        _groq_active_key = current_key
+        _groq_singleton = _AsyncGroq(api_key=current_key)
     return _groq_singleton
 
 def _is_model_exhausted(model: str) -> bool:

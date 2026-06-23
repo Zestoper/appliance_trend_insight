@@ -1,7 +1,6 @@
 /* ── Page ── */
-.page { height: 100vh; background: var(--b2b-page); color: var(--b2b-text); overflow-y: auto;
-  overflow-x: hidden; }
-.container { max-width: 1320px; margin: 0 auto; padding: 100px 24px 80px; }
+.page { height: 100vh; background: var(--b2b-page); color: var(--b2b-text); overflow-y: auto; overflow-x: hidden; }
+.container { max-width: 1320px; margin: 0 auto; padding: 24px 24px 80px; }
 .layout { display: flex; gap: 32px; align-items: flex-start; }
 .main { flex: 1; min-width: 0; }
 
@@ -293,4 +292,26 @@
   .page { background: var(--b2b-card); }
   .card, .metricCard { box-shadow: none; border: 1px solid #e8e8ed; }
   .timingBanner { page-break-inside: avoid; }
+}
+
+@media (max-width: 800px) {
+  .page              { height: auto; min-height: 100dvh; overflow-y: visible; }
+  .container         { padding: 16px 16px 60px; }
+  .layout            { flex-direction: column; gap: 16px; }
+  .metricsRow        { grid-template-columns: repeat(2, 1fr); }
+  .scenarioGrid      { grid-template-columns: 1fr; }
+  .scenarioCardFull  { grid-column: span 1; }
+  .timingBanner      { flex-direction: column; gap: 12px; }
+  .reportHeaderTop   { flex-direction: column; gap: 10px; }
+  .reportStatusBadge { align-self: flex-start; padding: 8px 14px; }
+  .reportKpiRow      { display: grid; grid-template-columns: repeat(3, 1fr); }
+  .reportKpi         { padding: 10px 12px; border-right: none; border-bottom: 1px solid var(--b2b-line); }
+  .reportKpi:nth-last-child(-n+2) { border-bottom: none; }
+}
+@media (max-width: 480px) {
+  .metricsRow   { grid-template-columns: 1fr; }
+  .container    { padding: 12px 12px 48px; }
+  .reportKpiRow { grid-template-columns: repeat(2, 1fr); }
+  .reportKpi:nth-last-child(-n+2) { border-bottom: 1px solid var(--b2b-line); }
+  .reportKpi:nth-last-child(-n+1) { border-bottom: none; }
 }

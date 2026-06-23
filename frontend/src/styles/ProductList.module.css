@@ -62,7 +62,10 @@
 @media (max-width: 900px) {
   .grid { grid-template-columns: repeat(2, 1fr); }
 }
-
+@media (max-width: 640px) {
+  .page      { height: auto; min-height: 100dvh; overflow-y: visible; }
+  .container { padding: 80px 16px 48px; }
+}
 @media (max-width: 560px) {
   .grid { grid-template-columns: 1fr; }
 }
