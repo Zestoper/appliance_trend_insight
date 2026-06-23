@@ -37,7 +37,7 @@ async def admin_all_b2b(status: str = "all", _: dict = Depends(require_admin)):
             LEFT JOIN user_b2b_profiles p ON p.user_id = u.user_id
             WHERE u.user_type = 'b2b' AND u.status = %s
             ORDER BY
-              FIELD(u.status, 'pending', 'active', 'rejected'),
+              CASE u.status WHEN 'pending' THEN 1 WHEN 'active' THEN 2 WHEN 'rejected' THEN 3 END,
               u.created_at DESC
             """,
             (status,),
@@ -51,7 +51,7 @@ async def admin_all_b2b(status: str = "all", _: dict = Depends(require_admin)):
             LEFT JOIN user_b2b_profiles p ON p.user_id = u.user_id
             WHERE u.user_type = 'b2b'
             ORDER BY
-              FIELD(u.status, 'pending', 'active', 'rejected'),
+              CASE u.status WHEN 'pending' THEN 1 WHEN 'active' THEN 2 WHEN 'rejected' THEN 3 END,
               u.created_at DESC
             """,
         )

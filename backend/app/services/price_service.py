@@ -163,71 +163,7 @@ async def get_danawa_price_history(query: str, product_name: str) -> dict:
 
 
 async def _init_tables():
-    from app.database import execute, fetchall
-    status_columns = await fetchall("SHOW COLUMNS FROM users LIKE 'status'")
-    if not status_columns:
-        await execute("""
-            ALTER TABLE users
-            ADD COLUMN status ENUM('pending', 'active', 'rejected')
-            NOT NULL DEFAULT 'active'
-            AFTER user_type
-        """)
-    await execute("""
-        CREATE TABLE IF NOT EXISTS price_history (
-            id            INT AUTO_INCREMENT PRIMARY KEY,
-            category      VARCHAR(50)  NOT NULL,
-            snapshot_date DATE         NOT NULL,
-            avg_price     INT          NOT NULL DEFAULT 0,
-            min_price     INT          NOT NULL DEFAULT 0,
-            max_price     INT          NOT NULL DEFAULT 0,
-            median_price  INT          NOT NULL DEFAULT 0,
-            total_products INT         NOT NULL DEFAULT 0,
-            brand_data    JSON,
-            created_at    TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE KEY uk_cat_date (category, snapshot_date)
-        )
-    """)
-    await execute("""
-        CREATE TABLE IF NOT EXISTS product_price_history (
-            id            INT AUTO_INCREMENT PRIMARY KEY,
-            product_key   VARCHAR(200) NOT NULL,
-            product_name  VARCHAR(500),
-            model_number  VARCHAR(100),
-            min_price     INT          NOT NULL DEFAULT 0,
-            max_price     INT          NOT NULL DEFAULT 0,
-            avg_price     INT          NOT NULL DEFAULT 0,
-            snapshot_date DATE         NOT NULL,
-            snapshot_hour TINYINT      NOT NULL DEFAULT 0,
-            mall_data     JSON,
-            created_at    TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE KEY uk_prod_date_hour (product_key, snapshot_date, snapshot_hour)
-        )
-    """)
-    await execute("""
-        CREATE TABLE IF NOT EXISTS b2b_prediction_log (
-            id              INT AUTO_INCREMENT PRIMARY KEY,
-            category        VARCHAR(50)  NOT NULL,
-            signal_type     VARCHAR(50)  NOT NULL,
-            price_at_pred   INT          NOT NULL,
-            predicted_at    DATE         NOT NULL,
-            verified_at     DATE         DEFAULT NULL,
-            price_at_verify INT          DEFAULT NULL,
-            price_change_pct FLOAT       DEFAULT NULL,
-            was_correct     TINYINT(1)   DEFAULT NULL,
-            UNIQUE KEY uk_cat_pred_date (category, predicted_at)
-        )
-    """)
-    hour_col = await fetchall("SHOW COLUMNS FROM product_price_history LIKE 'snapshot_hour'")
-    if not hour_col:
-        await execute("ALTER TABLE product_price_history ADD COLUMN snapshot_hour TINYINT NOT NULL DEFAULT 0 AFTER snapshot_date")
-        try:
-            await execute("ALTER TABLE product_price_history DROP INDEX uk_prod_date")
-        except Exception:
-            pass
-        try:
-            await execute("ALTER TABLE product_price_history ADD UNIQUE KEY uk_prod_date_hour (product_key, snapshot_date, snapshot_hour)")
-        except Exception:
-            pass
+    pass  # Supabase: 테이블은 SQL Editor에서 사전 생성됨
 
 
 async def upsert_price(product_key: str, product_name: str, price: int, today_str: str, hour: int = 0):
@@ -236,11 +172,11 @@ async def upsert_price(product_key: str, product_name: str, price: int, today_st
         """
         INSERT INTO product_price_history
             (product_key, product_name, min_price, max_price, avg_price, snapshot_date, snapshot_hour)
-        VALUES (%s, %s, %s, %s, %s, %s, %s) AS nv
-        ON DUPLICATE KEY UPDATE
-            min_price = nv.min_price,
-            max_price = nv.max_price,
-            avg_price = nv.avg_price
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (product_key, snapshot_date, snapshot_hour) DO UPDATE SET
+            min_price = EXCLUDED.min_price,
+            max_price = EXCLUDED.max_price,
+            avg_price = EXCLUDED.avg_price
         """,
         (product_key, product_name, price, price, price, today_str, hour),
     )
@@ -272,13 +208,13 @@ async def _collect_daily_prices():
             INSERT INTO price_history
                 (category, snapshot_date, avg_price, min_price, max_price, median_price, total_products, brand_data)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            ON DUPLICATE KEY UPDATE
-                avg_price     = VALUES(avg_price),
-                min_price     = VALUES(min_price),
-                max_price     = VALUES(max_price),
-                median_price  = VALUES(median_price),
-                total_products = VALUES(total_products),
-                brand_data    = VALUES(brand_data)
+            ON CONFLICT (category, snapshot_date) DO UPDATE SET
+                avg_price      = EXCLUDED.avg_price,
+                min_price      = EXCLUDED.min_price,
+                max_price      = EXCLUDED.max_price,
+                median_price   = EXCLUDED.median_price,
+                total_products = EXCLUDED.total_products,
+                brand_data     = EXCLUDED.brand_data
             """,
             (category, today_str, avg_p, min_p, max_p, median_p, n, brand_json),
         )
@@ -345,7 +281,7 @@ async def _collect_daily_prices():
         """
         SELECT DISTINCT product_key, product_name
         FROM product_price_history
-        WHERE product_key REGEXP '^[0-9]+$' AND snapshot_date >= %s
+        WHERE product_key ~ '^[0-9]+$' AND snapshot_date >= %s
         """,
         (seven_days_ago,),
     )
@@ -416,7 +352,10 @@ async def _send_buy_signal_emails(today_str: str):
 
         # B2B 활성 유저 조회
         users = await fetchall(
-            "SELECT email, company_name FROM users WHERE user_type = 'b2b' AND status = 'active'",
+            """SELECT u.email, p.company_name
+               FROM users u
+               LEFT JOIN user_b2b_profiles p ON p.user_id = u.user_id
+               WHERE u.user_type = 'b2b' AND u.status = 'active'""",
         )
         if not users:
             return
@@ -511,13 +450,13 @@ async def backfill_category_price_history(category: str, today: date) -> None:
                 INSERT INTO price_history
                     (category, snapshot_date, avg_price, min_price, max_price,
                      median_price, total_products, brand_data)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s) AS nv
-                ON DUPLICATE KEY UPDATE
-                    avg_price      = nv.avg_price,
-                    min_price      = nv.min_price,
-                    max_price      = nv.max_price,
-                    median_price   = nv.median_price,
-                    total_products = nv.total_products
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (category, snapshot_date) DO UPDATE SET
+                    avg_price      = EXCLUDED.avg_price,
+                    min_price      = EXCLUDED.min_price,
+                    max_price      = EXCLUDED.max_price,
+                    median_price   = EXCLUDED.median_price,
+                    total_products = EXCLUDED.total_products
                 """,
                 (category, d, avg, mn, mx, med, len(prices), _json.dumps([])),
             )
@@ -535,10 +474,11 @@ async def _check_price_alerts():
 
     alerts = await fetchall(
         """SELECT pa.alert_id, pa.user_id, pa.product_name AS category, pa.target_price,
-                  u.email, u.company_name
+                  u.email, p.company_name
            FROM price_alert pa
            JOIN users u ON u.user_id = pa.user_id
-           WHERE pa.is_active = 1 AND pa.alert_type = 'below'""",
+           LEFT JOIN user_b2b_profiles p ON p.user_id = pa.user_id
+           WHERE pa.is_active = TRUE AND pa.alert_type = 'below'""",
     )
     if not alerts:
         return
@@ -561,7 +501,7 @@ async def _check_price_alerts():
                 current_price=current,
             )
             await execute(
-                "UPDATE price_alert SET is_active=0, triggered_at=NOW() WHERE alert_id=%s",
+                "UPDATE price_alert SET is_active=FALSE, triggered_at=NOW() WHERE alert_id=%s",
                 (a["alert_id"],),
             )
             triggered += 1
@@ -618,9 +558,10 @@ async def save_prediction(category: str, signal_type: str, avg_price: int):
     today = date.today().isoformat()
     try:
         await execute(
-            """INSERT IGNORE INTO b2b_prediction_log
+            """INSERT INTO b2b_prediction_log
                (category, signal_type, price_at_pred, predicted_at)
-               VALUES (%s, %s, %s, %s)""",
+               VALUES (%s, %s, %s, %s)
+               ON CONFLICT (category, predicted_at) DO NOTHING""",
             (category, signal_type, avg_price, today),
         )
     except Exception as e:

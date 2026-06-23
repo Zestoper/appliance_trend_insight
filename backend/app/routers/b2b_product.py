@@ -189,12 +189,12 @@ async def get_product_price(title: str = Query(..., min_length=1), _: dict = Dep
             """
             INSERT INTO product_price_history
                 (product_key, product_name, model_number, min_price, max_price, avg_price, snapshot_date, mall_data)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s) AS nv
-            ON DUPLICATE KEY UPDATE
-                min_price = nv.min_price,
-                max_price = nv.max_price,
-                avg_price = nv.avg_price,
-                mall_data = nv.mall_data
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (product_key, snapshot_date) DO UPDATE SET
+                min_price = EXCLUDED.min_price,
+                max_price = EXCLUDED.max_price,
+                avg_price = EXCLUDED.avg_price,
+                mall_data = EXCLUDED.mall_data
             """,
             (product_key, title[:500], model, min_price, max_price, avg_price, today, mall_json),
         )
@@ -599,7 +599,7 @@ async def list_b2b_alerts(user: dict = Depends(require_b2b)):
     from app.database import fetchall
     rows = await fetchall(
         "SELECT alert_id, product_name AS category, target_price, created_at "
-        "FROM price_alert WHERE user_id = %s AND is_active = 1 "
+        "FROM price_alert WHERE user_id = %s AND is_active = TRUE "
         "AND alert_type = 'below' ORDER BY created_at DESC",
         (user["user_id"],),
     )
@@ -610,7 +610,7 @@ async def create_b2b_alert(body: _AlertIn, user: dict = Depends(require_b2b)):
     from app.database import fetchall, execute
     # 같은 카테고리 알림이 이미 있으면 업데이트
     existing = await fetchall(
-        "SELECT alert_id FROM price_alert WHERE user_id=%s AND product_name=%s AND is_active=1",
+        "SELECT alert_id FROM price_alert WHERE user_id=%s AND product_name=%s AND is_active=TRUE",
         (user["user_id"], body.category),
     )
     if existing:
@@ -639,7 +639,7 @@ async def delete_b2b_alert(alert_id: int, user: dict = Depends(require_b2b)):
     )
     if not row:
         raise HTTPException(status_code=404, detail="알림 없음")
-    await execute("UPDATE price_alert SET is_active=0 WHERE alert_id=%s", (alert_id,))
+    await execute("UPDATE price_alert SET is_active=FALSE WHERE alert_id=%s", (alert_id,))
     return {"deleted": True}
 
 
@@ -709,10 +709,11 @@ async def run_backtest(_: dict = Depends(require_b2b)):
 
             try:
                 await execute(
-                    """INSERT IGNORE INTO b2b_prediction_log
+                    """INSERT INTO b2b_prediction_log
                        (category, signal_type, price_at_pred, predicted_at,
                         verified_at, price_at_verify, price_change_pct, was_correct)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                       ON CONFLICT (category, predicted_at) DO NOTHING""",
                     (cat, signal, price, str(snap_date_obj),
                      str(target_date), future, round(change_pct, 2), correct),
                 )

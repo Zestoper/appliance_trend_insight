@@ -65,7 +65,7 @@ async def create_my_alert(body: AlertCreate, payload: dict = Depends(get_current
     from app.database import create_alert, fetchall
     user_id = int(payload["sub"])
     existing = await fetchall(
-        "SELECT alert_id FROM price_alert WHERE user_id=%s AND product_name=%s AND is_active=1",
+        "SELECT alert_id FROM price_alert WHERE user_id=%s AND product_name=%s AND is_active=TRUE",
         (user_id, body.product_name),
     )
     if existing:
@@ -87,5 +87,5 @@ async def delete_my_alert(alert_id: int, payload: dict = Depends(get_current_use
     )
     if not row:
         raise HTTPException(status_code=404, detail="알림을 찾을 수 없습니다")
-    await execute("UPDATE price_alert SET is_active=0 WHERE alert_id=%s", (alert_id,))
+    await execute("UPDATE price_alert SET is_active=FALSE WHERE alert_id=%s", (alert_id,))
     return {"message": "알림이 삭제됐습니다"}

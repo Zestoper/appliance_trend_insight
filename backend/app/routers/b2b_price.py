@@ -84,14 +84,14 @@ async def get_price_intelligence(category: str = Query(..., min_length=1), _: di
             """
             INSERT INTO price_history
                 (category, snapshot_date, avg_price, min_price, max_price, median_price, total_products, brand_data)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s) AS nv
-            ON DUPLICATE KEY UPDATE
-                avg_price      = nv.avg_price,
-                min_price      = nv.min_price,
-                max_price      = nv.max_price,
-                median_price   = nv.median_price,
-                total_products = nv.total_products,
-                brand_data     = nv.brand_data
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (category, snapshot_date) DO UPDATE SET
+                avg_price      = EXCLUDED.avg_price,
+                min_price      = EXCLUDED.min_price,
+                max_price      = EXCLUDED.max_price,
+                median_price   = EXCLUDED.median_price,
+                total_products = EXCLUDED.total_products,
+                brand_data     = EXCLUDED.brand_data
             """,
             (category, today, avg_price, min_price, max_price, median_price, len(prices), b_json),
         )
