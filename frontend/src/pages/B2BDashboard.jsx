@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/common/Navbar'
 import B2BSidebar from '../components/common/B2BSidebar'
+import B2BPrintModal from '../components/common/B2BPrintModal'
 import { useAuth } from '../context/AuthContext'
 import s from '../styles/B2BDashboard.module.css'
 import { API_BASE } from '../config'
@@ -569,6 +570,7 @@ export default function B2BDashboard() {
   const [error, setError] = useState(null)
   const [trendCtx, setTrendCtx] = useState(null)
   const [fetchedAt, setFetchedAt] = useState(null)
+  const [printModal, setPrintModal] = useState(false)
 
   const isB2BActive = (user?.user_type === 'b2b' && user?.status === 'active') || user?.role === 'admin'
   const [refreshTick, setRefreshTick] = useState(0)
@@ -885,10 +887,16 @@ export default function B2BDashboard() {
             periods={PERIODS} period={period} setPeriod={setPeriod}
             dataSources={['네이버 DataLab', 'Groq LLM', 'RAG (구매 패턴)', '소비자 불만 데이터']}
             onRefresh={loadData} loading={loading} fetchedAt={fetchedAt}
-            onDownload={() => window.print()}
+            onDownload={() => setPrintModal(true)}
           />
         </div>
       </div>
+      <B2BPrintModal
+        open={printModal}
+        onClose={() => setPrintModal(false)}
+        category={category}
+        period={period}
+      />
     </div>
   )
 }

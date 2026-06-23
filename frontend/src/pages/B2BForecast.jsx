@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/common/Navbar';
 import B2BSidebar from '../components/common/B2BSidebar';
+import B2BPrintModal from '../components/common/B2BPrintModal';
 import { useAuth } from '../context/AuthContext';
 import s from '../styles/B2BForecast.module.css';
 import { API_BASE } from '../config';
@@ -202,6 +203,7 @@ export default function B2BForecast() {
   const [error, setError]       = useState(null);
   const [fetchedAt, setFetchedAt] = useState(null);
   const [refreshTick, setRefreshTick] = useState(0);
+  const [printModal, setPrintModal] = useState(false);
 
   const isB2BActive = (user?.user_type === 'b2b' && user?.status === 'active') || user?.role === 'admin';
   const loadData = () => setRefreshTick(t => t + 1);
@@ -358,8 +360,8 @@ export default function B2BForecast() {
                           <p className={s.timingBannerMsg}>{ts.message}</p>
                         </div>
                       </div>
-                      <a className={s.timingBannerCta} href="/b2b/monitor" style={{ background: c }}>
-                        가격 모니터 →
+                      <a className={s.timingBannerCta} href="/b2b/price" style={{ background: c }}>
+                        가격 분석 →
                       </a>
                     </div>
                   );
@@ -613,10 +615,16 @@ export default function B2BForecast() {
             periods={PERIODS} period={period} setPeriod={setPeriod}
             dataSources={['네이버 DataLab', 'Prophet (시계열)', 'XGBoost (앙상블)', '선형회귀 (영향도)', 'Groq LLM']}
             onRefresh={loadData} loading={loading} fetchedAt={fetchedAt}
-            onDownload={() => window.print()}
+            onDownload={() => setPrintModal(true)}
           />
         </div>
       </div>
+      <B2BPrintModal
+        open={printModal}
+        onClose={() => setPrintModal(false)}
+        category={category}
+        period={period}
+      />
     </div>
   );
 }

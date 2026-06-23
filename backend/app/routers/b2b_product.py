@@ -456,6 +456,109 @@ async def get_product_analysis(
     }
 
 
+@router.get("/product-insight")
+async def get_product_insight(
+    q: str = Query(..., min_length=1),
+    category: str = Query(None),
+    _: dict = Depends(require_b2b),
+):
+    """상품별 매입 판단 — 네이버 쇼핑 가격 + AI 매입 적합성 판단"""
+    import json as _json
+    from app.routers.b2b_ai import _TREND_CTX_FALLBACK, _GENERIC_FALLBACK
+
+    model = extract_model_number(q)
+    search_q = model if model else (f"{category} {q}" if category else q)
+
+    # 가격 데이터 수집
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            resp = await client.get(NAVER_SHOP_URL, headers=NAVER_HEADERS,
+                params={"query": search_q, "display": 30, "sort": "sim"})
+        items_raw = resp.json().get("items", []) if resp.status_code == 200 else []
+        _RKW = ["렌탈", "리스", "구독", "월정액"]
+        prices = [
+            int(it["lprice"]) for it in items_raw
+            if it.get("lprice") and int(it["lprice"]) > 0
+            and not any(kw in strip_html(it.get("title", "")) for kw in _RKW)
+        ]
+    except Exception:
+        prices = []
+
+    if not prices:
+        return {"error": f"'{q}' 상품 가격 정보를 찾을 수 없습니다."}
+
+    sorted_p  = sorted(prices)
+    avg_price = int(sum(sorted_p) / len(sorted_p))
+    min_price = sorted_p[0]
+    max_price = sorted_p[-1]
+    median_p  = sorted_p[len(sorted_p) // 2]
+
+    # 카테고리 맥락
+    ctx = _TREND_CTX_FALLBACK.get(category or "", _GENERIC_FALLBACK)
+    top_purpose = ctx["purpose"][0]["label"] if ctx.get("purpose") else "성능"
+    top_install = ctx["install"][0]["label"] if ctx.get("install") else "일반형"
+    peak_months = ctx.get("peak_months", "연중")
+
+    # Groq AI 매입 판단
+    judgment = "분석 중"
+    judgment_type = "neutral"
+    basis_list: list[str] = []
+    caution_list: list[str] = []
+    summary_text = ""
+
+    try:
+        res = await _groq_create(
+            messages=[
+                {"role": "system", "content": "B2B 가전 유통 매입 어드바이저입니다. 순수 JSON만 출력하세요."},
+                {"role": "user", "content": (
+                    f"상품: {q}\n"
+                    f"카테고리: {category or '가전'}\n"
+                    f"시장 평균가: {avg_price // 10000}만원 / 최저가: {min_price // 10000}만원 / 최고가: {max_price // 10000}만원 / 중위가: {median_p // 10000}만원\n"
+                    f"주요 구매 목적: {top_purpose} / 주요 설치 형태: {top_install} / 성수기: {peak_months}\n\n"
+                    f"위 데이터를 근거로 아래 JSON을 작성하세요:\n"
+                    f'{{\n'
+                    f'  "judgment": "매입 적합 또는 매입 주의 또는 매입 비추천 중 하나",\n'
+                    f'  "judgment_type": "fit 또는 caution 또는 avoid 중 하나",\n'
+                    f'  "basis": ["매입 근거1 (20자 이내)", "매입 근거2", "매입 근거3"],\n'
+                    f'  "caution": ["주의 사항1 (20자 이내)", "주의 사항2"],\n'
+                    f'  "summary": "매입 판단 요약 1~2문장"\n'
+                    f'}}\n'
+                    f'순수 JSON만 출력하세요.'
+                )},
+            ],
+            max_tokens=500,
+            temperature=0.3,
+        )
+        raw = res.choices[0].message.content.strip()
+        s, e = raw.find("{"), raw.rfind("}")
+        if s != -1 and e > s:
+            parsed = _json.loads(raw[s:e + 1])
+            judgment      = parsed.get("judgment", judgment)
+            judgment_type = parsed.get("judgment_type", judgment_type)
+            basis_list    = parsed.get("basis", [])
+            caution_list  = parsed.get("caution", [])
+            summary_text  = parsed.get("summary", "")
+    except Exception as e:
+        logger.warning("product-insight AI 실패: %s", e)
+
+    return {
+        "query":         q,
+        "category":      category,
+        "judgment":      judgment,
+        "judgment_type": judgment_type,
+        "basis":         basis_list,
+        "caution":       caution_list,
+        "summary":       summary_text,
+        "price": {
+            "avg":    avg_price,
+            "min":    min_price,
+            "max":    max_price,
+            "median": median_p,
+            "count":  len(prices),
+        },
+    }
+
+
 @router.get("/keyword-review")
 async def get_keyword_review(
     category: str = Query(..., min_length=1),

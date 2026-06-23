@@ -47,6 +47,7 @@
 .reportKpiVal {
   font-size: 20px; font-weight: 900; letter-spacing: -0.5px;
   color: var(--b2b-text); margin-bottom: 3px;
+  word-break: keep-all; overflow-wrap: break-word; line-height: 1.25;
 }
 .reportKpiSub { font-size: 11px; color: var(--b2b-muted); }
 
@@ -345,8 +346,8 @@
   border: 1px solid;
   padding: 28px;
   display: flex;
-  gap: 28px;
-  align-items: flex-start;
+  flex-direction: column;
+  gap: 0;
   box-shadow: var(--b2b-shadow);
   margin-bottom: 12px;
 }
@@ -543,6 +544,306 @@
 }
 .deniedBtn:hover { opacity: 0.85; }
 
+/* ── Hero Banner (신규 구조) ── */
+.heroTopRow {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px; margin-bottom: 14px;
+}
+.heroActionPill {
+  display: inline-flex; align-items: center; gap: 8px;
+  border: 1.5px solid; border-radius: 999px;
+  padding: 6px 18px; font-size: 14px; font-weight: 800;
+}
+.heroRiskBadge {
+  font-size: 12px; font-weight: 700; border: 1px solid;
+  border-radius: 999px; padding: 4px 14px; flex-shrink: 0;
+}
+.heroJudgeText {
+  font-size: 14px; color: var(--b2b-text2); line-height: 1.7;
+  margin-bottom: 18px;
+}
+.heroDecisionGrid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+  margin-bottom: 14px;
+}
+.heroDecisionItem {
+  background: rgba(0,0,0,0.03); border-radius: 12px; padding: 12px 14px;
+}
+.heroDecisionLabel {
+  font-size: 10px; font-weight: 700; color: var(--b2b-muted);
+  text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 5px;
+}
+.heroDecisionVal {
+  font-size: 13.5px; font-weight: 800; line-height: 1.35;
+}
+
+/* ── 02 시장 현황 ── */
+.marketOverviewGrid {
+  display: grid; grid-template-columns: 1fr 1.6fr; gap: 14px;
+}
+.segmentTag {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 12px; padding: 8px 12px;
+  background: var(--b2b-search); border-radius: 8px;
+}
+.segmentLabel {
+  font-size: 10px; font-weight: 700; color: var(--b2b-muted);
+  text-transform: uppercase; letter-spacing: 0.06em; flex-shrink: 0;
+}
+.segmentVal {
+  font-size: 13px; font-weight: 700; color: var(--b2b-text);
+}
+.marketInterpCard {
+  background: var(--b2b-card); border-radius: 16px; padding: 20px;
+  box-shadow: var(--b2b-shadow);
+}
+.marketInterpText {
+  font-size: 13.5px; color: var(--b2b-text2); line-height: 1.7;
+  margin-bottom: 12px;
+}
+.marketInterpList {
+  list-style: none; padding: 0; margin: 0 0 14px;
+  display: flex; flex-direction: column; gap: 6px;
+  font-size: 13px; color: var(--b2b-text2); line-height: 1.5;
+}
+.marketInterpList li::before {
+  content: '→ '; color: #6366f1; font-weight: 700;
+}
+.marketKpiRow {
+  display: flex; gap: 0; border-top: 1px solid var(--b2b-line); padding-top: 12px;
+}
+.marketKpiItem {
+  flex: 1; display: flex; flex-direction: column; gap: 3px;
+  border-right: 1px solid var(--b2b-line); padding: 0 14px;
+}
+.marketKpiItem:first-child { padding-left: 0; }
+.marketKpiItem:last-child  { border-right: none; }
+.marketKpiLabel {
+  font-size: 10px; font-weight: 700; color: var(--b2b-muted);
+  text-transform: uppercase; letter-spacing: 0.07em;
+}
+.marketKpiVal {
+  font-size: 18px; font-weight: 900; letter-spacing: -0.5px; color: var(--b2b-text);
+}
+
+/* ── 03 가격 전략 ── */
+.priceKpiRow {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+  margin-bottom: 14px;
+}
+.priceKpiItem {
+  background: var(--b2b-card); border-radius: 14px; padding: 16px 18px;
+  box-shadow: var(--b2b-shadow);
+}
+.priceKpiLabel {
+  font-size: 10px; font-weight: 700; color: var(--b2b-muted);
+  text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 6px;
+}
+.priceKpiVal {
+  font-size: 18px; font-weight: 900; letter-spacing: -0.5px; color: var(--b2b-text);
+}
+.positioningCard {
+  margin-top: 12px; padding: 16px 20px;
+  background: var(--b2b-card); border-radius: 14px;
+  border: 1px solid var(--b2b-line); box-shadow: var(--b2b-shadow);
+}
+.positioningTitle {
+  font-size: 10px; font-weight: 700; color: var(--b2b-muted);
+  text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 8px;
+}
+.positioningText {
+  font-size: 13.5px; color: var(--b2b-text2); line-height: 1.65;
+}
+
+/* ── 04 수요 예측 ── */
+.forecastKpiRow {
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px;
+  margin-bottom: 14px;
+}
+.forecastKpiItem {
+  background: var(--b2b-card); border-radius: 12px; padding: 14px 14px;
+  box-shadow: var(--b2b-shadow);
+}
+.forecastKpiLabel {
+  font-size: 10px; font-weight: 700; color: var(--b2b-muted);
+  text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 5px;
+}
+.forecastKpiVal {
+  font-size: 16px; font-weight: 900; letter-spacing: -0.4px; color: var(--b2b-text);
+}
+.timingCard {
+  border-radius: 14px; border: 1.5px solid;
+  padding: 18px 22px; margin-bottom: 14px;
+  display: flex; align-items: center; gap: 16px;
+}
+.timingBadge {
+  font-size: 13px; font-weight: 900; border: 1.5px solid;
+  border-radius: 999px; padding: 5px 16px; flex-shrink: 0;
+}
+.timingMessage {
+  font-size: 14px; font-weight: 700; line-height: 1.5;
+}
+.forecastInsightGrid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+}
+.forecastInsightCard {
+  background: var(--b2b-card); border-radius: 14px; padding: 16px 18px;
+  box-shadow: var(--b2b-shadow); border-top: 3px solid;
+}
+.forecastInsightTitle {
+  font-size: 12px; font-weight: 800; margin-bottom: 10px;
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+.forecastInsightList {
+  list-style: none; padding: 0; margin: 0;
+  display: flex; flex-direction: column; gap: 8px;
+  font-size: 12.5px; color: var(--b2b-text2); line-height: 1.5;
+}
+.forecastInsightList li { display: flex; align-items: flex-start; gap: 6px; }
+
+/* ── 05 소비자 구매 맥락 ── */
+.buyingContextCard {
+  margin-top: 14px; padding: 18px 20px;
+  background: var(--b2b-card); border-radius: 16px;
+  border: 1px solid var(--b2b-line); box-shadow: var(--b2b-shadow);
+}
+.buyingContextGrid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 8px;
+}
+.buyingContextItem { display: flex; flex-direction: column; gap: 6px; }
+.buyingContextLabel {
+  font-size: 10px; font-weight: 700; color: var(--b2b-muted);
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+.buyingContextTags { display: flex; flex-wrap: wrap; gap: 5px; }
+.contextTag {
+  padding: 4px 10px; border-radius: 999px;
+  background: var(--b2b-search);
+  font-size: 11.5px; font-weight: 600; color: var(--b2b-text2);
+}
+
+/* ── 06 기회/위험 구조화 ── */
+.factorGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; }
+.factorCard {
+  background: var(--b2b-card); border-radius: 16px; padding: 20px;
+  box-shadow: var(--b2b-shadow);
+}
+.factorList { display: flex; flex-direction: column; gap: 0; }
+.factorItem2 {
+  padding: 14px 0; border-bottom: 1px solid var(--b2b-line);
+}
+.factorItem2:last-child { border-bottom: none; padding-bottom: 0; }
+.factorItemTitle {
+  font-size: 13px; font-weight: 800; margin-bottom: 6px;
+}
+.factorItemEv {
+  font-size: 12px; color: var(--b2b-text2); line-height: 1.5; margin-bottom: 4px;
+  display: flex; align-items: flex-start; gap: 6px;
+}
+.factorItemMean {
+  font-size: 12px; color: var(--b2b-muted); line-height: 1.5;
+  display: flex; align-items: flex-start; gap: 6px;
+}
+.factorEvLabel {
+  font-size: 9.5px; font-weight: 800; color: #6366f1;
+  background: rgba(99,102,241,0.1); padding: 1px 7px; border-radius: 4px;
+  flex-shrink: 0; margin-top: 1px;
+}
+.factorMeanLabel {
+  font-size: 9.5px; font-weight: 800; color: var(--b2b-muted);
+  background: var(--b2b-search); padding: 1px 7px; border-radius: 4px;
+  flex-shrink: 0; margin-top: 1px;
+}
+
+/* ── 예상 효과 (심플) ── */
+.effectSimpleCard {
+  margin-top: 16px; padding: 20px;
+  background: var(--b2b-card); border-radius: 16px;
+  border: 1px solid var(--b2b-line); box-shadow: var(--b2b-shadow);
+}
+.effectSimpleList {
+  list-style: none; padding: 0; margin: 0;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.effectSimpleItem {
+  display: flex; align-items: flex-start; gap: 10px;
+  font-size: 13.5px; color: var(--b2b-text2); line-height: 1.5;
+}
+
+/* ── 07 상품별 매입 분석 ── */
+.productSearchRow {
+  display: flex; gap: 10px; margin-bottom: 14px;
+}
+.productSearchInput {
+  flex: 1; padding: 12px 16px; border-radius: 12px;
+  border: 1.5px solid var(--b2b-line); background: var(--b2b-card);
+  font-size: 13.5px; color: var(--b2b-text); outline: none;
+  transition: border-color 0.15s;
+}
+.productSearchInput:focus { border-color: #6366f1; }
+.productSearchInput::placeholder { color: var(--b2b-muted); }
+.productSearchBtn {
+  padding: 12px 24px; border-radius: 12px;
+  border: none; background: #6366f1; color: #fff;
+  font-size: 13.5px; font-weight: 700; cursor: pointer;
+  transition: opacity 0.15s; flex-shrink: 0;
+}
+.productSearchBtn:hover:not(:disabled) { opacity: 0.85; }
+.productSearchBtn:disabled { opacity: 0.45; cursor: default; }
+.productLoading {
+  display: flex; align-items: center; gap: 12px;
+  padding: 20px; color: var(--b2b-muted); font-size: 13px;
+}
+.productResultCard {
+  border-radius: 18px; border: 1.5px solid; padding: 24px;
+  box-shadow: var(--b2b-shadow);
+}
+.productResultHeader {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 16px; margin-bottom: 18px; padding-bottom: 14px;
+  border-bottom: 1px solid var(--b2b-line);
+}
+.productResultName {
+  font-size: 17px; font-weight: 800; color: var(--b2b-text); margin-bottom: 4px;
+}
+.productResultCat {
+  font-size: 12px; color: var(--b2b-muted);
+}
+.productJudgeBadge {
+  font-size: 14px; font-weight: 900; border: 1.5px solid;
+  border-radius: 999px; padding: 5px 18px; flex-shrink: 0;
+}
+.productPriceRow {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+  margin-bottom: 18px;
+}
+.productPriceItem {
+  background: var(--b2b-search); border-radius: 10px; padding: 12px;
+}
+.productPriceLabel {
+  font-size: 10px; font-weight: 700; color: var(--b2b-muted);
+  text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 5px;
+}
+.productPriceVal {
+  font-size: 15px; font-weight: 800; color: var(--b2b-text);
+}
+.productSection { margin-bottom: 14px; }
+.productSectionTitle {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.07em; margin-bottom: 8px;
+}
+.productBasisList {
+  list-style: none; padding: 0; margin: 0;
+  display: flex; flex-direction: column; gap: 7px;
+  font-size: 13px; color: var(--b2b-text2); line-height: 1.5;
+}
+.productBasisList li { display: flex; align-items: flex-start; gap: 8px; }
+.productSummary {
+  font-size: 13.5px; color: var(--b2b-text2); line-height: 1.7;
+  padding-top: 14px; margin-top: 4px;
+  border-top: 1px solid var(--b2b-line);
+}
+
 /* ── Print ── */
 @media print {
   /* 기본 리셋 */
@@ -577,7 +878,15 @@
   .needsGrid,
   .effectGrid,
   .priceStrategyRow,
-  .metricsRow {
+  .metricsRow,
+  .heroDecisionGrid,
+  .marketOverviewGrid,
+  .priceKpiRow,
+  .forecastKpiRow,
+  .forecastInsightGrid,
+  .buyingContextGrid,
+  .factorGrid,
+  .productPriceRow {
     grid-template-columns: 1fr !important;
     gap: 8px !important;
   }
@@ -662,6 +971,15 @@
   .featureGrid { grid-template-columns: 1fr; }
   .effectGrid { grid-template-columns: 1fr; }
   .priceStrategyRow { grid-template-columns: repeat(2, 1fr); }
+  .heroDecisionGrid { grid-template-columns: repeat(2, 1fr); }
+  .marketOverviewGrid { grid-template-columns: 1fr; }
+  .priceKpiRow { grid-template-columns: repeat(2, 1fr); }
+  .forecastKpiRow { grid-template-columns: repeat(2, 1fr); }
+  .forecastInsightGrid { grid-template-columns: 1fr; }
+  .buyingContextGrid { grid-template-columns: repeat(2, 1fr); }
+  .factorGrid { grid-template-columns: 1fr; }
+  .productPriceRow { grid-template-columns: repeat(2, 1fr); }
+  .timingCard { flex-direction: column; gap: 10px; }
   .reportHeaderTop { flex-direction: column; gap: 16px; }
   .reportActionBadge { flex-direction: row; align-self: flex-start; }
   .reportKpiRow { flex-wrap: wrap; }

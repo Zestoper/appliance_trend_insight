@@ -1,0 +1,415 @@
+/* ── Screen base ── */
+.page {
+  min-height: 100vh;
+  background: #f4f4f6;
+}
+
+/* ── Toolbar (screen only) ── */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 32px;
+  background: #fff;
+  border-bottom: 1px solid #e5e5e5;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  flex-wrap: wrap;
+}
+
+.backBtn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1.5px solid #d1d5db;
+  background: transparent;
+  color: #374151;
+  font-size: 13px;
+  cursor: pointer;
+}
+.backBtn:hover { background: #f9fafb; }
+
+.toolbarInfo {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.catTag {
+  padding: 4px 12px;
+  border-radius: 20px;
+  background: rgba(99,102,241,.1);
+  color: #6366f1;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.pagesTags { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.pagesTag {
+  padding: 3px 10px;
+  border-radius: 6px;
+  background: #f3f4f6;
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.totalTag {
+  padding: 3px 10px;
+  border-radius: 6px;
+  background: rgba(99,102,241,.08);
+  color: #6366f1;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.printBtn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: none;
+  background: #6366f1;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.printBtn:hover { background: #4f46e5; }
+
+/* ── Document ── */
+.doc {
+  max-width: 900px;
+  margin: 32px auto;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 16px rgba(0,0,0,.08);
+  padding: 48px 56px;
+}
+
+/* ── Doc header ── */
+.docHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 36px;
+  padding-bottom: 24px;
+  border-bottom: 2px solid #6366f1;
+}
+
+.docLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6366f1;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  margin: 0 0 6px;
+}
+
+.docTitle {
+  font-size: 24px;
+  font-weight: 800;
+  color: #111;
+  margin: 0 0 6px;
+}
+
+.docMeta {
+  font-size: 12px;
+  color: #6b7280;
+  margin: 0;
+}
+
+.docLogo {
+  font-size: 18px;
+  font-weight: 800;
+  color: #6366f1;
+  letter-spacing: -.03em;
+}
+
+/* ── Page block (one per page type) ── */
+.pageBlock {
+  margin-bottom: 40px;
+}
+
+.pageBlockHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.pageIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(99,102,241,.1);
+  color: #6366f1;
+  flex-shrink: 0;
+}
+
+.pageBlockTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: #111;
+}
+
+.pageBlockSub {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+/* ── Section block ── */
+.secBlock {
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #f3f4f6;
+}
+.secBlock:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+
+/* ── Sub heading ── */
+.subHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.subNum {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: #6366f1;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.subTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+}
+
+/* ── KPI row ── */
+.kpiRow {
+  display: flex;
+  gap: 1px;
+  background: #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+
+.kpi {
+  flex: 1;
+  padding: 14px 12px;
+  background: #f9fafb;
+  text-align: center;
+  min-width: 0;
+}
+
+.kpiLabel {
+  font-size: 10px;
+  color: #6b7280;
+  margin: 0 0 5px;
+  font-weight: 500;
+}
+
+.kpiVal {
+  font-size: 16px;
+  font-weight: 700;
+  color: #111;
+  margin: 0 0 3px;
+  word-break: break-word;
+}
+
+.kpiSub {
+  font-size: 9px;
+  color: #9ca3af;
+  margin: 0;
+}
+
+/* ── Table ── */
+.table { margin-bottom: 12px; }
+
+.tableTitle {
+  font-size: 11px;
+  font-weight: 600;
+  color: #374151;
+  margin: 0 0 6px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+th {
+  background: #f3f4f6;
+  padding: 7px 10px;
+  text-align: left;
+  font-weight: 600;
+  color: #374151;
+  font-size: 11px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+td {
+  padding: 7px 10px;
+  border-bottom: 1px solid #f3f4f6;
+  color: #374151;
+}
+
+tr:last-child td { border-bottom: none; }
+
+/* ── Bar ── */
+.barWrap {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.bar {
+  height: 6px;
+  background: #6366f1;
+  border-radius: 3px;
+  min-width: 4px;
+}
+
+/* ── Info box ── */
+.infoBox {
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: #f9fafb;
+  border-left: 3px solid var(--box-accent, #6366f1);
+  margin-bottom: 10px;
+}
+
+.infoTitle {
+  font-size: 10px;
+  font-weight: 700;
+  color: #6b7280;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  margin: 0 0 5px;
+}
+
+.infoText {
+  font-size: 12px;
+  color: #111;
+  margin: 0;
+  line-height: 1.7;
+}
+
+.infoList {
+  font-size: 12px;
+  color: #374151;
+  margin: 0;
+  padding-left: 16px;
+  line-height: 1.9;
+}
+
+/* ── Two col ── */
+.twoCol {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+/* ── Tag row ── */
+.tagRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag {
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: rgba(99,102,241,.08);
+  border: 1px solid rgba(99,102,241,.2);
+  color: #6366f1;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+/* ── Footer ── */
+.docFooter {
+  margin-top: 36px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #9ca3af;
+}
+
+/* ── Utility ── */
+.center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 0;
+  gap: 16px;
+  color: #6b7280;
+}
+
+.spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid #e5e7eb;
+  border-top-color: #6366f1;
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.errorBox {
+  padding: 16px;
+  border-radius: 10px;
+  background: #fef2f2;
+  color: #dc2626;
+  font-size: 14px;
+  text-align: center;
+  margin: 40px 0;
+}
+
+/* ── Print ── */
+@media print {
+  .toolbar { display: none; }
+
+  .page { background: #fff; }
+
+  .doc {
+    margin: 0;
+    padding: 20px 28px;
+    box-shadow: none;
+    border-radius: 0;
+    max-width: 100%;
+  }
+
+  /* 제목이 페이지 끝에 혼자 남지 않도록 */
+  .pageBlockHeader { break-after: avoid; }
+  .subHead         { break-after: avoid; }
+
+  /* 섹션 단위 잘림 방지 (합리적인 크기의 섹션만) */
+  .secBlock        { break-inside: avoid; }
+
+  /* KPI·테이블 행 잘림 방지 */
+  .kpiRow { break-inside: avoid; background: #f0f0f4; }
+  .kpi    { background: #f9f9fc; }
+  tr      { break-inside: avoid; }
+}

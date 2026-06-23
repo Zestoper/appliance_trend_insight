@@ -56,19 +56,6 @@ const SERVICE_ITEMS = [
 
 const B2B_ITEMS = [
   {
-    label: '통합 인텔리전스',
-    desc: '5개 분석을 하나로 — 기업용 종합 리포트',
-    path: '/b2b/intelligence',
-    badge: 'NEW',
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="10" />
-        <line x1="12" y1="8" x2="12" y2="12" />
-        <line x1="12" y1="16" x2="12.01" y2="16" />
-      </svg>
-    ),
-  },
-  {
     label: '시장 분석',
     desc: '카테고리별 검색 관심도·트렌드',
     path: '/b2b/dashboard',
@@ -116,17 +103,6 @@ const B2B_ITEMS = [
       </svg>
     ),
   },
-  {
-    label: '가격 모니터',
-    desc: '전 카테고리 가격 변동 실시간 감지',
-    path: '/b2b/monitor',
-    badge: '신규',
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M18 20V10" /><path d="M12 20V4" /><path d="M6 20v-6" />
-      </svg>
-    ),
-  },
 ]
 
 const _ALL_APPLIANCE_TERMS = [
@@ -164,7 +140,7 @@ export default function Navbar() {
   const navigate = useNavigate()
   const location = useLocation()
   const [mode, setMode] = useState(() => localStorage.getItem('navMode') ?? 'b2c')
-  const B2B_ONLY_PATHS = ['/b2b', '/b2b/dashboard', '/b2b/price', '/b2b/report', '/b2b/forecast', '/b2b/monitor', '/b2b/intelligence']
+  const B2B_ONLY_PATHS = ['/b2b', '/b2b/dashboard', '/b2b/price', '/b2b/report', '/b2b/forecast']
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [scrollProgress, setScrollProgress] = useState(0)
   const [isHidden, setIsHidden] = useState(false)

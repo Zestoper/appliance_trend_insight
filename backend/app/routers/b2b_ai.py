@@ -321,14 +321,14 @@ async def get_ai_report(category: str = Query(..., min_length=1), period: str = 
             f'    "소비자 수요 근거: {top_purpose} / {sec_purpose} 구매 목적 기반 수요 판단"\n'
             f'  ],\n'
             f'  "opportunity": [\n'
-            f'    "성수기·트렌드 기회: {peak_months} 성수기 진입에 따른 수요 급증 기대, 현재 관심도 {trend_dir_str} 흐름과 부합",\n'
-            f'    "소비자 니즈 기회: {top_purpose} 및 {sec_purpose} 중심 구매 수요가 견고하며 {top_brand} 선호층 공략 가능",\n'
-            f'    "연관 제품 기회: {top_related}·{top_related2} 연관 구매 패턴이 번들 제안 및 교차 매출 확대 기회 제공"\n'
+            f'    {{"title": "성수기 진입", "evidence": "{peak_months} 성수기 전 관심도 {trend_dir_str} 흐름 확인, 수요 집중 예상", "meaning": "성수기 {peak_months} 2~4주 전 선매입으로 기회 선점 가능"}},\n'
+            f'    {{"title": "소비자 니즈 명확화", "evidence": "{top_purpose}·{sec_purpose} 키워드 실수요 상위 확인", "meaning": "기능 중심 상품 구성이 판매 전환율 향상에 유리"}},\n'
+            f'    {{"title": "연관 구매 가능성", "evidence": "{top_related}·{top_related2} 등 연관 가전 동반 언급 빈도 높음", "meaning": "패키지·번들 판매 기회로 객단가 상승 가능"}}\n'
             f'  ],\n'
             f'  "risk_summary": [\n'
-            f'    "브랜드 경쟁 리스크: {top3} 상위 브랜드 집중 구조로 중소 브랜드 가격 압박 및 마진 축소 우려",\n'
-            f'    "수요 변동 리스크: 검색 관심도 {trend_dir_str} 흐름이 지속 시 {off_months} 비수기 재고 부담 가중 가능",\n'
-            f'    "계절성 리스크: {off_months} 비수기 집중으로 과잉 매입 시 재고 회전 저하 및 운영비용 상승"\n'
+            f'    {{"title": "브랜드 경쟁 심화", "evidence": "{top3} 상위 브랜드 집중 구조", "meaning": "단순 가격 경쟁보다 기능 차별화 및 서비스 강화 필요"}},\n'
+            f'    {{"title": "비수기 재고 부담", "evidence": "{off_months} 수요 급감 이력 존재", "meaning": "과잉 매입 시 재고 회전 저하 및 운영비용 상승 위험"}},\n'
+            f'    {{"title": "계절성 리스크", "evidence": "성수기({peak_months}) 외 검색 관심도 급격히 하락", "meaning": "{off_months} 비수기 재고 운영 비용 관리 필요"}}\n'
             f'  ],\n'
             f'  "target_segment": "구체적 소비 타깃 (예: 30~50대 {top_purpose} 중심 구매층)",\n'
             f'  "price_range": "데이터 기반 추천 가격대 (예: 50~120만원 프리미엄 라인)",\n'
@@ -428,8 +428,16 @@ async def get_ai_report(category: str = Query(..., min_length=1), period: str = 
             "growth_rate": growth,
             "risk":        risk,
         },
-        "brands": brand_data,
-        "report": report,
+        "brands":  brand_data,
+        "report":  report,
+        "context": {
+            "peak_months": ctx.get("peak_months", "-"),
+            "off_months":  ctx.get("off_months",  "-"),
+            "install":     ctx.get("install", []),
+            "purpose":     ctx.get("purpose", []),
+            "related":     ctx.get("related", []),
+            "region":      ctx.get("region",  []),
+        },
     }
     if "_groq_error" not in report:
         _GROQ_CACHE[_ck] = (_time.time() + _GROQ_TTL, result)

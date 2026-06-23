@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/common/Navbar';
 import B2BSidebar from '../components/common/B2BSidebar';
+import B2BPrintModal from '../components/common/B2BPrintModal';
 import { useAuth } from '../context/AuthContext';
 import s from '../styles/B2BPrice.module.css';
 import { API_BASE } from '../config';
@@ -173,6 +174,14 @@ export default function B2BPrice() {
   const [error, setError]       = useState(null);
   const [fetchedAt, setFetchedAt] = useState(null);
 
+  const [printModal, setPrintModal] = useState(false);
+
+  /* 가격 알림 */
+  const [alertModal,  setAlertModal]  = useState(false);
+  const [alertPrice,  setAlertPrice]  = useState('');
+  const [alerts,      setAlerts]      = useState([]);
+  const [alertSaving, setAlertSaving] = useState(false);
+
   const isB2BActive = (user?.user_type === 'b2b' && user?.status === 'active') || user?.role === 'admin';
 
   const loadData = () => {
@@ -189,6 +198,36 @@ export default function B2BPrice() {
   };
 
   useEffect(() => { loadData(); }, [category, isB2BActive]);
+
+  const loadAlerts = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/b2b/alerts`, { headers: { Authorization: `Bearer ${token}` } });
+      const d = await res.json();
+      setAlerts(Array.isArray(d) ? d : d.alerts ?? []);
+    } catch { setAlerts([]); }
+  };
+
+  const saveAlert = async () => {
+    const p = parseInt(alertPrice.replace(/,/g, ''), 10);
+    if (!p || p <= 0) return;
+    setAlertSaving(true);
+    await fetch(`${API_BASE}/api/b2b/alerts`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ category, target_price: p }),
+    });
+    setAlertPrice('');
+    await loadAlerts();
+    setAlertSaving(false);
+  };
+
+  const deleteAlert = async (id) => {
+    await fetch(`${API_BASE}/api/b2b/alerts/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    setAlerts(prev => prev.filter(a => a.alert_id !== id));
+  };
 
   if (!isB2BActive) return <AccessDenied user={user} navigate={navigate} />;
 
@@ -257,14 +296,20 @@ export default function B2BPrice() {
                       <h1 className={s.reportTitle}>{category} 가격 분석</h1>
                       <p className={s.reportMeta}>{today} 기준 · 분석 제품 {totalProds?.toLocaleString() ?? '-'}개 · 네이버 쇼핑 + Danawa</p>
                     </div>
-                    {pi && (
-                      <div className={s.reportStatusBadge} style={{ borderColor: `${sigColor}40`, background: `${sigColor}08` }}>
-                        <span className={s.reportStatusIcon} style={{ color: sigColor }}>
-                          {signal === '매입 적기' ? '↓' : signal === '관망 권장' ? '◎' : '→'}
-                        </span>
-                        <span className={s.reportStatusText} style={{ color: sigColor }}>{signal}</span>
-                      </div>
-                    )}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      {pi && (
+                        <div className={s.reportStatusBadge} style={{ borderColor: `${sigColor}40`, background: `${sigColor}08` }}>
+                          <span className={s.reportStatusIcon} style={{ color: sigColor }}>
+                            {signal === '매입 적기' ? '↓' : signal === '관망 권장' ? '◎' : '→'}
+                          </span>
+                          <span className={s.reportStatusText} style={{ color: sigColor }}>{signal}</span>
+                        </div>
+                      )}
+                      <button
+                        className={s.alertBtn}
+                        onClick={() => { setAlertModal(true); loadAlerts(); }}
+                      >알림 설정</button>
+                    </div>
                   </div>
                   <div className={s.reportKpiRow}>
                     {[
@@ -515,10 +560,53 @@ export default function B2BPrice() {
             category={category} setCategory={setCategory}
             dataSources={['네이버 쇼핑 API', 'Danawa', 'Groq LLM']}
             onRefresh={loadData} loading={loading} fetchedAt={fetchedAt}
-            onDownload={() => window.print()}
+            onDownload={() => setPrintModal(true)}
           />
         </div>
       </div>
+
+      {/* ── 가격 알림 모달 ── */}
+      {alertModal && (
+        <div className={s.modalBackdrop} onClick={() => setAlertModal(false)}>
+          <div className={s.modal} onClick={e => e.stopPropagation()}>
+            <div className={s.modalHeader}>
+              <h3 className={s.modalTitle}>가격 알림 설정</h3>
+              <button className={s.modalClose} onClick={() => setAlertModal(false)}>✕</button>
+            </div>
+            <p className={s.modalSub}>{category} · 목표 가격 이하 시 알림</p>
+            <div className={s.modalInputRow}>
+              <input
+                className={s.modalInput}
+                type="text"
+                placeholder="목표 가격 입력 (원)"
+                value={alertPrice}
+                onChange={e => setAlertPrice(e.target.value.replace(/[^0-9]/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ','))}
+                onKeyDown={e => e.key === 'Enter' && saveAlert()}
+              />
+              <button className={s.modalSaveBtn} onClick={saveAlert} disabled={alertSaving}>
+                {alertSaving ? '저장 중...' : '저장'}
+              </button>
+            </div>
+            {alerts.length > 0 && (
+              <ul className={s.alertList}>
+                {alerts.map(a => (
+                  <li key={a.alert_id} className={s.alertItem}>
+                    <span>{a.category} · {a.target_price?.toLocaleString()}원 이하</span>
+                    <button className={s.alertDel} onClick={() => deleteAlert(a.alert_id)}>삭제</button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+
+      <B2BPrintModal
+        open={printModal}
+        onClose={() => setPrintModal(false)}
+        category={category}
+        period="3m"
+      />
     </div>
   );
 }
