@@ -2,27 +2,23 @@ import os
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from dotenv import load_dotenv
+
+load_dotenv()
+
+SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USER = os.getenv("SMTP_USER", "")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
 
 
-def _smtp_config():
-    return {
-        "user": os.getenv("SMTP_USER") or os.getenv("SMTP_EMAIL"),
-        "password": os.getenv("SMTP_PASSWORD"),
-        "host": os.getenv("SMTP_HOST", "smtp.gmail.com"),
-        "port": int(os.getenv("SMTP_PORT", "587")),
-    }
-
-
-def _send_smtp(cfg: dict, to_email: str, msg: MIMEMultipart):
-    if cfg["port"] == 465:
-        with smtplib.SMTP_SSL(cfg["host"], cfg["port"], timeout=15) as s:
-            s.login(cfg["user"], cfg["password"])
-            s.sendmail(cfg["user"], to_email, msg.as_string())
-    else:
-        with smtplib.SMTP(cfg["host"], cfg["port"], timeout=15) as s:
-            s.starttls()
-            s.login(cfg["user"], cfg["password"])
-            s.sendmail(cfg["user"], to_email, msg.as_string())
+def _send_smtp(to_email: str, msg: MIMEMultipart):
+    print(f"[EMAIL] 발송 시도: host={SMTP_HOST} port={SMTP_PORT} user={SMTP_USER} to={to_email}")
+    with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
+        server.starttls()
+        server.login(SMTP_USER, SMTP_PASSWORD)
+        server.sendmail(SMTP_USER, to_email, msg.as_string())
+    print(f"[EMAIL] 발송 성공: {to_email}")
 
 
 def _make_verification_html(code: str) -> str:
@@ -80,16 +76,15 @@ def _make_verification_html(code: str) -> str:
 
 
 def send_verification_email(to_email: str, code: str):
-    cfg = _smtp_config()
-    if not cfg["user"] or not cfg["password"]:
+    if not SMTP_USER or not SMTP_PASSWORD:
         print(f"\n[DEV] 인증코드 → {to_email} : {code}\n")
         return
     msg = MIMEMultipart()
-    msg["From"] = cfg["user"]
+    msg["From"] = SMTP_USER
     msg["To"] = to_email
     msg["Subject"] = "[가전무쌍] 이메일 인증코드"
     msg.attach(MIMEText(_make_verification_html(code), "html", "utf-8"))
-    _send_smtp(cfg, to_email, msg)
+    _send_smtp(to_email, msg)
 
 
 def send_rejection_email(to_email: str, company_name: str):
@@ -144,16 +139,15 @@ def send_rejection_email(to_email: str, company_name: str):
   </table>
 </body>
 </html>"""
-    cfg = _smtp_config()
-    if not cfg["user"] or not cfg["password"]:
+    if not SMTP_USER or not SMTP_PASSWORD:
         print(f"\n[DEV] 거절 이메일 → {to_email} ({display})\n")
         return
     msg = MIMEMultipart()
-    msg["From"] = cfg["user"]
+    msg["From"] = SMTP_USER
     msg["To"] = to_email
     msg["Subject"] = "[가전무쌍] 사업자 계정 가입 심사 결과 안내"
     msg.attach(MIMEText(html, "html", "utf-8"))
-    _send_smtp(cfg, to_email, msg)
+    _send_smtp(to_email, msg)
 
 
 def send_buy_signal_alert(to_email: str, company_name: str, buy_categories: list[dict]):
@@ -239,16 +233,15 @@ def send_buy_signal_alert(to_email: str, company_name: str, buy_categories: list
 </body>
 </html>"""
     try:
-        cfg = _smtp_config()
-        if not cfg["user"] or not cfg["password"]:
+        if not SMTP_USER or not SMTP_PASSWORD:
             print(f"\n[DEV] 매입 알림 → {to_email} | 카테고리: {[c['category'] for c in buy_categories]}\n")
             return
         msg = MIMEMultipart()
-        msg["From"] = cfg["user"]
+        msg["From"] = SMTP_USER
         msg["To"] = to_email
         msg["Subject"] = subject
         msg.attach(MIMEText(html, "html", "utf-8"))
-        _send_smtp(cfg, to_email, msg)
+        _send_smtp(to_email, msg)
     except Exception as e:
         print(f"[email] 매입 알림 발송 실패 → {to_email}: {e}")
 
@@ -306,16 +299,15 @@ def send_approval_email(to_email: str, company_name: str):
   </table>
 </body>
 </html>"""
-    cfg = _smtp_config()
-    if not cfg["user"] or not cfg["password"]:
+    if not SMTP_USER or not SMTP_PASSWORD:
         print(f"\n[DEV] 승인 이메일 → {to_email} ({display})\n")
         return
     msg = MIMEMultipart()
-    msg["From"] = cfg["user"]
+    msg["From"] = SMTP_USER
     msg["To"] = to_email
     msg["Subject"] = "[가전무쌍] 사업자 계정이 승인되었습니다 🎉"
     msg.attach(MIMEText(html, "html", "utf-8"))
-    _send_smtp(cfg, to_email, msg)
+    _send_smtp(to_email, msg)
 
 
 def send_price_alert_email(to_email: str, company_name: str, category: str,
@@ -373,15 +365,14 @@ def send_price_alert_email(to_email: str, company_name: str, category: str,
 </table>
 </body></html>"""
     try:
-        cfg = _smtp_config()
-        if not cfg["user"] or not cfg["password"]:
+        if not SMTP_USER or not SMTP_PASSWORD:
             print(f"\n[DEV] 가격 알림 → {to_email} | {category} 현재 {fmt(current_price)} (목표 {fmt(target_price)})\n")
             return
         msg = MIMEMultipart()
-        msg["From"] = cfg["user"]
+        msg["From"] = SMTP_USER
         msg["To"] = to_email
         msg["Subject"] = subject
         msg.attach(MIMEText(html, "html", "utf-8"))
-        _send_smtp(cfg, to_email, msg)
+        _send_smtp(to_email, msg)
     except Exception as e:
         print(f"[email] 가격 알림 발송 실패 → {to_email}: {e}")
