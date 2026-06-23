@@ -1,8 +1,10 @@
 import os
 import smtplib
+import httpx
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
+
 
 load_dotenv()
 
@@ -12,13 +14,41 @@ SMTP_USER = os.getenv("SMTP_USER", "")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
 
 
-def _send_smtp(to_email: str, msg: MIMEMultipart):
-    print(f"[EMAIL] 발송 시도: host={SMTP_HOST} port={SMTP_PORT} user={SMTP_USER} to={to_email}")
+def _send_sendgrid(to_email: str, subject: str, html: str):
+    api_key = os.getenv("SENDGRID_API_KEY")
+    resp = httpx.post(
+        "https://api.sendgrid.com/v3/mail/send",
+        headers={"Authorization": f"Bearer {api_key}"},
+        json={
+            "personalizations": [{"to": [{"email": to_email}]}],
+            "from": {"email": SMTP_USER, "name": "가전무쌍"},
+            "subject": subject,
+            "content": [{"type": "text/html", "value": html}],
+        },
+        timeout=15,
+    )
+    resp.raise_for_status()
+
+
+def _send_email(to_email: str, subject: str, html: str):
+    """SendGrid 우선, 없으면 SMTP (로컬 개발용)"""
+    if os.getenv("SENDGRID_API_KEY"):
+        _send_sendgrid(to_email, subject, html)
+        return
+    if not SMTP_USER or not SMTP_PASSWORD:
+        print(f"\n[DEV] 이메일 미발송 → {to_email} | {subject}\n")
+        return
+    msg = MIMEMultipart()
+    msg["From"] = SMTP_USER
+    msg["To"] = to_email
+    msg["Subject"] = subject
+    msg.attach(MIMEText(html, "html", "utf-8"))
+    print(f"[EMAIL] SMTP 발송 시도: {to_email}")
     with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
         server.starttls()
         server.login(SMTP_USER, SMTP_PASSWORD)
         server.sendmail(SMTP_USER, to_email, msg.as_string())
-    print(f"[EMAIL] 발송 성공: {to_email}")
+    print(f"[EMAIL] SMTP 발송 성공: {to_email}")
 
 
 def _make_verification_html(code: str) -> str:
@@ -76,15 +106,7 @@ def _make_verification_html(code: str) -> str:
 
 
 def send_verification_email(to_email: str, code: str):
-    if not SMTP_USER or not SMTP_PASSWORD:
-        print(f"\n[DEV] 인증코드 → {to_email} : {code}\n")
-        return
-    msg = MIMEMultipart()
-    msg["From"] = SMTP_USER
-    msg["To"] = to_email
-    msg["Subject"] = "[가전무쌍] 이메일 인증코드"
-    msg.attach(MIMEText(_make_verification_html(code), "html", "utf-8"))
-    _send_smtp(to_email, msg)
+    _send_email(to_email, "[가전무쌍] 이메일 인증코드", _make_verification_html(code))
 
 
 def send_rejection_email(to_email: str, company_name: str):
@@ -139,15 +161,7 @@ def send_rejection_email(to_email: str, company_name: str):
   </table>
 </body>
 </html>"""
-    if not SMTP_USER or not SMTP_PASSWORD:
-        print(f"\n[DEV] 거절 이메일 → {to_email} ({display})\n")
-        return
-    msg = MIMEMultipart()
-    msg["From"] = SMTP_USER
-    msg["To"] = to_email
-    msg["Subject"] = "[가전무쌍] 사업자 계정 가입 심사 결과 안내"
-    msg.attach(MIMEText(html, "html", "utf-8"))
-    _send_smtp(to_email, msg)
+    _send_email(to_email, "[가전무쌍] 사업자 계정 가입 심사 결과 안내", html)
 
 
 def send_buy_signal_alert(to_email: str, company_name: str, buy_categories: list[dict]):
@@ -233,15 +247,7 @@ def send_buy_signal_alert(to_email: str, company_name: str, buy_categories: list
 </body>
 </html>"""
     try:
-        if not SMTP_USER or not SMTP_PASSWORD:
-            print(f"\n[DEV] 매입 알림 → {to_email} | 카테고리: {[c['category'] for c in buy_categories]}\n")
-            return
-        msg = MIMEMultipart()
-        msg["From"] = SMTP_USER
-        msg["To"] = to_email
-        msg["Subject"] = subject
-        msg.attach(MIMEText(html, "html", "utf-8"))
-        _send_smtp(to_email, msg)
+        _send_email(to_email, subject, html)
     except Exception as e:
         print(f"[email] 매입 알림 발송 실패 → {to_email}: {e}")
 
@@ -299,15 +305,7 @@ def send_approval_email(to_email: str, company_name: str):
   </table>
 </body>
 </html>"""
-    if not SMTP_USER or not SMTP_PASSWORD:
-        print(f"\n[DEV] 승인 이메일 → {to_email} ({display})\n")
-        return
-    msg = MIMEMultipart()
-    msg["From"] = SMTP_USER
-    msg["To"] = to_email
-    msg["Subject"] = "[가전무쌍] 사업자 계정이 승인되었습니다 🎉"
-    msg.attach(MIMEText(html, "html", "utf-8"))
-    _send_smtp(to_email, msg)
+    _send_email(to_email, "[가전무쌍] 사업자 계정이 승인되었습니다 🎉", html)
 
 
 def send_price_alert_email(to_email: str, company_name: str, category: str,
@@ -365,14 +363,6 @@ def send_price_alert_email(to_email: str, company_name: str, category: str,
 </table>
 </body></html>"""
     try:
-        if not SMTP_USER or not SMTP_PASSWORD:
-            print(f"\n[DEV] 가격 알림 → {to_email} | {category} 현재 {fmt(current_price)} (목표 {fmt(target_price)})\n")
-            return
-        msg = MIMEMultipart()
-        msg["From"] = SMTP_USER
-        msg["To"] = to_email
-        msg["Subject"] = subject
-        msg.attach(MIMEText(html, "html", "utf-8"))
-        _send_smtp(to_email, msg)
+        _send_email(to_email, subject, html)
     except Exception as e:
         print(f"[email] 가격 알림 발송 실패 → {to_email}: {e}")
