@@ -21,17 +21,28 @@ def _to_pg(sql: str) -> str:
 async def get_pool() -> asyncpg.Pool:
     global _pool
     if _pool is None:
-        _pool = await asyncpg.create_pool(
-            host=os.getenv("DB_HOST"),
-            port=int(os.getenv("DB_PORT", 5432)),
-            user=os.getenv("DB_USER", "postgres"),
-            password=os.getenv("DB_PASSWORD", ""),
-            database=os.getenv("DB_NAME", "postgres"),
-            ssl="require",
-            min_size=1,
-            max_size=10,
-            statement_cache_size=0,  # pgBouncer(Supabase pooler) 호환
-        )
+        dsn = os.getenv("DATABASE_URL")
+        if dsn:
+            # postgresql://... 형식의 URL을 직접 사용 (Supabase Connect 버튼에서 복사)
+            _pool = await asyncpg.create_pool(
+                dsn=dsn,
+                ssl="require",
+                min_size=1,
+                max_size=10,
+                statement_cache_size=0,
+            )
+        else:
+            _pool = await asyncpg.create_pool(
+                host=os.getenv("DB_HOST"),
+                port=int(os.getenv("DB_PORT", 5432)),
+                user=os.getenv("DB_USER", "postgres"),
+                password=os.getenv("DB_PASSWORD", ""),
+                database=os.getenv("DB_NAME", "postgres"),
+                ssl="require",
+                min_size=1,
+                max_size=10,
+                statement_cache_size=0,
+            )
     return _pool
 
 
