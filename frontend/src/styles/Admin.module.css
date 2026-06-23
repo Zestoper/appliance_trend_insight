@@ -417,3 +417,48 @@
   from { opacity: 0; transform: translateX(-50%) translateY(12px); }
   to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
+
+@media (max-width: 640px) {
+  .page { padding: 68px 16px 60px; }
+
+  /* 헤더 */
+  .header { margin-bottom: 20px; gap: 10px; }
+  .title  { font-size: 20px; }
+  .sub    { font-size: 12px; }
+  .homeBtn { padding: 7px 12px; font-size: 12px; }
+
+  /* 통계 카드 4→2열 */
+  .statsRow  { grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 16px; }
+  .statCard  { padding: 14px 12px; }
+  .statValue { font-size: 20px; }
+  .statIcon  { font-size: 18px; }
+
+  /* 탭 */
+  .tabs   { padding: 4px; gap: 3px; margin-bottom: 14px; }
+  .tabBtn { padding: 8px 6px; font-size: 12px; }
+
+  /* 유저 카드: 세로 재배치 */
+  .card {
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    padding: 16px;
+    align-items: flex-start;
+  }
+  .cardBody { flex: 1 1 0; min-width: 0; }
+  .cardTop  { flex-wrap: wrap; gap: 5px 8px; }
+  .companyName { font-size: 14px; }
+
+  /* 날짜·버튼 행: 아바타(48px) + gap(14px) = 62px 들여쓰기 */
+  .cardDate {
+    order: 3;
+    width: 100%;
+    padding-left: 62px;
+  }
+  .actions {
+    order: 4;
+    width: 100%;
+    padding-left: 62px;
+    justify-content: flex-start;
+  }
+  .approveBtn, .rejectBtn { padding: 8px 14px; font-size: 12px; }
+}
