@@ -47,6 +47,9 @@ class LoginRequest(BaseModel):
 async def send_code(body: SendCodeRequest):
     if not re.match(r"^[^\s@]+@[^\s@]+\.[^\s@]+$", body.email):
         raise HTTPException(status_code=400, detail="올바른 이메일 주소를 입력해주세요")
+    from app.database import get_user_by_email
+    if await get_user_by_email(body.email):
+        raise HTTPException(status_code=409, detail="이미 가입된 이메일입니다")
     import os as _os
     if _os.getenv("SKIP_EMAIL_VERIFICATION") == "true":
         code = "123456"

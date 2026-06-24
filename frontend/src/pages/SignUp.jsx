@@ -114,6 +114,8 @@ export default function Signup() {
     digitRefs.current[focusIdx]?.focus()
   }
   const [password, setPassword] = useState('')
+  const [confirmPw, setConfirmPw] = useState('')
+  const [showConfirmPw, setShowConfirmPw] = useState(false)
   const [nickname, setNickname] = useState('')
   const [companyName, setCompanyName] = useState('')
   const [businessType, setBusinessType] = useState('')
@@ -131,7 +133,7 @@ export default function Signup() {
   const canNext = [
     !!email,
     code.length === 6 && countdown.active,
-    password.length >= 6,
+    password.length >= 6 && confirmPw === password,
     userType === 'b2c' ? !!nickname : !!companyName && !!businessType,
   ][step]
 
@@ -347,6 +349,22 @@ export default function Signup() {
                   </div>
                   <span className={s.pwLabel} style={{ color: pwStrength.color }}>{pwStrength.label}</span>
                 </div>
+              )}
+              <div className={styles.field} style={{ marginTop: 12 }}>
+                <input id="confirmPw" type={showConfirmPw ? 'text' : 'password'} className={styles.input}
+                  placeholder=" " value={confirmPw}
+                  onChange={e => { setConfirmPw(e.target.value); setError('') }}
+                  style={{ paddingRight: '44px' }}
+                  onKeyDown={e => { if (!e.nativeEvent.isComposing && e.key === 'Enter') next() }} />
+                <label htmlFor="confirmPw" className={styles.floatLabel}>비밀번호 확인</label>
+                <button type="button" className={styles.eyeBtn} onClick={() => setShowConfirmPw(v => !v)}>
+                  <EyeIcon hidden={!showConfirmPw} />
+                </button>
+              </div>
+              {confirmPw && (
+                <p style={{ fontSize: 12, marginTop: 4, color: confirmPw === password ? '#22c55e' : '#ef4444' }}>
+                  {confirmPw === password ? '✓ 비밀번호가 일치합니다' : '✗ 비밀번호가 일치하지 않습니다'}
+                </p>
               )}
             </>
           )}
