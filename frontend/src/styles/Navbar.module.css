@@ -872,7 +872,7 @@
   /* 데스크탑 전용 숨김 */
   .navItems    { display: none; }
   .toggle      { display: none; }
-  .themeToggle { display: none; }
+  .navRight .themeToggle { display: none; }
   .userWrap    { display: none; }
   .ctaBtn      { display: none; }
   .adminBtn    { display: none; }

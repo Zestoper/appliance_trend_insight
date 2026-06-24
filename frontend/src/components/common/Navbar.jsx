@@ -189,8 +189,11 @@ export default function Navbar() {
       const scrollHeight = container ? container.scrollHeight : document.body.scrollHeight
       const clientHeight = container ? container.clientHeight : window.innerHeight
       setScrollProgress(Math.round((scrollTop / Math.max(scrollHeight - clientHeight, 1)) * 100))
-      setIsHidden(scrollTop > 0)
-      lastScrollY.current = scrollTop
+      const delta = scrollTop - lastScrollY.current
+      if (Math.abs(delta) >= 4) {
+        setIsHidden(delta > 0 && scrollTop > 100)
+        lastScrollY.current = scrollTop
+      }
     }
     if (container) {
       container.addEventListener('scroll', onScroll)
