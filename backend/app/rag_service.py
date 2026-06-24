@@ -1,54 +1,86 @@
 import asyncio
 import hashlib
+import json
 import os
-import chromadb
+import httpx
 
-_DEFAULT_CHROMA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "chroma_db")
+_HF_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+_HF_URL = f"https://api-inference.huggingface.co/pipeline/feature-extraction/{_HF_MODEL}"
+_BATCH = 8
 
 
-def _make_embedding_function():
-    if os.getenv("HUGGINGFACE_API_KEY", "").strip():
-        from chromadb.utils.embedding_functions import HuggingFaceEmbeddingFunction
-        print("[RAG] HuggingFace API 임베딩 사용 (원격)")
-        return HuggingFaceEmbeddingFunction()
-    os.environ.setdefault("ONNXRUNTIME_PROVIDERS", "CPUExecutionProvider")
-    from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
-    print("[RAG] 로컬 ONNX 임베딩 사용")
-    return DefaultEmbeddingFunction()
+def _hf_key() -> str:
+    return os.getenv("HUGGINGFACE_API_KEY", "").strip()
+
+
+def _vec_str(v: list[float]) -> str:
+    return "[" + ",".join(f"{x:.6f}" for x in v) + "]"
+
+
+async def _embed(texts: list[str]) -> list[list[float]]:
+    if not texts:
+        return []
+    key = _hf_key()
+    if not key:
+        raise RuntimeError("HUGGINGFACE_API_KEY 없음 — RAG 임베딩 불가")
+    headers = {"Authorization": f"Bearer {key}"}
+    result: list[list[float]] = []
+    async with httpx.AsyncClient() as client:
+        for i in range(0, len(texts), _BATCH):
+            batch = texts[i : i + _BATCH]
+            resp = await client.post(
+                _HF_URL,
+                json={"inputs": batch, "options": {"wait_for_model": True}},
+                headers=headers,
+                timeout=60.0,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            # 응답 형태: 2D (batch×dim) 또는 3D (batch×tokens×dim) → mean pool
+            if isinstance(data[0][0], list):
+                for sent in data:
+                    dim = len(sent[0])
+                    result.append([sum(t[d] for t in sent) / len(sent) for d in range(dim)])
+            else:
+                result.extend(data)
+    return result
 
 
 class RAGService:
-    def __init__(self, db_path: str = _DEFAULT_CHROMA_PATH):
-        print("[RAG] 임베딩 함수 초기화 중...")
-        self._ef = _make_embedding_function()
-        self.client = chromadb.PersistentClient(path=db_path)
-        self.collection = self.client.get_or_create_collection(
-            name="appliance_docs_v2",
-            embedding_function=self._ef,
-            metadata={"hnsw:space": "cosine"},
-        )
-        print("[RAG] 초기화 완료")
-
     @staticmethod
     def _make_id(text: str) -> str:
         return hashlib.md5(text.encode("utf-8")).hexdigest()
 
+    async def count(self) -> int:
+        from app.database import fetchone
+        row = await fetchone("SELECT COUNT(*) AS cnt FROM rag_documents")
+        return int(row["cnt"]) if row else 0
+
     async def add_documents(self, docs: list[dict]) -> None:
-        """docs: [{"text": str, "metadata": dict}]"""
         if not docs:
             return
+        from app.database import execute
         texts = [d["text"] for d in docs]
         ids = [self._make_id(t) for t in texts]
         metadatas = [d.get("metadata", {}) for d in docs]
         try:
-            await asyncio.to_thread(
-                self.collection.upsert,
-                ids=ids,
-                documents=texts,
-                metadatas=metadatas,
-            )
+            embeddings = await _embed(texts)
         except Exception as e:
-            print(f"[RAG] add_documents 오류: {e}")
+            print(f"[RAG] 임베딩 실패: {e}")
+            return
+        for doc_id, text, meta, emb in zip(ids, texts, metadatas, embeddings):
+            try:
+                await execute(
+                    """INSERT INTO rag_documents (id, text, metadata, embedding)
+                       VALUES (%s, %s, %s::jsonb, %s::vector)
+                       ON CONFLICT (id) DO UPDATE
+                       SET text      = EXCLUDED.text,
+                           metadata  = EXCLUDED.metadata,
+                           embedding = EXCLUDED.embedding""",
+                    (doc_id, text, json.dumps(meta, ensure_ascii=False), _vec_str(emb)),
+                )
+            except Exception as e:
+                print(f"[RAG] 문서 저장 실패: {e}")
 
     async def query(
         self,
@@ -56,16 +88,30 @@ class RAGService:
         n_results: int = 5,
         where: dict | None = None,
     ) -> list[str]:
+        from app.database import fetchall
         try:
-            total = self.collection.count()
-            if total == 0:
+            if await self.count() == 0:
                 return []
-            n = min(n_results, total)
-            kwargs: dict = {"query_texts": [query_text], "n_results": n}
+            embeddings = await _embed([query_text])
+            vec = _vec_str(embeddings[0])
             if where:
-                kwargs["where"] = where
-            results = await asyncio.to_thread(self.collection.query, **kwargs)
-            return results["documents"][0] if results.get("documents") else []
+                conds = []
+                params: list = []
+                for k, v in where.items():
+                    conds.append(f"metadata->>{repr(k)} = %s")
+                    params.append(v)
+                params.extend([vec, n_results])
+                rows = await fetchall(
+                    f"SELECT text FROM rag_documents WHERE {' AND '.join(conds)} "
+                    f"ORDER BY embedding <=> %s::vector LIMIT %s",
+                    params,
+                )
+            else:
+                rows = await fetchall(
+                    "SELECT text FROM rag_documents ORDER BY embedding <=> %s::vector LIMIT %s",
+                    (vec, n_results),
+                )
+            return [r["text"] for r in rows]
         except Exception as e:
             print(f"[RAG] query 오류: {e}")
             return []

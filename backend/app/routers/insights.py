@@ -34,7 +34,7 @@ router = APIRouter(prefix="/api/insights", tags=["insights"])
 async def rag_status(rag: "RAGService | None" = Depends(get_rag_optional)):
     if rag is None:
         return {"status": "disabled", "count": 0}
-    return {"status": "ok", "count": rag.collection.count()}
+    return {"status": "ok", "count": await rag.count()}
 
 
 @router.post("/analyze", response_model=InsightResponse)

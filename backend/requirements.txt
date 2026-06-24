@@ -10,7 +10,6 @@ groq==1.2.0
 bcrypt==5.0.0
 python-jose[cryptography]
 asyncpg
-chromadb
 pandas
 prophet
 cmdstanpy

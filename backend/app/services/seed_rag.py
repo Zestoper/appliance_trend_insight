@@ -116,7 +116,7 @@ async def _seed_category(session: httpx.AsyncClient, rag: "RAGService", category
 
 
 async def seed(rag: "RAGService") -> None:
-    count = rag.collection.count()
+    count = await rag.count()
     if count > 0:
         print(f"[RAG] 이미 {count}개 문서 존재 — 시드 생략")
         return
@@ -135,4 +135,4 @@ async def seed(rag: "RAGService") -> None:
                 print(f"[RAG] {category} 시드 실패: {e}")
             await asyncio.sleep(0.3)
 
-    print(f"[RAG] 시딩 완료 — 총 {rag.collection.count()}개 문서")
+    print(f"[RAG] 시딩 완료 — 총 {await rag.count()}개 문서")

@@ -47,7 +47,7 @@ async def lifespan(app: FastAPI):
             from app.rag_service import RAGService
             rag: "RAGService | None" = RAGService()
             deps.set_rag(rag)
-            await _seed_rag(rag)  # 시딩 완료 후 서버 요청 수락
+            asyncio.create_task(_seed_rag(rag))  # 백그라운드 시딩 (서버 먼저 기동)
         except Exception as e:
             deps.set_rag(None)
             print(f"[RAG] initialization skipped: {e}")
