@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/common/Navbar';
 import B2BSidebar from '../components/common/B2BSidebar';
@@ -27,12 +27,6 @@ const SIGNAL_CFG  = {
   '매입 적기': { color: '#10b981', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.2)' },
   '관망 권장': { color: '#8b5cf6', bg: 'rgba(139,92,246,0.08)', border: 'rgba(139,92,246,0.2)' },
   '적정가':    { color: '#6366f1', bg: 'rgba(99,102,241,0.08)', border: 'rgba(99,102,241,0.2)' },
-};
-const JUDGMENT_CFG = {
-  fit:     { color: '#10b981', bg: 'rgba(16,185,129,0.08)',  border: 'rgba(16,185,129,0.25)',  label: '매입 적합' },
-  caution: { color: '#f59e0b', bg: 'rgba(245,158,11,0.08)',  border: 'rgba(245,158,11,0.25)',  label: '매입 주의' },
-  avoid:   { color: '#ef4444', bg: 'rgba(239,68,68,0.08)',   border: 'rgba(239,68,68,0.25)',   label: '매입 비추천' },
-  neutral: { color: '#8b5cf6', bg: 'rgba(139,92,246,0.08)',  border: 'rgba(139,92,246,0.25)',  label: '분석 중' },
 };
 
 function fmt만(won) { return won ? `${Math.round(won / 10000).toLocaleString()}만원` : '-'; }
@@ -90,11 +84,6 @@ export default function B2BReport() {
   const [forecastData, setForecastData] = useState(null);
   const [accuracy,  setAccuracy]      = useState(null);
   const [printModal, setPrintModal]   = useState(false);
-  /* 상품별 매입 분석 */
-  const [productQuery,   setProductQuery]   = useState('');
-  const [productData,    setProductData]    = useState(null);
-  const [productLoading, setProductLoading] = useState(false);
-  const inputRef = useRef(null);
 
   const isB2BActive = (user?.user_type === 'b2b' && user?.status === 'active') || user?.role === 'admin';
   const loadData = () => setRefreshTick(t => t + 1);
@@ -120,20 +109,6 @@ export default function B2BReport() {
     fetch(`${API_BASE}/api/b2b/prediction-accuracy?days=90`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json()).then(setAccuracy).catch(() => {});
   }, [isB2BActive, token]);
-
-  const handleProductSearch = async () => {
-    const q = productQuery.trim();
-    if (!q) return;
-    setProductLoading(true); setProductData(null);
-    try {
-      const r = await fetch(
-        `${API_BASE}/api/b2b/product-insight?q=${encodeURIComponent(q)}&category=${encodeURIComponent(category)}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setProductData(await r.json());
-    } catch { setProductData({ error: '분석 실패' }); }
-    finally { setProductLoading(false); }
-  };
 
   if (!isB2BActive) return <AccessDenied user={user} navigate={navigate} />;
 
@@ -708,105 +683,6 @@ export default function B2BReport() {
                         ))}
                       </div>
                     </div>
-                  )}
-                </div>
-
-                {/* ── 07 상품별 매입 분석 ── */}
-                <div className={s.section}>
-                  <SectionHead num="07" title="상품별 매입 분석" />
-                  <div className={s.productSearchRow}>
-                    <input
-                      ref={inputRef}
-                      className={s.productSearchInput}
-                      type="text"
-                      placeholder={`상품명 또는 모델번호 검색 (예: LG 벽걸이 에어컨)`}
-                      value={productQuery}
-                      onChange={e => setProductQuery(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && handleProductSearch()}
-                    />
-                    <button
-                      className={s.productSearchBtn}
-                      onClick={handleProductSearch}
-                      disabled={productLoading || !productQuery.trim()}
-                    >
-                      {productLoading ? '분석 중...' : '매입 분석'}
-                    </button>
-                  </div>
-
-                  {productLoading && (
-                    <div className={s.productLoading}>
-                      <div className={s.spinner} />
-                      <p>"{productQuery}" 매입 적합성 분석 중...</p>
-                    </div>
-                  )}
-
-                  {productData && !productLoading && (
-                    productData.error ? (
-                      <div className={s.error}>{productData.error}</div>
-                    ) : (
-                      (() => {
-                        const jcfg = JUDGMENT_CFG[productData.judgment_type] ?? JUDGMENT_CFG.neutral;
-                        return (
-                          <div className={s.productResultCard} style={{ borderColor: jcfg.border, background: jcfg.bg }}>
-                            <div className={s.productResultHeader}>
-                              <div>
-                                <p className={s.productResultName}>{productData.query}</p>
-                                <p className={s.productResultCat}>{productData.category ?? category}</p>
-                              </div>
-                              <span className={s.productJudgeBadge} style={{ color: jcfg.color, borderColor: jcfg.border }}>
-                                {productData.judgment || jcfg.label}
-                              </span>
-                            </div>
-
-                            {/* 가격 요약 */}
-                            {productData.price && (
-                              <div className={s.productPriceRow}>
-                                {[
-                                  { label: '평균가', val: fmt만(productData.price.avg) },
-                                  { label: '최저가', val: fmt만(productData.price.min) },
-                                  { label: '중위가', val: fmt만(productData.price.median) },
-                                  { label: '비교 상품 수', val: `${productData.price.count}개` },
-                                ].map(({ label, val }) => (
-                                  <div key={label} className={s.productPriceItem}>
-                                    <p className={s.productPriceLabel}>{label}</p>
-                                    <p className={s.productPriceVal}>{val}</p>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-
-                            {/* 판단 근거 */}
-                            {productData.basis?.length > 0 && (
-                              <div className={s.productSection}>
-                                <p className={s.productSectionTitle} style={{ color: jcfg.color }}>매입 근거</p>
-                                <ul className={s.productBasisList}>
-                                  {productData.basis.map((b, i) => (
-                                    <li key={i}><span style={{ color: jcfg.color }}>✔</span> {b}</li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-
-                            {/* 주의 사항 */}
-                            {productData.caution?.length > 0 && (
-                              <div className={s.productSection}>
-                                <p className={s.productSectionTitle} style={{ color: '#f59e0b' }}>주의 사항</p>
-                                <ul className={s.productBasisList}>
-                                  {productData.caution.map((c, i) => (
-                                    <li key={i}><span style={{ color: '#f59e0b' }}>⚠</span> {c}</li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-
-                            {/* 종합 요약 */}
-                            {productData.summary && (
-                              <p className={s.productSummary}>{productData.summary}</p>
-                            )}
-                          </div>
-                        );
-                      })()
-                    )
                   )}
                 </div>
 
