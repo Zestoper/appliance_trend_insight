@@ -326,7 +326,7 @@ async def get_timing(category: str = Query(..., min_length=1), product_id: str =
 @router.get("/api/trend")
 async def get_trend(category: str = Query(None)):
     try:
-        groq_client = _get_groq()
+        from app.routers.b2b_utils import _groq_create as _gc
 
         ALL_CATS = ["냉장고", "세탁기", "건조기", "에어컨", "공기청정기",
                     "로봇청소기", "식기세척기", "에어프라이어", "TV", "세탁건조기"]
@@ -407,26 +407,18 @@ async def get_trend(category: str = Query(None)):
             'JSON만 반환: {"items":[{"index":0,"reason":"문장","tag":"2단어"},...]}'
         )
 
-        async def _ai_create():
-            return await groq_client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
+        try:
+            rec_res = await _gc(
                 messages=[
                     {"role": "system", "content": sys_msg},
                     {"role": "user", "content": product_text},
                 ],
                 max_tokens=700,
                 temperature=0.4,
-                response_format={"type": "json_object"},
             )
-
-        try:
-            rec_res = await _ai_create()
         except Exception as ai_err:
-            if "429" in str(ai_err):
-                # 일일 토큰 한도 소진 시 sleep 재시도 불가 — AI 이유 없이 원본 반환
-                logger.warning("[trend] Groq 429 — AI reason 생략: %s", ai_err)
-                return {"items": pool}
-            raise
+            logger.warning("[trend] AI reason 생략: %s", ai_err)
+            return {"items": pool}
 
         reasons = _parse_json(rec_res.choices[0].message.content).get("items", [])
 
@@ -444,15 +436,14 @@ async def get_trend(category: str = Query(None)):
 @router.get("/api/recommend")
 async def get_recommend(query: str = Query(..., min_length=1)):
     try:
-        groq_client = _get_groq()
+        from app.routers.b2b_utils import _groq_create as _gc
 
         budget_match = re.search(r'(\d+(?:\.\d+)?)만원', query)
         budget_max = int(float(budget_match.group(1)) * 10000) if budget_match else None
 
         _ai_limited = False
         try:
-            parse_res = await groq_client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
+            parse_res = await _gc(
                 messages=[
                     {
                         "role": "system",
@@ -476,19 +467,15 @@ async def get_recommend(query: str = Query(..., min_length=1)):
                 ],
                 max_tokens=700,
                 temperature=0.1,
-                response_format={"type": "json_object"},
             )
             parsed = _parse_json(parse_res.choices[0].message.content)
             search_term = parsed.get("search_term", query[:20]).strip()
             constraints = parsed.get("constraints", [])
-        except Exception as parse_err:
-            if "429" in str(parse_err):
-                _ai_limited = True
-                price_words = {"만원", "원", "이하", "이상", "미만"}
-                search_term = " ".join(w for w in query.split() if w not in price_words)[:30]
-                constraints = []
-            else:
-                raise
+        except Exception:
+            _ai_limited = True
+            price_words = {"만원", "원", "이하", "이상", "미만"}
+            search_term = " ".join(w for w in query.split() if w not in price_words)[:30]
+            constraints = []
 
         detected_cat = next(
             (cat for cat in CATEGORY_RULES if cat in query or cat in search_term), None
@@ -544,8 +531,7 @@ async def get_recommend(query: str = Query(..., min_length=1)):
             }
 
         try:
-            rec_res = await groq_client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
+            rec_res = await _gc(
                 messages=[
                     {
                         "role": "system",
@@ -575,19 +561,16 @@ async def get_recommend(query: str = Query(..., min_length=1)):
                 ],
                 max_tokens=700,
                 temperature=0.2,
-                response_format={"type": "json_object"},
             )
             rec_data = _parse_json(rec_res.choices[0].message.content)
             recommendations = rec_data.get("recommendations", [])
-        except Exception as rec_err:
-            if "429" in str(rec_err):
-                top3 = sorted(items, key=lambda it: quality(it), reverse=True)[:3]
-                return {
-                    "recommendations": [{**it, "reason": "", "highlight": ""} for it in top3],
-                    "search_term": search_term,
-                    "ai_limited": True,
-                }
-            raise
+        except Exception:
+            top3 = sorted(items, key=lambda it: quality(it), reverse=True)[:3]
+            return {
+                "recommendations": [{**it, "reason": "", "highlight": ""} for it in top3],
+                "search_term": search_term,
+                "ai_limited": True,
+            }
 
         result = []
         for rec in recommendations[:3]:
