@@ -116,12 +116,8 @@
   height: 100%;
   border-radius: 999px;
   background: linear-gradient(90deg, #6366f1, #a855f7);
-  animation: barGrow 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-}
-
-@keyframes barGrow {
-  from { width: 0%; }
-  to   { width: 82%; }
+  width: 0%;
+  transition: width 1.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .interestValue {
@@ -175,6 +171,29 @@
 .tagBad {
   color: #f87171;
   background: rgba(248, 113, 113, 0.1);
+  border: 1px solid rgba(248, 113, 113, 0.2);
+}
+.skeleton {
+  border-radius: 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  height: 320px;
+  animation: pulse 1.5s ease-in-out infinite alternate;
+}
+@keyframes pulse {
+  from { opacity: 0.5; }
+  to   { opacity: 1; }
+}
+.recallWarning {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.08);
   border: 1px solid rgba(248, 113, 113, 0.2);
 }
 .recallSafe {
