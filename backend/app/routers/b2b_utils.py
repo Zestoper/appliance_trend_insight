@@ -82,8 +82,34 @@ def _is_model_exhausted(model: str) -> bool:
         return False
     return True
 
+class _CerebrasResponse:
+    """Groq 응답 인터페이스 호환 래퍼"""
+    def __init__(self, text: str):
+        _msg = type("m", (), {"content": text})()
+        self.choices = [type("c", (), {"message": _msg})()]
+
+
+async def _cerebras_create(messages: list, max_tokens: int = 600, temperature: float = 0.3):
+    """Cerebras API 호출 (Groq 소진 시 폴백)"""
+    import httpx as _httpx
+    key = _os.getenv("CEREBRAS_API_KEY", "").strip()
+    if not key:
+        raise RuntimeError("CEREBRAS_API_KEY 없음")
+    resp = await _httpx.AsyncClient().post(
+        "https://api.cerebras.ai/v1/chat/completions",
+        json={"model": "gpt-oss-120b", "messages": messages,
+              "max_tokens": max_tokens, "temperature": temperature},
+        headers={"Authorization": f"Bearer {key}"},
+        timeout=60.0,
+    )
+    resp.raise_for_status()
+    text = resp.json()["choices"][0]["message"]["content"]
+    logger.info("[Cerebras] 응답 완료 (%d자)", len(text))
+    return _CerebrasResponse(text)
+
+
 async def _groq_create(messages: list, max_tokens: int = 600, temperature: float = 0.3):
-    """모델별 일일 한도 관리. 모든 모델 소진 시 예외."""
+    """모델별 일일 한도 관리. 모든 모델 소진 시 Cerebras로 폴백."""
     from groq import RateLimitError
     client = _get_groq_client()
     last_err = None
@@ -103,7 +129,8 @@ async def _groq_create(messages: list, max_tokens: int = 600, temperature: float
                 last_err = e
                 continue
             raise
-    raise RuntimeError(f"Groq 모든 모델 한도 소진 ({', '.join(_GROQ_MODELS)}). 2시간 후 자동 재시도.") from last_err
+    logger.warning("[Groq] 모든 모델 소진 — Cerebras로 전환")
+    return await _cerebras_create(messages, max_tokens, temperature)
 
 
 def _has_non_korean_cjk(text: str) -> bool:
