@@ -126,10 +126,9 @@ async def analyze(
     )
     system_prompt = _B2C_SYSTEM_PROMPT if target == "b2c" else _B2B_SYSTEM_PROMPT
 
-    from groq import RateLimitError
+    from app.routers.b2b_utils import _groq_create as _gc
     try:
-        res = await _get_groq().chat.completions.create(
-            model=_GROQ_MODEL,
+        res = await _gc(
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"제품/카테고리: {query}\n\n{context}"},
@@ -137,11 +136,11 @@ async def analyze(
             max_tokens=900,
             temperature=0.3,
         )
-    except RateLimitError:
+    except Exception:
         return {
             "query": query,
             "target": target,
-            "report": "AI 분석 요청이 일일 한도에 도달했습니다. 잠시 후 다시 시도해주세요.",
+            "report": "AI 분석을 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도해주세요.",
             "sources": [],
         }
 
