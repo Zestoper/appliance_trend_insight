@@ -126,6 +126,15 @@ async def get_ai_report(category: str = Query(..., min_length=1), period: str = 
             _cached_trend = _dc[1]["trend"]
             break
 
+    # 인메모리 미스 시 Supabase DB 캐시 확인 (Render 해외 차단 대비)
+    if _cached_trend is None:
+        from app.services.naver_cache import get_db_cache as _get_db_cache
+        for _p in (period, "3m", "1m", "6m", "1y"):
+            _db_data = await _get_db_cache(f"naver_dashboard:{category}:{_p}")
+            if _db_data and _db_data.get("trend"):
+                _cached_trend = _db_data["trend"]
+                break
+
     if _cached_trend is not None:
         brand_data = await _fetch_brands()
         brand_data = brand_data if not isinstance(brand_data, Exception) else []
