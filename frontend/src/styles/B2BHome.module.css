@@ -474,10 +474,10 @@
   .heroBtns     { flex-direction: column; align-items: stretch; }
   .btnPrimary, .btnSecondary { text-align: center; }
 
-  .workflowSteps { flex-direction: column; align-items: stretch; }
+  .workflowSteps { flex-direction: column; align-items: center; }
   .stepArrow    { display: none; }
-  .workflowStep { padding: 20px 16px; }
-  .stepWrap     { flex-direction: column; }
+  .workflowStep { padding: 20px 16px; width: 100%; }
+  .stepWrap     { flex-direction: column; align-items: center; width: 100%; }
 
   .statsRow     { flex-wrap: wrap; }
   .statItem     { flex: 0 0 50%; border-right: none !important; border-bottom: 1px solid var(--border); }
