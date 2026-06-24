@@ -5,7 +5,7 @@ import os
 import httpx
 
 _HF_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
-_HF_URL = f"https://api-inference.huggingface.co/pipeline/feature-extraction/{_HF_MODEL}"
+_HF_URL = f"https://router.huggingface.co/hf-inference/models/{_HF_MODEL}/pipeline/feature-extraction"
 _BATCH = 8
 
 
