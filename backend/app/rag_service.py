@@ -2,19 +2,25 @@ import asyncio
 import hashlib
 import os
 import chromadb
-from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
 
-# CoreML 가속 비활성화 (Mac에서 ONNX Runtime CoreML 오류 방지)
-os.environ.setdefault("ONNXRUNTIME_PROVIDERS", "CPUExecutionProvider")
+_DEFAULT_CHROMA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "chroma_db")
 
-import os as _os
-_DEFAULT_CHROMA_PATH = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "..", "..", "chroma_db")
+
+def _make_embedding_function():
+    if os.getenv("HUGGINGFACE_API_KEY", "").strip():
+        from chromadb.utils.embedding_functions import HuggingFaceEmbeddingFunction
+        print("[RAG] HuggingFace API 임베딩 사용 (원격)")
+        return HuggingFaceEmbeddingFunction()
+    os.environ.setdefault("ONNXRUNTIME_PROVIDERS", "CPUExecutionProvider")
+    from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
+    print("[RAG] 로컬 ONNX 임베딩 사용")
+    return DefaultEmbeddingFunction()
 
 
 class RAGService:
     def __init__(self, db_path: str = _DEFAULT_CHROMA_PATH):
         print("[RAG] 임베딩 함수 초기화 중...")
-        self._ef = DefaultEmbeddingFunction()
+        self._ef = _make_embedding_function()
         self.client = chromadb.PersistentClient(path=db_path)
         self.collection = self.client.get_or_create_collection(
             name="appliance_docs_v2",
