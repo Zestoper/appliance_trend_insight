@@ -957,11 +957,20 @@
 .aiGateBtn:hover { opacity: 0.85; }
 
 @media (max-width: 800px) {
-  .page { height: auto; min-height: 100dvh; }
-  .grid { grid-template-columns: 1fr !important; }
+  .page { height: auto; min-height: 100dvh; overflow-x: hidden; }
+  .container { width: calc(100% - 32px); padding-top: 72px; }
+  .grid { grid-template-columns: 1fr !important; grid-auto-rows: auto !important; }
   .aiGrid { grid-template-columns: 1fr; }
+  .summary { padding: 16px; overflow-x: auto; }
+  .cmpTable { min-width: 0; }
+  .cmpHead { grid-template-columns: 80px repeat(var(--cols, 2), 1fr); font-size: 10px; }
+  .cmpRow { grid-template-columns: 80px repeat(var(--cols, 2), 1fr); }
+  .card { height: auto; }
 }
 @media (max-width: 600px) {
-  .grid { grid-template-columns: 1fr; }
+  .container { width: calc(100% - 24px); padding-top: 64px; }
+  .grid { grid-template-columns: 1fr !important; grid-auto-rows: auto !important; }
   .aiGrid { grid-template-columns: 1fr; }
+  .title { font-size: 20px; }
+  .cardPrice { font-size: 17px; }
 }
