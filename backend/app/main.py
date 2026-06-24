@@ -31,6 +31,7 @@ def _env_enabled(name: str, default: str = "1") -> bool:
 
 
 async def _seed_rag(rag) -> None:
+    await asyncio.sleep(30)  # Render 네트워크 초기화 대기
     try:
         from app.services.seed_rag import seed
         await seed(rag)

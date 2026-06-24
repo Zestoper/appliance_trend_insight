@@ -25,24 +25,36 @@ async def _embed(texts: list[str]) -> list[list[float]]:
         raise RuntimeError("HUGGINGFACE_API_KEY 없음 — RAG 임베딩 불가")
     headers = {"Authorization": f"Bearer {key}"}
     result: list[list[float]] = []
+    last_err: Exception | None = None
     async with httpx.AsyncClient() as client:
         for i in range(0, len(texts), _BATCH):
             batch = texts[i : i + _BATCH]
-            resp = await client.post(
-                _HF_URL,
-                json={"inputs": batch, "options": {"wait_for_model": True}},
-                headers=headers,
-                timeout=60.0,
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            # 응답 형태: 2D (batch×dim) 또는 3D (batch×tokens×dim) → mean pool
-            if isinstance(data[0][0], list):
-                for sent in data:
-                    dim = len(sent[0])
-                    result.append([sum(t[d] for t in sent) / len(sent) for d in range(dim)])
-            else:
-                result.extend(data)
+            for attempt in range(3):  # DNS 일시 실패 대비 최대 3회 재시도
+                try:
+                    resp = await client.post(
+                        _HF_URL,
+                        json={"inputs": batch, "options": {"wait_for_model": True}},
+                        headers=headers,
+                        timeout=60.0,
+                    )
+                    resp.raise_for_status()
+                    data = resp.json()
+                    # 응답 형태: 2D (batch×dim) 또는 3D (batch×tokens×dim) → mean pool
+                    if isinstance(data[0][0], list):
+                        for sent in data:
+                            dim = len(sent[0])
+                            result.append([sum(t[d] for t in sent) / len(sent) for d in range(dim)])
+                    else:
+                        result.extend(data)
+                    last_err = None
+                    break
+                except Exception as e:
+                    last_err = e
+                    wait = 5 * (attempt + 1)
+                    print(f"[RAG] 임베딩 재시도 {attempt + 1}/3 ({wait}s 후): {e}")
+                    await asyncio.sleep(wait)
+            if last_err:
+                raise last_err
     return result
 
 

@@ -419,6 +419,8 @@ async def get_ai_report(category: str = Query(..., min_length=1), period: str = 
                                    for s in _lines if s.strip()]
     except Exception as e:
         report["_groq_error"] = repr(e)[:300]
+        report["action_reason"] = "AI 분석을 일시적으로 사용할 수 없습니다. 잠시 후 새로고침 해주세요."
+        report["summary"] = f"{category} 시장 데이터 수집은 완료됐으나 AI 분석 서버가 일시적으로 한도에 도달했습니다."
 
     result = {
         "category": category,
