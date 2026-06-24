@@ -372,7 +372,7 @@ export default function B2BReport() {
                     {/* 핵심 전략 카드 */}
                     <div className={s.strategyTopGrid}>
                       {[
-                        { label: '권장 판매가',   val: report.price_range !== '-' ? report.price_range : '-', color: acfg.color },
+                        { label: '가격 신호',     val: insSignal ?? '-', color: sigCfg?.color },
                         { label: '재고 전략',     val: report.inventory_advice !== '-' ? report.inventory_advice : '-' },
                         { label: '주력 브랜드',   val: report.brand_focus || (brands[0]?.brand ?? '-') },
                         { label: '주력 제품군',   val: report.recommended_products !== '-' ? report.recommended_products : '-' },
