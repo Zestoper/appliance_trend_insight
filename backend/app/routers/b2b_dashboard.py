@@ -13,8 +13,12 @@ async def clear_b2b_cache(_: dict = Depends(require_b2b)):
 @router.get("/dashboard")
 async def get_b2b_dashboard(category: str = Query(..., min_length=1), period: str = "3m", _: dict = Depends(require_b2b)):
     from app.dependencies import get_rag_optional
+    from app.services.naver_cache import get_db_cache as _get_db_cache, set_db_cache as _set_db_cache
 
-    _ck = f"dashboard:{_CACHE_VER}:{category}:{period}"
+    _ck     = f"dashboard:{_CACHE_VER}:{category}:{period}"
+    _db_key = f"naver_dashboard:{category}:{period}"
+
+    # 1. 인메모리 캐시
     _cached = _GROQ_CACHE.get(_ck)
     if _cached and _time.time() < _cached[0]:
         cached_result = _cached[1]
@@ -26,6 +30,12 @@ async def get_b2b_dashboard(category: str = Query(..., min_length=1), period: st
             _summary = _cc_data.get("summary", []) if isinstance(_cc_data, dict) else []
             cached_result = {**cached_result, "complaints": _items, "complaint_summary": _summary}
         return cached_result
+
+    # 2. Supabase DB 캐시 (Render에서 Naver API 해외 차단 대비)
+    _db_data = await _get_db_cache(_db_key)
+    if _db_data:
+        _GROQ_CACHE[_ck] = (_time.time() + min(_GROQ_TTL, 3600), _db_data)
+        return _db_data
 
     rag = get_rag_optional()
 
@@ -587,4 +597,12 @@ async def get_b2b_dashboard(category: str = Query(..., min_length=1), period: st
     if not groq_err and trend_data and complaint_ok:
         result_no_complaints = {**result, "complaints": [], "complaint_summary": []}
         _GROQ_CACHE[_ck] = (_time.time() + _GROQ_TTL, result_no_complaints)
+
+    # Supabase DB에 전체 결과 저장 (로컬 실행 시 Render용 캐시 자동 생성)
+    if trend_data:
+        try:
+            await _set_db_cache(_db_key, result)
+        except Exception as _dce:
+            logger.warning("[dashboard] DB 캐시 저장 실패: %s", _dce)
+
     return result
