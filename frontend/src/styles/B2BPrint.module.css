@@ -387,6 +387,70 @@ tr:last-child td { border-bottom: none; }
   margin: 40px 0;
 }
 
+/* ── Mobile responsive ── */
+@media (max-width: 700px) {
+  .toolbar {
+    padding: 10px 16px;
+    gap: 8px;
+  }
+
+  .toolbarInfo {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    width: 100%;
+  }
+
+  .pagesTags { gap: 4px; }
+
+  .pagesTag {
+    font-size: 11px;
+    padding: 3px 8px;
+  }
+
+  .printBtn {
+    width: 100%;
+    text-align: center;
+    padding: 10px 16px;
+  }
+
+  .doc {
+    margin: 12px 12px 32px;
+    padding: 24px 16px;
+    border-radius: 10px;
+  }
+
+  .docHeader {
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+  }
+
+  .docTitle { font-size: 18px; }
+  .docMeta  { font-size: 11px; }
+
+  .kpiRow {
+    flex-wrap: wrap;
+  }
+  .kpi {
+    flex: 0 0 calc(50% - 1px);
+    min-width: 0;
+  }
+
+  .twoCol {
+    grid-template-columns: 1fr;
+  }
+
+  .docFooter {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  table { font-size: 11px; }
+  th, td { padding: 6px 8px; font-size: 11px; }
+}
+
 /* ── Print ── */
 @media print {
   @page { size: A4; margin: 14mm 12mm; }
