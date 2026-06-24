@@ -208,7 +208,7 @@ export default function Chat() {
                 placeholder="예: 비스포크 냉장고 장단점, 로봇청소기 인기 브랜드..."
                 value={input}
                 rows={1}
-                onChange={e => setInput(e.target.value)}
+                onChange={e => setInput(e.target.value.replace(/[一-鿿㐀-䶿豈-﫿]/g, ''))}
                 onKeyDown={handleKeyDown}
               />
               <button
