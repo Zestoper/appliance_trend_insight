@@ -705,8 +705,8 @@ async def get_user_reviews(query: str = Query(..., min_length=1)):
 async def get_ai_analysis(query: str = Query(..., min_length=1)):
     try:
         from app.dependencies import get_rag_optional
+        from app.routers.b2b_utils import _groq_create as _gc
         rag = get_rag_optional()
-        groq_client = _get_groq()
 
         reviews_result, news_result = await asyncio.gather(
             get_user_reviews(query),
@@ -759,9 +759,8 @@ async def get_ai_analysis(query: str = Query(..., min_length=1)):
         if not context_parts:
             return {"analysis": None, "reviews": [], "error": "분석할 데이터가 부족합니다"}
 
-        res = await groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[
+        res = await _gc(
+            [
                 {
                     "role": "system",
                     "content": (
@@ -787,7 +786,6 @@ async def get_ai_analysis(query: str = Query(..., min_length=1)):
             ],
             max_tokens=700,
             temperature=0.3,
-            response_format={"type": "json_object"},
         )
 
         analysis = _parse_json(res.choices[0].message.content)
@@ -806,7 +804,7 @@ async def ai_compare(
     try:
         from app.dependencies import get_rag_optional
         rag = get_rag_optional()
-        groq_client = _get_groq()
+        from app.routers.b2b_utils import _groq_create as _gc
 
         r1, r2, n1, n2 = await asyncio.gather(
             get_user_reviews(q1),
@@ -857,9 +855,8 @@ async def ai_compare(
         else:
             context = fmt_ctx(r1, n1, q1) + "\n\n" + fmt_ctx(r2, n2, q2)
 
-        res = await groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[
+        res = await _gc(
+            [
                 {
                     "role": "system",
                     "content": (
@@ -876,8 +873,8 @@ async def ai_compare(
                 },
                 {"role": "user", "content": f"비교 대상:\n제품1: {q1}\n제품2: {q2}\n\n수집 데이터:\n{context}"},
             ],
-            temperature=0.3,
             max_tokens=700,
+            temperature=0.3,
         )
 
         data = _parse_json(res.choices[0].message.content)
