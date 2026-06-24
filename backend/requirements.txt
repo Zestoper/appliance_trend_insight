@@ -10,8 +10,5 @@ groq==1.2.0
 bcrypt==5.0.0
 python-jose[cryptography]
 asyncpg
+numpy
 pandas
-prophet
-cmdstanpy
-xgboost
-scikit-learn

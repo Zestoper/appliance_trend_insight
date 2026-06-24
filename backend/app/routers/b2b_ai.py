@@ -460,8 +460,12 @@ async def get_ai_report(category: str = Query(..., min_length=1), period: str = 
 async def get_demand_forecast(category: str = Query(..., min_length=1), period: str = "3m", _: dict = Depends(require_b2b)):
     import logging
     import numpy as np
-    import pandas as pd
-    from prophet import Prophet
+    try:
+        import pandas as pd
+        from prophet import Prophet
+        _PROPHET_AVAIL = True
+    except ImportError:
+        _PROPHET_AVAIL = False
     from app.dependencies import get_rag_optional
     rag = get_rag_optional()
 
@@ -742,12 +746,13 @@ async def get_demand_forecast(category: str = Query(..., min_length=1), period: 
             return None, None
 
     # ── 모델 실행 ─────────────────────────────────────────────────────────────
-    use_prophet = True
-    try:
-        fc = await asyncio.to_thread(_run_prophet)
-    except Exception as e:
-        logger.warning("Prophet 실패, 선형회귀 폴백 사용: %s", e)
-        use_prophet = False
+    use_prophet = False
+    if _PROPHET_AVAIL:
+        try:
+            fc = await asyncio.to_thread(_run_prophet)
+            use_prophet = True
+        except Exception as e:
+            logger.warning("Prophet 실패, 선형회귀 폴백 사용: %s", e)
 
     try:
         xgb_preds, xgb_rmse = await asyncio.to_thread(_run_xgb)
