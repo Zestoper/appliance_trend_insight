@@ -210,7 +210,10 @@ async def main(categories, periods):
             print(f"[{done}/{total}] {category} / {period} ...", end=" ", flush=True)
             try:
                 data = await fetch_category_period(category, period, NAVER_HEADERS)
-                await set_db_cache(f"naver_dashboard:{category}:{period}", data, ttl_hours=12)
+                if not data.get("trend"):
+                    print(f"✗ trend 빈값 (API 한도 초과 가능) — 기존 캐시 유지")
+                    continue
+                await set_db_cache(f"naver_dashboard:{category}:{period}", data, ttl_hours=24)
                 print(f"✓ (trend:{len(data['trend'])}개, brand:{len(data['brands'])}개)")
             except Exception as e:
                 print(f"✗ {e}")
