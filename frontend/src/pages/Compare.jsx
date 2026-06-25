@@ -305,7 +305,29 @@ const FILTER_GROUPS = [
     options: ['~5만원', '5~20만원', '20~50만원', '50~80만원', '80만원~'],
     ranges: [[0, 50000], [50000, 200000], [200000, 500000], [500000, 800000], [800000, Infinity]],
   },
+  {
+    key: 'sort',
+    label: '정렬',
+    options: ['관련순', '가격 낮은순', '가격 높은순', '최신순'],
+    sortMap: { '관련순': 'sim', '가격 낮은순': 'asc', '가격 높은순': 'dsc', '최신순': 'date' },
+  },
 ]
+
+const PRODUCT_SUBTYPES = {
+  '에어컨':    ['벽걸이형', '스탠드형', '창문형', '2in1'],
+  '냉장고':    ['일반형', '양문형', '4도어', '소형/미니'],
+  '세탁기':    ['드럼', '통돌이', '미니세탁기'],
+  '건조기':    ['히트펌프', '콘덴서', '가스'],
+  '공기청정기':['스탠드형', '소형', '벽걸이형', '차량용'],
+  '로봇청소기':['일반형', '물걸레겸용', '올인원', '스테이션형'],
+  '식기세척기':['빌트인', '일반형', '미니/소형'],
+  'TV':        ['OLED', 'QLED', '일반 LED', '미니LED', '포터블'],
+  '전자레인지': ['단독형', '오븐겸용', '스팀겸용'],
+  '에어프라이어':['소형(1~3L)', '중형(4~6L)', '대형(7L+)', '오븐형'],
+  '선풍기':    ['일반형', '탑 팬', '스탠드형', '서큘레이터'],
+  '가습기':    ['초음파식', '가열식', '기화식', '복합형'],
+  '제습기':    ['소형', '중형', '대형'],
+}
 
 export default function Compare() {
   const navigate = useNavigate()
@@ -318,28 +340,27 @@ export default function Compare() {
   const [thirdSlotOpen,   setThirdSlotOpen]   = useState(false)
   const [aiCompare,       setAiCompare]       = useState(null)
   const [aiCmpLoading,    setAiCmpLoading]    = useState(false)
-  const [filters,         setFilters]         = useState({ product: null, brand: null, price: null })
+  const [filters,         setFilters]         = useState({ product: null, brand: null, price: null, sort: null, subtype: null })
   const [catProducts,     setCatProducts]     = useState([])
   const [catLoading,      setCatLoading]      = useState(false)
   const [catMismatch,     setCatMismatch]     = useState(null)  // { current, incoming }
 
   // 필터 조합으로 상품 목록 fetch
   useEffect(() => {
-    const { product, brand, price } = filters
-    // 아무 필터도 없으면 초기화
+    const { product, brand, price, sort, subtype } = filters
     if (!product && !brand && !price) { setCatProducts([]); return }
 
-    // 검색어 조합: 브랜드 + 제품, 없으면 "가전제품"으로 대체
-    const query = [brand, product].filter(Boolean).join(' ') || '가전제품'
+    // 검색어: 브랜드 + 세부타입 + 제품 조합
+    const query = [brand, subtype, product].filter(Boolean).join(' ') || '가전제품'
+    const sortKey = FILTER_GROUPS.find(g => g.key === 'sort')?.sortMap?.[sort] ?? 'sim'
+
     setCatLoading(true)
     setCatProducts([])
 
-    // 가격 필터 적용 위해 충분한 수량 fetch (100개)
-    fetch(`${API_BASE}/api/naver/products?query=${encodeURIComponent(query)}&page=1&display=100`)
+    fetch(`${API_BASE}/api/naver/products?query=${encodeURIComponent(query)}&page=1&display=100&sort=${sortKey}`)
       .then(r => r.json())
       .then(data => {
         let items = data.items ?? []
-        // 가격 범위 클라이언트 필터링
         if (price) {
           const priceGroup = FILTER_GROUPS.find(g => g.key === 'price')
           const priceIdx = priceGroup.options.indexOf(price)
@@ -348,6 +369,7 @@ export default function Compare() {
             items = items.filter(p => p.price > 0 && p.price >= min && p.price < max)
           }
         }
+        // 정렬이 가격순이면 이미 API에서 정렬됨, 아니면 클라이언트 유지
         setCatProducts(items.slice(0, 30))
         setCatLoading(false)
       })
@@ -475,10 +497,12 @@ export default function Compare() {
                     <button
                       key={opt}
                       className={`${styles.catTab} ${filters[group.key] === opt ? styles.catTabActive : ''}`}
-                      onClick={() => setFilters(prev => ({
-                        ...prev,
-                        [group.key]: prev[group.key] === opt ? null : opt,
-                      }))}
+                      onClick={() => setFilters(prev => {
+                        const next = { ...prev, [group.key]: prev[group.key] === opt ? null : opt }
+                        // 제품 변경 시 세부 타입 초기화
+                        if (group.key === 'product') next.subtype = null
+                        return next
+                      })}
                     >
                       {opt}
                     </button>
@@ -486,18 +510,40 @@ export default function Compare() {
                 </div>
               </div>
             ))}
+
+            {/* 세부 타입 — 제품 선택 시만 표시 */}
+            {filters.product && PRODUCT_SUBTYPES[filters.product] && (
+              <div className={styles.filterRow}>
+                <span className={styles.filterLabel}>타입</span>
+                <div className={styles.filterChips}>
+                  {PRODUCT_SUBTYPES[filters.product].map(opt => (
+                    <button
+                      key={opt}
+                      className={`${styles.catTab} ${filters.subtype === opt ? styles.catTabActive : ''}`}
+                      onClick={() => setFilters(prev => ({
+                        ...prev,
+                        subtype: prev.subtype === opt ? null : opt,
+                      }))}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
-          {(filters.product || filters.brand || filters.price) && (
+          {(filters.product || filters.brand || filters.price || filters.sort) && (
             <div className={styles.catPickerWrap}>
               <div className={styles.catPickerHeader}>
                 <span className={styles.catPickerQuery}>
-                  {[filters.brand, filters.product].filter(Boolean).join(' ')}
+                  {[filters.brand, filters.subtype, filters.product].filter(Boolean).join(' ')}
                   {filters.price && ` · ${filters.price}`}
+                  {filters.sort && ` · ${filters.sort}`}
                 </span>
                 <button
                   className={styles.catClearBtn}
-                  onClick={() => setFilters({ product: null, brand: null, price: null })}
+                  onClick={() => setFilters({ product: null, brand: null, price: null, sort: null, subtype: null })}
                 >
                   필터 초기화
                 </button>
