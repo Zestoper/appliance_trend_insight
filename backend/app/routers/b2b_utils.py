@@ -91,26 +91,33 @@ class _CerebrasResponse:
 
 async def _cerebras_create(messages: list, max_tokens: int = 600, temperature: float = 0.3):
     """Cerebras API 호출 (Groq 소진 시 폴백).
-    gpt-oss-120b는 reasoning 모델 — thinking 토큰 포함하여 max_tokens 충분히 확보."""
+    gpt-oss-120b는 reasoning 모델 — thinking 토큰 포함하여 max_tokens 충분히 확보.
+    429 시 최대 3회 재시도 (5초 간격)."""
     import httpx as _httpx
     key = _os.getenv("CEREBRAS_API_KEY", "").strip()
     if not key:
         raise RuntimeError("CEREBRAS_API_KEY 없음")
     cerebras_max_tokens = max(max_tokens * 6, 8000)
-    resp = await _httpx.AsyncClient().post(
-        "https://api.cerebras.ai/v1/chat/completions",
-        json={"model": "gpt-oss-120b", "messages": messages,
-              "max_tokens": cerebras_max_tokens, "temperature": temperature},
-        headers={"Authorization": f"Bearer {key}"},
-        timeout=60.0,
-    )
-    resp.raise_for_status()
-    msg  = resp.json()["choices"][0]["message"]
-    text = msg.get("content") or msg.get("reasoning") or ""
-    if not text:
-        raise RuntimeError("Cerebras 응답 content/reasoning 모두 비어있음")
-    logger.info("[Cerebras] 응답 완료 (%d자)", len(text))
-    return _CerebrasResponse(text)
+    for _attempt in range(3):
+        resp = await _httpx.AsyncClient().post(
+            "https://api.cerebras.ai/v1/chat/completions",
+            json={"model": "gpt-oss-120b", "messages": messages,
+                  "max_tokens": cerebras_max_tokens, "temperature": temperature},
+            headers={"Authorization": f"Bearer {key}"},
+            timeout=90.0,
+        )
+        if resp.status_code == 429:
+            logger.warning("[Cerebras] 429 rate limit — %d초 후 재시도 (%d/3)", 5 * (_attempt + 1), _attempt + 1)
+            await asyncio.sleep(5 * (_attempt + 1))
+            continue
+        resp.raise_for_status()
+        msg  = resp.json()["choices"][0]["message"]
+        text = msg.get("content") or msg.get("reasoning") or ""
+        if not text:
+            raise RuntimeError("Cerebras 응답 content/reasoning 모두 비어있음")
+        logger.info("[Cerebras] 응답 완료 (%d자)", len(text))
+        return _CerebrasResponse(text)
+    raise RuntimeError("Cerebras 429 재시도 3회 초과")
 
 
 async def _groq_create(messages: list, max_tokens: int = 600, temperature: float = 0.3):
