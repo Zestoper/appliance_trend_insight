@@ -81,6 +81,13 @@ async def get_ai_report(category: str = Query(..., min_length=1), period: str = 
     if _cached and _time.time() < _cached[0]:
         return _cached[1]
 
+    # Supabase DB 캐시 확인 (인메모리 미스 시)
+    from app.services.naver_cache import get_db_cache as _get_ai_db_cache, set_db_cache as _set_ai_db_cache
+    _db_ai = await _get_ai_db_cache(f"ai_report:{_CACHE_VER}:{category}:{period}")
+    if _db_ai:
+        _GROQ_CACHE[_ck] = (_time.time() + _GROQ_TTL, _db_ai)
+        return _db_ai
+
     rag = get_rag_optional()
 
     days_map = {"1m": 30, "3m": 90, "6m": 180, "1y": 365}
@@ -491,6 +498,10 @@ async def get_ai_report(category: str = Query(..., min_length=1), period: str = 
     }
     if "_groq_error" not in report:
         _GROQ_CACHE[_ck] = (_time.time() + _GROQ_TTL, result)
+        try:
+            await _set_ai_db_cache(f"ai_report:{_CACHE_VER}:{category}:{period}", result, ttl_hours=2)
+        except Exception:
+            pass
     return result
 
 
