@@ -271,6 +271,61 @@
   font-size: 13px; color: var(--b2b-text2); line-height: 1.7;
 }
 
+/* ── 시장 상황 모달 ── */
+.marketModalBtn {
+  background: none; border: none; padding: 0; cursor: pointer;
+  color: #6366f1; font-size: inherit; font-weight: 700; text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.marketModalBtn:hover { color: #818cf8; }
+
+.mmOverlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+  z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.mmPanel {
+  background: var(--b2b-card); border-radius: 24px; padding: 32px;
+  width: 100%; max-width: 560px; max-height: 85vh; overflow-y: auto;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.4);
+  display: flex; flex-direction: column; gap: 24px;
+}
+.mmHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.mmLabel { font-size: 11px; color: var(--b2b-muted); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 4px; }
+.mmTitle { font-size: 20px; font-weight: 800; color: var(--b2b-text1); }
+.mmClose {
+  background: var(--b2b-bg); border: 1px solid var(--b2b-line); border-radius: 50%;
+  width: 32px; height: 32px; cursor: pointer; color: var(--b2b-muted);
+  font-size: 14px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+}
+.mmClose:hover { color: var(--b2b-text1); }
+
+.mmKpiRow { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.mmKpiItem {
+  background: var(--b2b-bg); border-radius: 12px; padding: 14px 16px;
+  border: 1px solid var(--b2b-line);
+}
+.mmKpiLabel { font-size: 11px; color: var(--b2b-muted); margin-bottom: 6px; }
+.mmKpiVal { font-size: 22px; font-weight: 800; }
+.mmKpiSub { font-size: 10px; color: var(--b2b-muted); margin-top: 4px; }
+
+.mmBlock { display: flex; flex-direction: column; gap: 12px; }
+.mmBlockTitle { font-size: 11px; font-weight: 700; color: var(--b2b-muted); letter-spacing: .06em; text-transform: uppercase; }
+
+.mmBrandList { display: flex; flex-direction: column; gap: 8px; }
+.mmBrandRow { display: flex; align-items: center; gap: 10px; }
+.mmBrandName { font-size: 13px; color: var(--b2b-text1); width: 80px; flex-shrink: 0; display: flex; align-items: center; }
+.mmBrandBarWrap { flex: 1; height: 8px; background: var(--b2b-line); border-radius: 4px; overflow: hidden; }
+.mmBrandBar { height: 100%; border-radius: 4px; }
+.mmBrandPct { font-size: 12px; font-weight: 700; color: var(--b2b-text2); width: 36px; text-align: right; }
+
+.mmPriceRow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.mmPriceItem { background: var(--b2b-bg); border-radius: 10px; padding: 12px 14px; border: 1px solid var(--b2b-line); text-align: center; }
+.mmPriceLabel { font-size: 11px; color: var(--b2b-muted); margin-bottom: 6px; }
+.mmPriceVal { font-size: 16px; font-weight: 700; color: var(--b2b-text1); }
+
+.mmTimingCard { border-radius: 12px; padding: 14px 18px; border: 1px solid; }
+.mmFooter { font-size: 11px; color: var(--b2b-muted); text-align: center; padding-top: 8px; border-top: 1px solid var(--b2b-line); }
+
 /* ── 리포트 푸터 ── */
 .reportFooter {
   display: flex; justify-content: space-between; align-items: center;
