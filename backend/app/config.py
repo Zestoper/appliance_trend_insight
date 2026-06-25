@@ -17,6 +17,11 @@ B2B_SHOPPING_DISPLAY = int(os.getenv("B2B_SHOPPING_DISPLAY", "100"))
 B2B_RAG_CHUNK_LEN    = int(os.getenv("B2B_RAG_CHUNK_LEN", "130"))
 B2B_CI_MULTIPLIER    = float(os.getenv("B2B_CI_MULTIPLIER", "1.5"))
 
+# 공공데이터 API
+PUBLIC_DATA_API_KEY = os.getenv("PUBLIC_DATA_API_KEY", "")  # data.go.kr 통합 키
+KOSIS_API_KEY       = os.getenv("KOSIS_API_KEY", "")        # 통계청 kosis.kr
+KEPCO_API_KEY       = os.getenv("KEPCO_API_KEY", "")        # 한전 bigdata.kepco.co.kr
+
 # Groq
 GROQ_PRIMARY_MODEL   = os.getenv("GROQ_PRIMARY_MODEL",   "llama-3.3-70b-versatile")
 GROQ_FALLBACK_MODEL  = os.getenv("GROQ_FALLBACK_MODEL",  "llama-3.1-8b-instant")
