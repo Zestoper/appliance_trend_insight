@@ -427,23 +427,17 @@ async def get_ai_report(category: str = Query(..., min_length=1), period: str = 
             f'    {{"factor": "소비자 반응", "pct": 20}}\n'
             f'  ],\n'
             f'  "action_list": [\n'
-            f'    {{"stars": 5, "action": "가장 시급한 실행 항목 (20자 이내)", "dept": "담당 부서 (상품기획·마케팅·구매·영업 중 택1)", "timing": "이번 주", "budget": "예상 예산 (예: 500만원, 별도 없음 등)"}},\n'
-            f'    {{"stars": 5, "action": "두 번째 우선순위 항목 (20자 이내)", "dept": "담당 부서", "timing": "7일 이내", "budget": "예상 예산"}},\n'
-            f'    {{"stars": 4, "action": "세 번째 우선순위 항목 (20자 이내)", "dept": "담당 부서", "timing": "2주 이내", "budget": "예상 예산"}},\n'
-            f'    {{"stars": 3, "action": "네 번째 우선순위 항목 (20자 이내)", "dept": "담당 부서", "timing": "이번 달", "budget": "예상 예산"}},\n'
-            f'    {{"stars": 2, "action": "다섯 번째 우선순위 항목 (20자 이내)", "dept": "담당 부서", "timing": "다음 달", "budget": "예상 예산"}}\n'
+            f'    {{"stars":5,"action":"{category} 시급 실행항목","dept":"구매","timing":"이번 주","budget":"500만원"}},\n'
+            f'    {{"stars":5,"action":"두번째 실행항목","dept":"마케팅","timing":"7일 이내","budget":"300만원"}},\n'
+            f'    {{"stars":4,"action":"세번째 실행항목","dept":"상품기획","timing":"2주 이내","budget":"별도 없음"}},\n'
+            f'    {{"stars":3,"action":"네번째 실행항목","dept":"영업","timing":"이번 달","budget":"별도 없음"}},\n'
+            f'    {{"stars":2,"action":"다섯번째 실행항목","dept":"기획","timing":"다음 달","budget":"별도 없음"}}\n'
             f'  ]\n'
             f'}}\n\n'
-            f'[절대 규칙]\n'
-            f'1. consumer_needs·consumer_complaints·recommended_features는 위 ■쇼핑 키워드와 ■소비자 불만 데이터의 실제 단어를 직접 인용해야 함. "소비자들이 원하는" 같은 일반론 금지.\n'
-            f'2. recommended_features 각 항목은 "[구체적 기능명]: 근거" 형식 — "품질 강화", "편의성 개선" 수준의 모호한 표현 금지.\n'
-            f'3. product_brief는 반드시 위 키워드·불만 수치를 직접 인용한 1문장 결론이어야 함.\n'
-            f'4. action_basis 4개는 위 데이터의 수치(관심도 {current}, 성장률 {_growth_pct}, 브랜드 점유율 등) 인용 필수.\n'
-            f'5. expected_sales_growth: 근거 없는 % 수치 절대 금지. summary: 3문장 이상, 수치 인용 포함.\n'
-            f'6. 임의 수량(100대 등), "일반적으로", "보통", "대체로" 같은 표현 절대 금지.\n'
-            f'7. ai_confidence: 실제 데이터 신뢰도 기반 0~100 정수로 수정. confidence_breakdown.pct 4개 합계는 정확히 100이 되어야 함.\n'
-            f'8. action_list: 실제 카테고리({category})에 맞는 구체적 실행 항목 5개. action은 20자 이내 실행 가능한 문장. dept는 상품기획·마케팅·구매·영업 중 택1. timing은 "이번 주", "7일 이내", "2주 이내", "이번 달", "다음 달" 중 택1. budget은 현실적인 예상 예산(예: "1,000만원", "500만원", "별도 예산 없음")으로 작성.\n'
-            f'9. decision_chain: 위 실측 데이터 기반으로 수정 가능. 각 항목은 30자 이내.'
+            f'[규칙] 1.consumer_needs·complaints·features는 위 실제 키워드 직접 인용. 2.features는 "[기능명]:근거" 형식. '
+            f'3.action_basis 수치({current},{_growth_pct}) 인용. 4.% 수치는 근거 있을 때만. '
+            f'5.일반론("보통","대체로") 금지. 6.ai_confidence 0~100 정수, breakdown 합=100. '
+            f'7.action_list 5개: {category} 맞는 구체적 항목, action 20자이내, dept=상품기획/마케팅/구매/영업 중 택1, budget 현실적 금액.'
         )
 
         res = await _groq_create(
@@ -451,7 +445,7 @@ async def get_ai_report(category: str = Query(..., min_length=1), period: str = 
                 {"role": "system", "content": "당신은 B2B 가전 유통 전략 어드바이저입니다. 기업 보고서 수준의 구체적 수치·근거·카테고리 특성을 반영한 분석을 작성하세요. 일반론 없이 데이터 기반으로 작성하며, 순수 JSON만 출력하세요."},
                 {"role": "user", "content": prompt},
             ],
-            max_tokens=3200,
+            max_tokens=2000,
             temperature=0.3,
         )
         raw = res.choices[0].message.content.strip()
