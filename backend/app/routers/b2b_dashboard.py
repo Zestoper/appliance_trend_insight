@@ -31,9 +31,9 @@ async def get_b2b_dashboard(category: str = Query(..., min_length=1), period: st
             cached_result = {**cached_result, "complaints": _items, "complaint_summary": _summary}
         return cached_result
 
-    # 2. Supabase DB 캐시 (Render에서 Naver API 해외 차단 대비)
+    # 2. Supabase DB 캐시 (Render에서 Naver API 해외 차단 대비) — trend 비어있으면 무시
     _db_data = await _get_db_cache(_db_key)
-    if _db_data:
+    if _db_data and _db_data.get("trend"):
         _GROQ_CACHE[_ck] = (_time.time() + min(_GROQ_TTL, 3600), _db_data)
         return _db_data
 
