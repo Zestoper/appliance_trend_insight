@@ -90,15 +90,17 @@ class _CerebrasResponse:
 
 
 async def _cerebras_create(messages: list, max_tokens: int = 600, temperature: float = 0.3):
-    """Cerebras API 호출 (Groq 소진 시 폴백)"""
+    """Cerebras API 호출 (Groq 소진 시 폴백).
+    gpt-oss-120b는 reasoning 모델 — thinking 토큰 포함하여 max_tokens 충분히 확보."""
     import httpx as _httpx
     key = _os.getenv("CEREBRAS_API_KEY", "").strip()
     if not key:
         raise RuntimeError("CEREBRAS_API_KEY 없음")
+    cerebras_max_tokens = max(max_tokens * 6, 8000)
     resp = await _httpx.AsyncClient().post(
         "https://api.cerebras.ai/v1/chat/completions",
         json={"model": "gpt-oss-120b", "messages": messages,
-              "max_tokens": max_tokens, "temperature": temperature},
+              "max_tokens": cerebras_max_tokens, "temperature": temperature},
         headers={"Authorization": f"Bearer {key}"},
         timeout=60.0,
     )
@@ -113,7 +115,7 @@ async def _cerebras_create(messages: list, max_tokens: int = 600, temperature: f
 
 async def _groq_create(messages: list, max_tokens: int = 600, temperature: float = 0.3):
     """모델별 일일 한도 관리. 모든 모델 소진 시 Cerebras로 폴백."""
-    from groq import RateLimitError
+    from groq import RateLimitError, APIStatusError
     client = _get_groq_client()
     last_err = None
     for model in _GROQ_MODELS:
@@ -129,6 +131,12 @@ async def _groq_create(messages: list, max_tokens: int = 600, temperature: float
             if "tokens per day" in err_str or "tpd" in err_str or "rate_limit" in err_str:
                 _GROQ_MODEL_EXHAUSTED[model] = _time.time()
                 logger.warning("[Groq] %s 일일 토큰 한도 소진 — 다음 모델 시도", model)
+                last_err = e
+                continue
+            raise
+        except APIStatusError as e:
+            if e.status_code == 413:
+                logger.warning("[Groq] %s 요청 크기 초과(413) — 다음 모델 시도", model)
                 last_err = e
                 continue
             raise
