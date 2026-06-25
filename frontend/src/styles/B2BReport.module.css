@@ -91,6 +91,7 @@
 .dataTable tbody tr:hover { background: rgba(99,102,241,0.03); }
 .dataTable td { padding: 10px 12px; }
 .numCell { text-align: right; font-variant-numeric: tabular-nums; }
+.numTh { text-align: right !important; }
 .metaLabel { color: var(--b2b-muted); font-size: 12px; font-weight: 600; }
 .barCol { width: 120px; }
 .barCell { padding: 10px 12px; }
