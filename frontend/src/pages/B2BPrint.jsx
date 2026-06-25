@@ -512,13 +512,21 @@ function ReportSection({ data, sections, category }) {
             {oppList.length > 0 && (
               <div className={s.infoBox}>
                 <p className={s.infoTitle}>시장 기회</p>
-                <ul className={s.infoList}>{oppList.map((o, i) => <li key={i}>{o}</li>)}</ul>
+                <ul className={s.infoList}>{oppList.map((o, i) => {
+                  let item; try { item = typeof o === 'string' ? JSON.parse(o) : o; } catch { item = null; }
+                  if (item && typeof item === 'object' && item.title) return <li key={i}><strong>{item.title}</strong>: {item.meaning}</li>;
+                  return <li key={i}>{String(o)}</li>;
+                })}</ul>
               </div>
             )}
             {riskList.length > 0 && (
               <div className={s.infoBox} style={{ '--box-accent': '#ef4444' }}>
                 <p className={s.infoTitle}>리스크 요인</p>
-                <ul className={s.infoList}>{riskList.map((r, i) => <li key={i}>{r}</li>)}</ul>
+                <ul className={s.infoList}>{riskList.map((r, i) => {
+                  let item; try { item = typeof r === 'string' ? JSON.parse(r) : r; } catch { item = null; }
+                  if (item && typeof item === 'object' && item.title) return <li key={i}><strong>{item.title}</strong>: {item.meaning}</li>;
+                  return <li key={i}>{String(r)}</li>;
+                })}</ul>
               </div>
             )}
           </div>
@@ -654,10 +662,12 @@ function ForecastSection({ data, sections, category }) {
             <p className={s.infoTitle}>수요 패턴 분석</p>
             <p className={s.infoText}>{toStr(data.recommendation)}</p>
           </div>
-          {rag && (
+          {rag && (rag.opportunity || rag.risk || rag.strategy) && (
             <div className={s.infoBox} style={{ marginTop: 8 }}>
               <p className={s.infoTitle}>RAG 기반 인사이트</p>
-              <p className={s.infoText}>{toStr(rag)}</p>
+              {rag.opportunity?.length > 0 && <><p className={s.infoSub}>기회</p><ul className={s.infoList}>{rag.opportunity.map((x, i) => <li key={i}>{x}</li>)}</ul></>}
+              {rag.risk?.length > 0 && <><p className={s.infoSub}>위험</p><ul className={s.infoList}>{rag.risk.map((x, i) => <li key={i}>{x}</li>)}</ul></>}
+              {rag.strategy?.length > 0 && <><p className={s.infoSub}>전략</p><ul className={s.infoList}>{rag.strategy.map((x, i) => <li key={i}>{x}</li>)}</ul></>}
             </div>
           )}
         </div>

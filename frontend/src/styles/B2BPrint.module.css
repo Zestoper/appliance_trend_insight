@@ -311,6 +311,15 @@ tr:last-child td { border-bottom: none; }
   line-height: 1.7;
 }
 
+.infoSub {
+  font-size: 10px;
+  font-weight: 600;
+  color: #6366f1;
+  margin: 6px 0 2px;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+
 .infoList {
   font-size: 12px;
   color: #374151;
