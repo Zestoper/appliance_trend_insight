@@ -501,22 +501,41 @@ export default function B2BReport() {
                         <p className={s.tableBlockTitle}>수요 예측 구간 (신뢰구간 포함)</p>
                         <table className={s.dataTable}>
                           <thead>
-                            <tr><th>기간</th><th>예측값</th><th>하한</th><th>상한</th><th>범위</th></tr>
+                            <tr>
+                              <th>기간</th>
+                              <th className={s.numTh}>예측값</th>
+                              <th className={s.numTh}>하한</th>
+                              <th className={s.numTh}>상한</th>
+                              <th className={s.numTh}>오차 범위</th>
+                            </tr>
                           </thead>
                           <tbody>
-                            {forecastData.forecast.slice(0, 5).map((f, i) => (
-                              <tr key={i}>
-                                <td>{f.period?.slice(0, 7)}</td>
-                                <td className={s.numCell}><strong>{f.predicted}</strong></td>
-                                <td className={s.numCell} style={{ color: '#ef4444' }}>{f.ci_low}</td>
-                                <td className={s.numCell} style={{ color: '#10b981' }}>{f.ci_high}</td>
-                                <td className={s.numCell} style={{ color: '#6b7280', fontSize: 11 }}>
-                                  ±{Math.round((f.ci_high - f.ci_low) / 2 * 10) / 10}
-                                </td>
-                              </tr>
-                            ))}
+                            {forecastData.forecast.slice(0, 5).map((f, i) => {
+                              const hasCI = f.ci_low != null && f.ci_high != null && (f.ci_low > 0 || f.ci_high > 0);
+                              const range = hasCI ? Math.round((f.ci_high - f.ci_low) / 2 * 10) / 10 : null;
+                              return (
+                                <tr key={i}>
+                                  <td>{f.period?.slice(0, 7)}</td>
+                                  <td className={s.numCell}><strong>{f.predicted}</strong></td>
+                                  <td className={s.numCell} style={{ color: hasCI ? '#ef4444' : 'var(--b2b-muted)' }}>
+                                    {hasCI ? f.ci_low : '-'}
+                                  </td>
+                                  <td className={s.numCell} style={{ color: hasCI ? '#10b981' : 'var(--b2b-muted)' }}>
+                                    {hasCI ? f.ci_high : '-'}
+                                  </td>
+                                  <td className={s.numCell} style={{ color: '#6b7280', fontSize: 11 }}>
+                                    {range != null ? `±${range}` : '데이터 부족'}
+                                  </td>
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
+                        {forecastData.forecast.slice(0, 5).every(f => !f.ci_low && !f.ci_high) && (
+                          <p style={{ fontSize: 11, color: 'var(--b2b-muted)', marginTop: 8 }}>
+                            * 데이터 기간이 짧아 신뢰구간을 계산할 수 없습니다. 3개월 이상 기간을 선택하면 신뢰구간이 표시됩니다.
+                          </p>
+                        )}
                       </div>
                     )}
 
