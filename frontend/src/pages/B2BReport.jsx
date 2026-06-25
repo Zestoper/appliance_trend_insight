@@ -83,7 +83,8 @@ export default function B2BReport() {
   const [priceData, setPriceData]     = useState(null);
   const [forecastData, setForecastData] = useState(null);
   const [accuracy,  setAccuracy]      = useState(null);
-  const [printModal, setPrintModal]   = useState(false);
+  const [printModal, setPrintModal]     = useState(false);
+  const [marketModal, setMarketModal]   = useState(false);
 
   const isB2BActive = (user?.user_type === 'b2b' && user?.status === 'active') || user?.role === 'admin';
   const loadData = () => setRefreshTick(t => t + 1);
@@ -488,7 +489,9 @@ export default function B2BReport() {
                       <p className={s.forecastConfNote}>
                         {fcConf >= 80 ? `신뢰도 ${fcConf}% — 데이터가 충분합니다. 예측 결과를 의사결정에 활용하세요.` :
                          fcConf >= 60 ? `신뢰도 ${fcConf}% — 일부 데이터가 부족합니다. 추세 참고 수준으로 활용하세요.` :
-                         `신뢰도 ${fcConf}% — 최근 데이터가 부족하여 신뢰도가 낮습니다. 시장 상황을 병행 확인하세요.`}
+                         <>신뢰도 {fcConf}% — 최근 데이터가 부족하여 신뢰도가 낮습니다.{' '}
+                           <button className={s.marketModalBtn} onClick={() => setMarketModal(true)}>시장 상황 확인 →</button>
+                         </>}
                       </p>
                     </div>
 
@@ -860,6 +863,95 @@ export default function B2BReport() {
         category={category}
         period={period}
       />
+
+      {/* ── 시장 상황 모달 ── */}
+      {marketModal && (
+        <div className={s.mmOverlay} onClick={() => setMarketModal(false)}>
+          <div className={s.mmPanel} onClick={e => e.stopPropagation()}>
+            <div className={s.mmHeader}>
+              <div>
+                <p className={s.mmLabel}>현재 시장 상황</p>
+                <h2 className={s.mmTitle}>{category} 시장 현황 요약</h2>
+              </div>
+              <button className={s.mmClose} onClick={() => setMarketModal(false)}>✕</button>
+            </div>
+
+            {/* KPI 4개 */}
+            <div className={s.mmKpiRow}>
+              {[
+                { label: '검색 관심도', val: metrics?.trend_score ?? '-',
+                  sub: metrics?.avg_score != null ? `기간 평균 ${metrics.avg_score}` : '',
+                  color: metrics?.trend_score >= metrics?.avg_score ? '#10b981' : '#ef4444' },
+                { label: '시장 성장률', val: metrics?.growth_rate != null
+                    ? `${metrics.growth_rate >= 0 ? '+' : ''}${metrics.growth_rate}%` : '-',
+                  color: (metrics?.growth_rate ?? 0) >= 0 ? '#10b981' : '#ef4444' },
+                { label: '시장 위험도', val: metrics?.risk ?? '-',
+                  color: metrics?.risk === '낮음' ? '#10b981' : metrics?.risk === '중간' ? '#f59e0b' : '#ef4444' },
+                { label: '가격 신호', val: insSignal, color: sigCfg?.color },
+              ].map(({ label, val, sub, color }) => (
+                <div key={label} className={s.mmKpiItem}>
+                  <p className={s.mmKpiLabel}>{label}</p>
+                  <p className={s.mmKpiVal} style={{ color }}>{val}</p>
+                  {sub && <p className={s.mmKpiSub}>{sub}</p>}
+                </div>
+              ))}
+            </div>
+
+            {/* 브랜드 경쟁 */}
+            {brands?.length > 0 && (
+              <div className={s.mmBlock}>
+                <p className={s.mmBlockTitle}>브랜드 경쟁 구도 (상위 {Math.min(brands.length, 5)}개)</p>
+                <div className={s.mmBrandList}>
+                  {brands.slice(0, 5).map((b, i) => (
+                    <div key={i} className={s.mmBrandRow}>
+                      <span className={s.mmBrandName}>
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: ['#6366f1','#a855f7','#3b82f6','#06b6d4','#10b981'][i], display: 'inline-block', marginRight: 8 }} />
+                        {b.brand}
+                      </span>
+                      <div className={s.mmBrandBarWrap}>
+                        <div className={s.mmBrandBar} style={{ width: `${b.pct}%`, background: ['#6366f1','#a855f7','#3b82f6','#06b6d4','#10b981'][i] }} />
+                      </div>
+                      <span className={s.mmBrandPct}>{b.pct}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 가격 현황 */}
+            {priceData?.summary && (
+              <div className={s.mmBlock}>
+                <p className={s.mmBlockTitle}>가격 현황</p>
+                <div className={s.mmPriceRow}>
+                  {[
+                    { label: '평균가', val: priceData.summary.avg_price ? fmt만(priceData.summary.avg_price) : '-' },
+                    { label: '최저가', val: priceData.summary.min_price ? fmt만(priceData.summary.min_price) : '-' },
+                    { label: '최고가', val: priceData.summary.max_price ? fmt만(priceData.summary.max_price) : '-' },
+                  ].map(({ label, val }) => (
+                    <div key={label} className={s.mmPriceItem}>
+                      <p className={s.mmPriceLabel}>{label}</p>
+                      <p className={s.mmPriceVal}>{val}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 매입 타이밍 */}
+            {timing && (
+              <div className={s.mmBlock}>
+                <p className={s.mmBlockTitle}>매입 타이밍 신호</p>
+                <div className={s.mmTimingCard} style={{ background: tcfg?.bg, borderColor: tcfg?.border }}>
+                  <span style={{ color: tcfg?.color, fontWeight: 700 }}>{timing.label}</span>
+                  <p style={{ color: tcfg?.color, fontSize: 13, marginTop: 6 }}>{timing.message}</p>
+                </div>
+              </div>
+            )}
+
+            <p className={s.mmFooter}>네이버 DataLab · 쇼핑 API 기반 · {today} 기준</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
