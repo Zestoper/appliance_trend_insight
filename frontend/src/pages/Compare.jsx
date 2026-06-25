@@ -325,18 +325,21 @@ export default function Compare() {
   // 필터 조합으로 상품 목록 fetch
   useEffect(() => {
     const { product, brand, price } = filters
-    if (!product && !brand) { setCatProducts([]); return }
+    // 아무 필터도 없으면 초기화
+    if (!product && !brand && !price) { setCatProducts([]); return }
 
-    const query = [brand, product].filter(Boolean).join(' ')
+    // 검색어 조합: 브랜드 + 제품, 없으면 "가전제품"으로 대체
+    const query = [brand, product].filter(Boolean).join(' ') || '가전제품'
     setCatLoading(true)
     setCatProducts([])
 
-    fetch(`${API_BASE}/api/naver/products?query=${encodeURIComponent(query)}&page=1&display=20`)
+    // 가격 필터 적용 위해 충분한 수량 fetch (100개)
+    fetch(`${API_BASE}/api/naver/products?query=${encodeURIComponent(query)}&page=1&display=100`)
       .then(r => r.json())
       .then(data => {
         let items = data.items ?? []
-        // 가격 필터 클라이언트 적용
-        if (price !== null) {
+        // 가격 범위 클라이언트 필터링
+        if (price) {
           const priceGroup = FILTER_GROUPS.find(g => g.key === 'price')
           const priceIdx = priceGroup.options.indexOf(price)
           if (priceIdx !== -1) {
@@ -344,7 +347,7 @@ export default function Compare() {
             items = items.filter(p => p.price > 0 && p.price >= min && p.price < max)
           }
         }
-        setCatProducts(items)
+        setCatProducts(items.slice(0, 30))
         setCatLoading(false)
       })
       .catch(() => setCatLoading(false))
@@ -475,7 +478,7 @@ export default function Compare() {
             ))}
           </div>
 
-          {(filters.product || filters.brand) && (
+          {(filters.product || filters.brand || filters.price) && (
             <div className={styles.catPickerWrap}>
               <div className={styles.catPickerHeader}>
                 <span className={styles.catPickerQuery}>
