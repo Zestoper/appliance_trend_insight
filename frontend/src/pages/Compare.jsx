@@ -318,9 +318,10 @@ export default function Compare() {
   const [thirdSlotOpen,   setThirdSlotOpen]   = useState(false)
   const [aiCompare,       setAiCompare]       = useState(null)
   const [aiCmpLoading,    setAiCmpLoading]    = useState(false)
-  const [filters,      setFilters]      = useState({ product: null, brand: null, price: null })
-  const [catProducts,  setCatProducts]  = useState([])
-  const [catLoading,   setCatLoading]   = useState(false)
+  const [filters,         setFilters]         = useState({ product: null, brand: null, price: null })
+  const [catProducts,     setCatProducts]     = useState([])
+  const [catLoading,      setCatLoading]      = useState(false)
+  const [catMismatch,     setCatMismatch]     = useState(null)  // { current, incoming }
 
   // 필터 조합으로 상품 목록 fetch
   useEffect(() => {
@@ -382,11 +383,20 @@ export default function Compare() {
       .catch(() => setAiCmpLoading(false))
   }, [list, isLoggedIn, token])
 
-  function add(product, idx) {
+  // 현재 비교 중인 카테고리 (카테고리 있는 첫 제품 기준)
+  const compareCategory = list.filter(Boolean).map(p => p.category).find(Boolean) ?? null
+
+  function add(product, idx, category = null) {
+    // 카테고리 불일치 체크
+    if (category && compareCategory && category !== compareCategory) {
+      setCatMismatch({ current: compareCategory, incoming: category })
+      return
+    }
     const updated = [...list]
     updated[idx] = {
       id: product.id, title: product.title, image: product.image,
       price: product.price, brand: product.brand,
+      category,
     }
     setList([...updated])
   }
@@ -513,7 +523,7 @@ export default function Compare() {
                           if (alreadyAdded || isFull) return
                           const nextIdx = list.length < MAX_SLOTS ? list.length : -1
                           if (nextIdx === -1) return
-                          add(p, nextIdx)
+                          add(p, nextIdx, filters.product ?? null)
                           if (nextIdx === 2) setThirdSlotOpen(false)
                         }}
                         disabled={alreadyAdded || isFull}
@@ -707,6 +717,38 @@ export default function Compare() {
         )}
 
       </div>
+
+      {/* 카테고리 불일치 모달 */}
+      {catMismatch && (
+        <div className={styles.modalOverlay} onClick={() => setCatMismatch(null)}>
+          <div className={styles.modal} onClick={e => e.stopPropagation()}>
+            <div className={styles.modalIcon}>⚠️</div>
+            <h3 className={styles.modalTitle}>카테고리가 맞지 않아요</h3>
+            <p className={styles.modalDesc}>
+              현재 <strong>{catMismatch.current}</strong> 제품이 비교 중이에요.<br />
+              <strong>{catMismatch.incoming}</strong> 제품은 추가할 수 없어요.
+            </p>
+            <p className={styles.modalHint}>같은 카테고리 제품끼리만 비교할 수 있어요.</p>
+            <div className={styles.modalBtns}>
+              <button
+                className={styles.modalBtnSecondary}
+                onClick={() => {
+                  setList([])
+                  setReports([null, null, null])
+                  setLoading([false, false, false])
+                  setThirdSlotOpen(false)
+                  setCatMismatch(null)
+                }}
+              >
+                비교 목록 초기화
+              </button>
+              <button className={styles.modalBtnPrimary} onClick={() => setCatMismatch(null)}>
+                확인
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
