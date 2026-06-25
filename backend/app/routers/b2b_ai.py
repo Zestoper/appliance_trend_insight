@@ -247,8 +247,22 @@ async def get_ai_report(category: str = Query(..., min_length=1), period: str = 
     _comp_cache = _GROQ_CACHE.get(f"complaints:{category}")
     if _comp_cache and _time.time() < _comp_cache[0]:
         _cv = _comp_cache[1] or []
-        # 캐시 형식: dict {"items":..., "summary":...} 또는 구버전 list
         _raw_complaints = _cv.get("items", []) if isinstance(_cv, dict) else _cv
+    else:
+        # complaints 별도 캐시 미스 → dashboard 캐시 또는 DB 캐시에서 fallback
+        for _p in (period, "3m", "1m", "6m", "1y"):
+            _dash2 = _GROQ_CACHE.get(f"dashboard:{_CACHE_VER}:{category}:{_p}")
+            if _dash2 and _time.time() < _dash2[0] and _dash2[1].get("complaints"):
+                _raw_complaints = _dash2[1]["complaints"]
+                break
+        if not _raw_complaints:
+            try:
+                from app.services.naver_cache import get_db_cache as _get_db_cache2
+                _db_comp = await _get_db_cache2(f"naver_dashboard:{category}:{period}")
+                if _db_comp and _db_comp.get("complaints"):
+                    _raw_complaints = _db_comp["complaints"]
+            except Exception:
+                pass
 
     if not _top_keywords:
         try:
@@ -294,8 +308,8 @@ async def get_ai_report(category: str = Query(..., min_length=1), period: str = 
 
     complaint_str = "\n  ".join(_comp_lines) if _comp_lines else "데이터 없음"
 
-    _first_kw   = _top_keywords[0]["word"] if _top_keywords else "주요키워드"
-    _first_comp = next(iter(_comp_freq), "주요불만") if _comp_freq else "주요불만"
+    _first_kw   = _top_keywords[0]["word"] if _top_keywords else None
+    _first_comp = next(iter(_comp_freq), None) if _comp_freq else None
 
     try:
         rag_context = ""
@@ -369,7 +383,7 @@ async def get_ai_report(category: str = Query(..., min_length=1), period: str = 
             f'  ],\n'
             f'  "product_brief": "위 쇼핑 키워드({top_kw_str})와 불만 데이터를 종합해 B2B 유통사가 지금 당장 기획·매입해야 할 구체적 제품 유형 1문장. 형식: [키워드 기반 제품 포지셔닝]을 [구체적 타깃층]에게 [가격대]로 → [불만 해소 포인트] 차별화",\n'
             f'  "consumer_needs": [\n'
-            f'    "쇼핑 키워드 {_first_kw} 등 고빈도 키워드가 시사하는 소비자의 핵심 필요 기능 (20자 이내, 구체적 기능명 포함)",\n'
+            f'    "쇼핑 키워드 {_first_kw if _first_kw else top_kw_str.split(",")[0].split("(")[0].strip() if top_kw_str != "데이터 없음" else category} 등 고빈도 키워드가 시사하는 소비자의 핵심 필요 기능 (20자 이내, 구체적 기능명 포함)",\n'
             f'    "구매 목적 {top_purpose}({sec_purpose}) 데이터에서 도출한 실제 니즈 — 어떤 기능이 이를 충족하는가",\n'
             f'    "{top_install} 설치 환경 소비자가 필요로 하는 설계/편의 기능 — 재구매 결정 요인"\n'
             f'  ],\n'
@@ -385,12 +399,12 @@ async def get_ai_report(category: str = Query(..., min_length=1), period: str = 
             )
             + f'  ],\n'
             f'  "recommended_features": [\n'
-            f'    "[기능명]: 쇼핑 키워드 {_first_kw} 수요 충족 + 불만({_first_comp}) 해소 — 시장 공백 직접 공략 (20자 이내)",\n'
+            f'    "[기능명]: 쇼핑 키워드 {_first_kw or category} 수요 충족 + 불만({_first_comp or "주요 소비자 불만"}) 해소 — 시장 공백 직접 공략 (20자 이내)",\n'
             f'    "[기능명]: {top_purpose} 구매 목적 직접 충족 — 재구매율·객단가 상승 근거",\n'
             f'    "[기능명]: 불만 데이터 2·3위 키워드 해소 — {top_install} 환경 최적화",\n'
             f'    "[기능명]: {top_brand} 대비 차별화 포인트 — 경쟁 포지셔닝 근거"\n'
             f'  ],\n'
-            f'  "needs_basis": "2문장. 1문장: 쇼핑 키워드 상위({_first_kw} 등)와 불만({_first_comp} 등) 데이터를 교차하면 현재 시장에 [이런 제품 유형]이 부재하며 이것이 기획 기회다 — 구체적 키워드·수치 인용 필수. 2문장: 위 기능 4가지를 탑재한 제품이 {top_brand} 중심 경쟁에서 차별화되는 이유와 예상 시장 효과.",\n'
+            f'  "needs_basis": "2문장. 1문장: 쇼핑 키워드 상위({_first_kw or category} 등)와 불만({_first_comp or "소비자 주요 불만"} 등) 데이터를 교차하면 현재 시장에 [이런 제품 유형]이 부재하며 이것이 기획 기회다 — 구체적 키워드·수치 인용 필수. 2문장: 위 기능 4가지를 탑재한 제품이 {top_brand} 중심 경쟁에서 차별화되는 이유와 예상 시장 효과.",\n'
             f'  "expected_sales_growth": "{category} 수요 방향성 서술 (구체적 % 수치 없이, 방향+근거만. 예: 성수기({peak_months}) 진입 및 {trend_dir_str} 흐름으로 관심도 상승 기대, {top_brand} 중심 프리미엄 수요 확대 가능성 높음)",\n'
             f'  "expected_effects": [\n'
             f'    "성수기 집중 매출 확대 (20자 이내, 예: {peak_months} 집중 매출 확대)",\n'
@@ -403,7 +417,7 @@ async def get_ai_report(category: str = Query(..., min_length=1), period: str = 
             f'    "검색 트렌드: 관심도 {current} ({trend_dir_str}, 기간 평균 대비 {_growth_pct})",\n'
             f'    "브랜드 집중도: {top3} — 경쟁 구도 분석",\n'
             f'    "성수기 신호: {peak_months} 진입 {_buy_lead_prompt}일 전 타이밍",\n'
-            f'    "소비자 니즈: {top_purpose}·{_first_kw} 키워드 수요 집중"\n'
+            f'    "소비자 니즈: {top_purpose}·{_first_kw or category} 키워드 수요 집중"\n'
             f'  ],\n'
             f'  "ai_confidence": 75,\n'
             f'  "confidence_breakdown": [\n'
