@@ -103,7 +103,10 @@ async def _cerebras_create(messages: list, max_tokens: int = 600, temperature: f
         timeout=60.0,
     )
     resp.raise_for_status()
-    text = resp.json()["choices"][0]["message"]["content"]
+    msg  = resp.json()["choices"][0]["message"]
+    text = msg.get("content") or msg.get("reasoning") or ""
+    if not text:
+        raise RuntimeError("Cerebras 응답 content/reasoning 모두 비어있음")
     logger.info("[Cerebras] 응답 완료 (%d자)", len(text))
     return _CerebrasResponse(text)
 
