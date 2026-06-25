@@ -603,7 +603,14 @@ export default function B2BForecast() {
                 </div>
 
                 <div className={s.reportFooter}>
-                  <span>본 리포트는 네이버 DataLab + Prophet + XGBoost 앙상블 모델 기반으로 생성되었습니다.</span>
+                  <span>
+                    본 리포트는 네이버 DataLab + Prophet + XGBoost 앙상블 모델 기반으로 생성되었습니다.
+                    {data?.data_sources?.length > 0 && (
+                      <span className={s.footerSources}>
+                        {' '}· 공공데이터 활용: {data.data_sources.map(ds => `${ds.name}(${ds.var})`).join(', ')}
+                      </span>
+                    )}
+                  </span>
                   <span>{fetchedAt ? fetchedAt.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' }) : ''} · {PERIOD_LABEL[period]}</span>
                 </div>
               </>
@@ -613,7 +620,14 @@ export default function B2BForecast() {
           <B2BSidebar
             category={category} setCategory={setCategory}
             periods={PERIODS} period={period} setPeriod={setPeriod}
-            dataSources={['네이버 DataLab', 'Prophet (시계열)', 'XGBoost (앙상블)', '선형회귀 (영향도)', 'Groq LLM']}
+            dataSources={[
+              '네이버 DataLab',
+              'Prophet (시계열)',
+              'XGBoost (앙상블)',
+              '선형회귀 (영향도)',
+              'Groq LLM',
+              ...[...new Set((data?.data_sources ?? []).map(ds => ds.name))].map(n => `${n} (공공데이터)`),
+            ]}
             onRefresh={loadData} loading={loading} fetchedAt={fetchedAt}
             onDownload={() => setPrintModal(true)}
           />

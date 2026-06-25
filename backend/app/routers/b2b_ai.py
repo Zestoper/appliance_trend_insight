@@ -320,11 +320,42 @@ async def get_ai_report(category: str = Query(..., min_length=1), period: str = 
     _first_comp = next(iter(_comp_freq), None) if _comp_freq else None
 
     try:
+        # 공공데이터 환경 신호 로드 (병렬)
+        rag_task = rag.query(f"{category} 소비자 반응 구매 결정 트렌드", n_results=8) if rag else asyncio.sleep(0)
+        env_task = _load_env_signal(category)
+        rag_chunks_raw, _env = await asyncio.gather(rag_task, env_task, return_exceptions=True)
+
         rag_context = ""
-        if rag:
-            chunks = await rag.query(f"{category} 소비자 반응 구매 결정 트렌드", n_results=8)
-            if chunks:
-                rag_context = "\n[소비자 실반응 RAG 데이터]\n" + "\n".join(f"- {c[:_RAG_CHUNK_LEN]}" for c in chunks)
+        if isinstance(rag_chunks_raw, list) and rag_chunks_raw:
+            rag_context = "\n[소비자 실반응 RAG 데이터]\n" + "\n".join(f"- {c[:_RAG_CHUNK_LEN]}" for c in rag_chunks_raw)
+
+        # 환경 신호 문자열 구성
+        _env_str = ""
+        if isinstance(_env, dict) and _env.get("vars"):
+            _ev = _env["vars"]
+            parts = []
+            if "kma_temp" in _ev:
+                parts.append(f"기온 {_ev['kma_temp']}°C · 습도 {_ev.get('kma_humidity', '-')}%")
+            if "air_pm25" in _ev:
+                _grade = "매우나쁨" if _ev['air_pm25'] >= 76 else "나쁨" if _ev['air_pm25'] >= 36 else "보통" if _ev['air_pm25'] >= 16 else "좋음"
+                parts.append(f"PM2.5 {_ev['air_pm25']}㎍/㎥({_grade})")
+            if "kca_count" in _ev:
+                parts.append(f"소비자원 피해접수 {_ev['kca_count']}건")
+            if parts:
+                _sig_labels = " / ".join(s["label"] for s in _env.get("signals", []))
+                _env_str = f"\n■ 외부 환경 신호 (공공데이터 기준)\n  {' · '.join(parts)}\n  → {_sig_labels if _sig_labels else '현재 수요 영향 없음'}\n"
+
+        # KCA 공식 불만 데이터 보강
+        if not _raw_complaints and isinstance(_env, dict) and _env.get("vars", {}).get("kca_count"):
+            from app.services.naver_cache import get_db_cache as _gc_kca
+            _kca = await _gc_kca(f"ext:kca:{category}")
+            if _kca and _kca.get("items"):
+                for item in _kca["items"][:20]:
+                    _raw_complaints.append({
+                        "brand": item.get("product", "")[:10],
+                        "complaint": [item.get("content", "")[:30]],
+                        "evidence": {},
+                    })
 
         _growth_pct = f"{'+' if growth >= 0 else ''}{growth}%"
         _buy_lead_prompt = 14 if time_unit == "date" else (21 if time_unit == "week" else 45)
@@ -334,6 +365,7 @@ async def get_ai_report(category: str = Query(..., min_length=1), period: str = 
             f"  현재 관심도: {current} / 기간 평균: {avg_val} / 변화율: {_growth_pct} ({trend_dir_str})\n\n"
             f"■ 브랜드 경쟁 구도\n"
             f"  {top3}\n\n"
+            f"{_env_str}"
             f"■ 소비자 구매 맥락\n"
             f"  설치 형태: {install_str}\n"
             f"  구매 목적: {purpose_str}\n"
@@ -630,10 +662,22 @@ async def get_demand_forecast(category: str = Query(..., min_length=1), period: 
     # ── 공공데이터 외부 변수 로드 (Prophet/XGBoost 공용) ──────────────────────
     from app.services.public_data import get_ext_dataframe
     _ext_df = None
+    _ext_cols_used: list[str] = []  # 실제 모델에 반영된 외부 변수 목록
     try:
         _ext_df = await get_ext_dataframe(category, df["ds"])
     except Exception as _e:
         logger.warning("[ExtData] 외부 변수 로드 실패 (%s): %s", category, _e)
+
+    # 외부 변수 → 출처 메타 매핑
+    _EXT_SOURCE_META = {
+        "kma_temp":     {"name": "기상청 ASOS", "var": "기온(℃)", "provider": "data.go.kr"},
+        "kma_humidity": {"name": "기상청 ASOS", "var": "습도(%)", "provider": "data.go.kr"},
+        "air_pm25":     {"name": "에어코리아",   "var": "PM2.5(㎍/㎥)", "provider": "data.go.kr"},
+        "air_pm10":     {"name": "에어코리아",   "var": "PM10(㎍/㎥)",  "provider": "data.go.kr"},
+        "kepco_rate":   {"name": "한국전력공사", "var": "전기요금(원/kWh)", "provider": "bigdata.kepco.co.kr"},
+        "customs_tv":   {"name": "관세청 수출입통계", "var": "TV 수입 물량(kg)", "provider": "unipass.customs.go.kr"},
+        "cpi":          {"name": "통계청 KOSIS",  "var": "소비자물가지수", "provider": "kosis.kr"},
+    }
 
     def _run_prophet() -> pd.DataFrame:
         logging.getLogger("prophet").setLevel(logging.ERROR)
@@ -662,6 +706,7 @@ async def get_demand_forecast(category: str = Query(..., min_length=1), period: 
                     m.add_regressor(col, standardize=True)
                     ext_cols.append(col)
             logger.info("[Prophet] 외부 변수 추가: %s", ext_cols)
+            _ext_cols_used.extend(c for c in ext_cols if c not in _ext_cols_used)
 
         m.fit(_df)
         future = m.make_future_dataframe(periods=forecast_n, freq=freq)
@@ -776,6 +821,9 @@ async def get_demand_forecast(category: str = Query(..., min_length=1), period: 
                 for col in _ext_cols:
                     _ext_month_avg[col] = _ext_df.groupby(_ext_df["ds"].dt.month)[col].mean().to_dict()
                 logger.info("[XGB] 외부 변수: %s", _ext_cols)
+                for c in _ext_cols:
+                    if c not in _ext_cols_used:
+                        _ext_cols_used.append(c)
 
             def _get_ext(ds) -> list:
                 # 훈련: 실제값, 예측: 월별 평균
@@ -1147,4 +1195,97 @@ async def get_demand_forecast(category: str = Query(..., min_length=1), period: 
         "influence":         influence,
         "train_last_ratio":  train_last_ratio,
         "monthly_baseline":  monthly_baseline,
+        "ext_vars_used":     _ext_cols_used,
+        "data_sources": [
+            {**_EXT_SOURCE_META[col], "col": col}
+            for col in _ext_cols_used
+            if col in _EXT_SOURCE_META
+        ],
     }
+
+
+# ── 공공데이터 환경 신호 헬퍼 ────────────────────────────────────────────────
+_ENV_VARS_FOR = {
+    "에어컨":     ["kma_temp", "kma_humidity"],
+    "냉장고":     ["kma_temp"],
+    "세탁기":     [],
+    "건조기":     [],
+    "공기청정기": ["air_pm25", "air_pm10"],
+    "로봇청소기": [],
+    "식기세척기": [],
+    "TV":         [],
+    "제습기":     ["kma_temp", "kma_humidity"],
+    "가습기":     ["kma_humidity"],
+    "선풍기":     ["kma_temp"],
+}
+
+async def _load_env_signal(category: str) -> dict:
+    """카테고리별 최신 환경 신호를 공공데이터 캐시에서 로드."""
+    from app.services.naver_cache import get_db_cache as _gc
+    from datetime import datetime as _dt
+
+    vars_needed = _ENV_VARS_FOR.get(category, [])
+    result: dict = {"category": category, "vars": {}, "signals": [], "sources": []}
+
+    # KMA 최근 1주 평균
+    if any(v.startswith("kma_") for v in vars_needed):
+        kma = await _gc("ext:kma:history")
+        if kma and kma.get("items"):
+            recent = sorted(kma["items"], key=lambda x: x["date"], reverse=True)[:7]
+            avg_temp = round(sum(i["temp"] for i in recent) / len(recent), 1)
+            avg_hum  = round(sum(i["humidity"] for i in recent) / len(recent), 1)
+            result["vars"]["kma_temp"]     = avg_temp
+            result["vars"]["kma_humidity"] = avg_hum
+            result["vars"]["kma_date"]     = recent[0]["date"]
+            result["sources"].append("기상청 ASOS")
+            # 카테고리별 신호 해석
+            if category in ("에어컨", "선풍기"):
+                if avg_temp >= 27:
+                    result["signals"].append({"icon": "🔥", "label": f"기온 {avg_temp}°C — 수요 상승 신호", "level": "high"})
+                elif avg_temp >= 20:
+                    result["signals"].append({"icon": "🌤", "label": f"기온 {avg_temp}°C — 수요 준비 구간", "level": "mid"})
+                else:
+                    result["signals"].append({"icon": "❄️", "label": f"기온 {avg_temp}°C — 비수기", "level": "low"})
+            elif category == "냉장고":
+                if avg_temp >= 25:
+                    result["signals"].append({"icon": "🌡", "label": f"기온 {avg_temp}°C — 식품 보관 수요 증가", "level": "mid"})
+            elif category in ("제습기",):
+                if avg_temp >= 23 and avg_hum >= 65:
+                    result["signals"].append({"icon": "💧", "label": f"기온 {avg_temp}°C · 습도 {avg_hum}% — 제습기 수요 상승", "level": "high"})
+            elif category == "가습기":
+                if avg_hum <= 40:
+                    result["signals"].append({"icon": "🌵", "label": f"습도 {avg_hum}% — 건조함, 가습기 수요 상승", "level": "high"})
+
+    # 에어코리아 최근 PM2.5/PM10
+    if any(v.startswith("air_") for v in vars_needed):
+        air = await _gc("ext:airkorea:history")
+        if air and air.get("items"):
+            recent_air = sorted(air["items"], key=lambda x: x["date"], reverse=True)[:7]
+            avg_pm25 = round(sum(i.get("pm25", 0) for i in recent_air) / len(recent_air), 1)
+            avg_pm10 = round(sum(i.get("pm10", 0) for i in recent_air) / len(recent_air), 1)
+            result["vars"]["air_pm25"] = avg_pm25
+            result["vars"]["air_pm10"] = avg_pm10
+            result["sources"].append("에어코리아")
+            grade = "매우나쁨" if avg_pm25 >= 76 else "나쁨" if avg_pm25 >= 36 else "보통" if avg_pm25 >= 16 else "좋음"
+            level = "high" if avg_pm25 >= 36 else "mid" if avg_pm25 >= 16 else "low"
+            result["signals"].append({"icon": "🌫", "label": f"PM2.5 {avg_pm25}㎍/㎥ ({grade}) — 공기청정기 수요 {'상승' if avg_pm25 >= 36 else '보통'}", "level": level})
+
+    # KCA 불만 건수
+    kca = await _gc(f"ext:kca:{category}")
+    if kca and kca.get("items"):
+        result["vars"]["kca_count"] = len(kca["items"])
+        result["sources"].append("한국소비자원")
+
+    return result
+
+
+@router.get("/env-signal")
+async def get_env_signal(category: str = Query(..., min_length=1), _: dict = Depends(require_b2b)):
+    """카테고리별 공공데이터 기반 외부 환경 신호."""
+    _ck = f"env_signal:{category}"
+    _cached = _GROQ_CACHE.get(_ck)
+    if _cached and _time.time() < _cached[0]:
+        return _cached[1]
+    result = await _load_env_signal(category)
+    _GROQ_CACHE[_ck] = (_time.time() + 1800, result)  # 30분 캐시
+    return result

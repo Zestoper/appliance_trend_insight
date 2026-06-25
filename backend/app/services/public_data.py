@@ -54,7 +54,7 @@ async def fetch_kma_history(days: int = 730) -> list[dict]:
     """기상청 ASOS 일자료: 기온/습도 (서울 108번 관측소)"""
     if not PUBLIC_DATA_KEY:
         return []
-    end   = date.today()
+    end   = date.today() - timedelta(days=1)  # ASOS는 전날까지만 제공
     start = end - timedelta(days=days)
     url = "https://apis.data.go.kr/1360000/AsosDalyInfoService/getWthrDataList"
     params = _base_params({
@@ -72,7 +72,7 @@ async def fetch_kma_history(days: int = 730) -> list[dict]:
         items = r.json()["response"]["body"]["items"]["item"]
         return [
             {
-                "date":     item["tm"],           # YYYYMMDD
+                "date":     item["tm"].replace("-", ""),  # YYYYMMDD
                 "temp":     float(item.get("avgTa") or 0),
                 "humidity": float(item.get("avgRhm") or 0),
             }
@@ -126,7 +126,9 @@ async def fetch_kosis_cpi() -> list[dict]:
     params = {
         "method":      "getList",
         "apiKey":      KOSIS_KEY,
-        "objId":       "DT_1J20005",   # 소비자물가지수
+        "orgId":       "101",          # 통계청
+        "tblId":       "DT_1J20005",   # 소비자물가지수
+        "objId":       "A",
         "itmId":       "T10",          # 종합지수
         "prdSe":       "M",            # 월별
         "startPrdDe":  start_ym,
@@ -390,7 +392,7 @@ async def get_ext_dataframe(category: str, ds_dates) -> "pd.DataFrame | None":
         # 결측 → 컬럼별 평균으로 채움
         for col in ext_cols:
             result[col] = pd.to_numeric(result[col], errors="coerce")
-            result[col].fillna(result[col].mean(), inplace=True)
+            result[col] = result[col].fillna(result[col].mean())
 
         # 실제 데이터 있는 컬럼만 반환 (전부 NaN이면 제외)
         valid_cols = ["ds"] + [c for c in ext_cols if result[c].notna().any()]
