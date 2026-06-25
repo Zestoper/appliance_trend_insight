@@ -72,6 +72,7 @@
 .sectionLine  { flex: 1; height: 1px; background: var(--b2b-line); }
 /* ── 리포트 푸터 ── */
 .reportFooter { display: flex; justify-content: space-between; align-items: center; margin-top: 40px; padding: 16px 20px; border-top: 1px solid var(--b2b-line); font-size: 11px; color: var(--b2b-muted); }
+.footerSources { color: var(--b2b-accent, #4f8ef7); font-weight: 500; }
 
 /* ── Cards ── */
 .card {

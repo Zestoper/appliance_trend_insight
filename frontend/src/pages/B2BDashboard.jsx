@@ -569,6 +569,7 @@ export default function B2BDashboard() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [trendCtx, setTrendCtx] = useState(null)
+  const [envSignal, setEnvSignal] = useState(null)
   const [fetchedAt, setFetchedAt] = useState(null)
   const [printModal, setPrintModal] = useState(false)
 
@@ -583,6 +584,7 @@ export default function B2BDashboard() {
     setError(null)
     setData(null)
     setTrendCtx(null)
+    setEnvSignal(null)
     fetch(`${API_BASE}/api/b2b/dashboard?category=${encodeURIComponent(category)}&period=${period}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -595,6 +597,13 @@ export default function B2BDashboard() {
     })
       .then(r => r.json())
       .then(d => setTrendCtx(d))
+      .catch(() => {})
+
+    fetch(`${API_BASE}/api/b2b/env-signal?category=${encodeURIComponent(category)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.json())
+      .then(d => setEnvSignal(d))
       .catch(() => {})
   }, [category, period, isB2BActive, refreshTick])
 
@@ -684,6 +693,28 @@ export default function B2BDashboard() {
                 </div>
               )
             })()}
+
+            {/* ── 외부 환경 신호 카드 ── */}
+            {envSignal && envSignal.signals?.length > 0 && (
+              <div className={s.envSignalCard}>
+                <p className={s.envSignalTitle}>외부 환경 신호 <span className={s.envSignalBadge}>공공데이터</span></p>
+                <div className={s.envSignalRow}>
+                  {envSignal.signals.map((sig, i) => (
+                    <div key={i} className={`${s.envSignalItem} ${s[`envLevel_${sig.level}`]}`}>
+                      <span className={s.envSignalIcon}>{sig.icon}</span>
+                      <span className={s.envSignalLabel}>{sig.label}</span>
+                    </div>
+                  ))}
+                  {envSignal.vars?.kma_temp != null && (
+                    <div className={s.envSignalMeta}>
+                      {envSignal.vars.kma_temp}°C · {envSignal.vars.kma_humidity}% 습도
+                      {envSignal.vars.air_pm25 != null && ` · PM2.5 ${envSignal.vars.air_pm25}㎍`}
+                      {' · '}<span className={s.envSignalSource}>{envSignal.sources?.join(', ')}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* ── Section 1: 시장 현황 ── */}
             <div className={s.section}>
