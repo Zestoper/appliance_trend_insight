@@ -8,6 +8,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+
 SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USER = os.getenv("SMTP_USER", "")
@@ -244,7 +246,7 @@ def send_buy_signal_alert(to_email: str, company_name: str, buy_categories: list
           </div>
 
           <div style="text-align:center;margin-bottom:24px;">
-            <a href="http://localhost:5173/b2b/monitor"
+            <a href="{FRONTEND_URL}/b2b/monitor"
               style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#059669,#10b981);
               color:white;font-size:14px;font-weight:800;border-radius:12px;text-decoration:none;">
               가격 모니터 바로가기 →
@@ -364,7 +366,7 @@ def send_price_alert_email(to_email: str, company_name: str, category: str,
     </div>
   </div>
   <div style="text-align:center;">
-    <a href="http://localhost:5173/b2b/intelligence"
+    <a href="{FRONTEND_URL}/b2b/intelligence"
       style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#059669,#10b981);
       color:white;font-size:14px;font-weight:800;border-radius:12px;text-decoration:none;">
       통합 리포트 바로가기 →
