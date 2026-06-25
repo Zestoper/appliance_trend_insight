@@ -265,6 +265,58 @@ export default function B2BReport() {
                       </div>
                     </div>
                   )}
+
+                  {/* AI 의사결정 과정 + 신뢰도 */}
+                  {(report.decision_chain?.length > 0 || report.ai_confidence > 0) && (
+                    <div className={s.decisionRow}>
+                      {report.decision_chain?.length > 0 && (
+                        <div className={s.decisionChainCard}>
+                          <p className={s.decisionChainTitle}>AI 의사결정 과정</p>
+                          <div className={s.decisionChainFlow}>
+                            {report.decision_chain.map((step, i) => (
+                              <div key={i} className={s.decisionChainStep}>
+                                <div className={s.decisionChainDot} style={{ background: acfg.color }} />
+                                <p className={s.decisionChainText}>{step}</p>
+                                {i < report.decision_chain.length - 1 && (
+                                  <div className={s.decisionChainArrow} style={{ color: acfg.color }}>↓</div>
+                                )}
+                              </div>
+                            ))}
+                            <div className={s.decisionChainResult} style={{ background: acfg.bg, borderColor: acfg.border, color: acfg.color }}>
+                              {acfg.icon} {action}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      {report.ai_confidence > 0 && (
+                        <div className={s.confidenceCard}>
+                          <p className={s.confidenceTitle}>AI 신뢰도</p>
+                          <div className={s.confidenceScore}>
+                            <span className={s.confidenceNum} style={{ color: acfg.color }}>{report.ai_confidence}</span>
+                            <span className={s.confidencePct}>%</span>
+                          </div>
+                          {report.confidence_breakdown?.length > 0 && (
+                            <div className={s.confidenceBreakdown}>
+                              {report.confidence_breakdown.map((item, i) => (
+                                <div key={i} className={s.confidenceItem}>
+                                  <span className={s.confidenceFactor}>{item.factor}</span>
+                                  <div className={s.confidenceBarWrap}>
+                                    <div className={s.confidenceBar} style={{ width: `${item.pct}%`, background: acfg.color }} />
+                                  </div>
+                                  <span className={s.confidencePctVal}>{item.pct}%</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          <p className={s.confidenceNote}>
+                            {report.ai_confidence >= 80 ? '데이터가 충분하여 높은 신뢰도를 보입니다.' :
+                             report.ai_confidence >= 60 ? '일부 데이터 부족으로 중간 신뢰도입니다.' :
+                             '최근 데이터가 부족하여 신뢰도가 낮습니다.'}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* ── 02 시장 현황 요약 ── */}
@@ -685,6 +737,31 @@ export default function B2BReport() {
                     </div>
                   )}
                 </div>
+
+                {/* ── 이번 주 Action List ── */}
+                {report.action_list?.length > 0 && (
+                  <div className={s.section}>
+                    <SectionHead num="07" title="이번 주 꼭 해야 할 Action List" />
+                    <div className={s.actionListCard}>
+                      {report.action_list.map((item, i) => (
+                        <div key={i} className={s.actionListItem} style={{ borderLeftColor: i < 2 ? acfg.color : i < 4 ? '#f59e0b' : '#6b7280' }}>
+                          <div className={s.actionListLeft}>
+                            <div className={s.actionStars}>
+                              {Array.from({ length: 5 }).map((_, si) => (
+                                <span key={si} style={{ color: si < item.stars ? '#f59e0b' : '#374151', fontSize: 14 }}>★</span>
+                              ))}
+                            </div>
+                            <p className={s.actionText}>{item.action}</p>
+                          </div>
+                          <div className={s.actionListRight}>
+                            <span className={s.actionDept}>{item.dept}</span>
+                            <span className={s.actionTiming} style={{ color: i < 2 ? acfg.color : '#6b7280' }}>{item.timing}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* ── 리포트 푸터 ── */}
                 <div className={s.reportFooter}>

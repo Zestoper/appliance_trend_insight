@@ -14,6 +14,19 @@ SMTP_USER = os.getenv("SMTP_USER", "")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
 
 
+def _send_resend(to_email: str, subject: str, html: str):
+    api_key = os.getenv("RESEND_API_KEY")
+    from_email = os.getenv("RESEND_FROM_EMAIL", "onboarding@resend.dev")
+    resp = httpx.post(
+        "https://api.resend.com/emails",
+        headers={"Authorization": f"Bearer {api_key}"},
+        json={"from": f"가전무쌍 <{from_email}>", "to": [to_email],
+              "subject": subject, "html": html},
+        timeout=15,
+    )
+    resp.raise_for_status()
+
+
 def _send_sendgrid(to_email: str, subject: str, html: str):
     api_key = os.getenv("SENDGRID_API_KEY")
     resp = httpx.post(
@@ -31,7 +44,10 @@ def _send_sendgrid(to_email: str, subject: str, html: str):
 
 
 def _send_email(to_email: str, subject: str, html: str):
-    """SendGrid 우선, 없으면 SMTP (로컬 개발용)"""
+    """Resend 우선 → SendGrid → SMTP 순으로 폴백"""
+    if os.getenv("RESEND_API_KEY"):
+        _send_resend(to_email, subject, html)
+        return
     if os.getenv("SENDGRID_API_KEY"):
         _send_sendgrid(to_email, subject, html)
         return
