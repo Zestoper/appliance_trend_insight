@@ -963,10 +963,77 @@
   gap: 14px;
 }
 
+.filterRows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.filterRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.filterLabel {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  padding-top: 7px;
+  min-width: 36px;
+}
+
+.filterChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .catTabs {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.catPickerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.catPickerQuery {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.catClearBtn {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.catClearBtn:hover {
+  color: var(--text);
+  border-color: rgba(244,63,94,0.4);
+  background: rgba(244,63,94,0.06);
+}
+
+.catEmpty {
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 24px 0;
+  opacity: 0.5;
 }
 
 .catTab {

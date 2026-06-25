@@ -288,15 +288,23 @@ function ProductCard({ product, report, loading, onRemove, isWinner }) {
 // ── 메인 ─────────────────────────────────────────────────
 const MAX_SLOTS = 3
 
-const CATEGORIES = [
-  { label: '에어컨',    emoji: '❄️' },
-  { label: '냉장고',    emoji: '🧊' },
-  { label: '세탁기',    emoji: '🫧' },
-  { label: '건조기',    emoji: '🌀' },
-  { label: '공기청정기', emoji: '💨' },
-  { label: '로봇청소기', emoji: '🤖' },
-  { label: '식기세척기', emoji: '🍽️' },
-  { label: 'TV',        emoji: '📺' },
+const FILTER_GROUPS = [
+  {
+    key: 'product',
+    label: '제품',
+    options: ['에어컨', '냉장고', '세탁기', '건조기', '공기청정기', '로봇청소기', '식기세척기', 'TV', '전자레인지', '에어프라이어', '선풍기', '가습기', '제습기'],
+  },
+  {
+    key: 'brand',
+    label: '브랜드',
+    options: ['삼성', 'LG', '캐리어', '위닉스', '다이슨', '로보락', '에코백스', '코웨이', '쿠쿠', '위니아', '샤오미', '파나소닉'],
+  },
+  {
+    key: 'price',
+    label: '가격',
+    options: ['~5만원', '5~20만원', '20~50만원', '50~80만원', '80만원~'],
+    ranges: [[0, 50000], [50000, 200000], [200000, 500000], [500000, 800000], [800000, Infinity]],
+  },
 ]
 
 export default function Compare() {
@@ -310,20 +318,37 @@ export default function Compare() {
   const [thirdSlotOpen,   setThirdSlotOpen]   = useState(false)
   const [aiCompare,       setAiCompare]       = useState(null)
   const [aiCmpLoading,    setAiCmpLoading]    = useState(false)
-  const [activeCategory,  setActiveCategory]  = useState(null)
-  const [catProducts,     setCatProducts]     = useState([])
-  const [catLoading,      setCatLoading]      = useState(false)
+  const [filters,      setFilters]      = useState({ product: null, brand: null, price: null })
+  const [catProducts,  setCatProducts]  = useState([])
+  const [catLoading,   setCatLoading]   = useState(false)
 
-  // 카테고리 선택 시 상품 목록 fetch
+  // 필터 조합으로 상품 목록 fetch
   useEffect(() => {
-    if (!activeCategory) { setCatProducts([]); return }
+    const { product, brand, price } = filters
+    if (!product && !brand) { setCatProducts([]); return }
+
+    const query = [brand, product].filter(Boolean).join(' ')
     setCatLoading(true)
     setCatProducts([])
-    fetch(`${API_BASE}/api/naver/products?query=${encodeURIComponent(activeCategory)}&page=1&display=10`)
+
+    fetch(`${API_BASE}/api/naver/products?query=${encodeURIComponent(query)}&page=1&display=20`)
       .then(r => r.json())
-      .then(data => { setCatProducts(data.items ?? []); setCatLoading(false) })
+      .then(data => {
+        let items = data.items ?? []
+        // 가격 필터 클라이언트 적용
+        if (price !== null) {
+          const priceGroup = FILTER_GROUPS.find(g => g.key === 'price')
+          const priceIdx = priceGroup.options.indexOf(price)
+          if (priceIdx !== -1) {
+            const [min, max] = priceGroup.ranges[priceIdx]
+            items = items.filter(p => p.price > 0 && p.price >= min && p.price < max)
+          }
+        }
+        setCatProducts(items)
+        setCatLoading(false)
+      })
       .catch(() => setCatLoading(false))
-  }, [activeCategory])
+  }, [filters])
 
   useEffect(() => {
     list.forEach((product, idx) => {
@@ -426,28 +451,52 @@ export default function Compare() {
           <p className={styles.subtitle}>최대 3개 제품을 나란히 비교해보세요</p>
         </div>
 
-        {/* 카테고리 탭 */}
+        {/* 필터 섹션 */}
         <div className={styles.catSection}>
-          <div className={styles.catTabs}>
-            {CATEGORIES.map(c => (
-              <button
-                key={c.label}
-                className={`${styles.catTab} ${activeCategory === c.label ? styles.catTabActive : ''}`}
-                onClick={() => setActiveCategory(prev => prev === c.label ? null : c.label)}
-              >
-                <span>{c.emoji}</span> {c.label}
-              </button>
+          <div className={styles.filterRows}>
+            {FILTER_GROUPS.map(group => (
+              <div key={group.key} className={styles.filterRow}>
+                <span className={styles.filterLabel}>{group.label}</span>
+                <div className={styles.filterChips}>
+                  {group.options.map(opt => (
+                    <button
+                      key={opt}
+                      className={`${styles.catTab} ${filters[group.key] === opt ? styles.catTabActive : ''}`}
+                      onClick={() => setFilters(prev => ({
+                        ...prev,
+                        [group.key]: prev[group.key] === opt ? null : opt,
+                      }))}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
 
-          {activeCategory && (
+          {(filters.product || filters.brand) && (
             <div className={styles.catPickerWrap}>
+              <div className={styles.catPickerHeader}>
+                <span className={styles.catPickerQuery}>
+                  {[filters.brand, filters.product].filter(Boolean).join(' ')}
+                  {filters.price && ` · ${filters.price}`}
+                </span>
+                <button
+                  className={styles.catClearBtn}
+                  onClick={() => setFilters({ product: null, brand: null, price: null })}
+                >
+                  필터 초기화
+                </button>
+              </div>
               {catLoading ? (
                 <div className={styles.catLoading}>
                   {Array.from({ length: 5 }).map((_, i) => (
                     <div key={i} className={styles.catSkeleton} />
                   ))}
                 </div>
+              ) : catProducts.length === 0 ? (
+                <p className={styles.catEmpty}>검색 결과가 없어요. 다른 조건을 선택해보세요.</p>
               ) : (
                 <div className={styles.catProducts}>
                   {catProducts.map(p => {
@@ -470,7 +519,7 @@ export default function Compare() {
                         <div className={styles.catImgWrap}>
                           {p.image
                             ? <img src={p.image} alt={p.title} className={styles.catImg} />
-                            : <span className={styles.catImgFallback}>📦</span>
+                            : <span className={styles.catImgFallback}>—</span>
                           }
                         </div>
                         <p className={styles.catProductName}>{p.title}</p>
