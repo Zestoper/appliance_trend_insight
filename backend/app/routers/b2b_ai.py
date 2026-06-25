@@ -627,24 +627,52 @@ async def get_demand_forecast(category: str = Query(..., min_length=1), period: 
     hist_mean = float(df["y"].mean()) if not df.empty else 50.0
     forecast_cap = max(hist_max * 1.5, hist_mean * 3.0)
 
+    # ── 공공데이터 외부 변수 로드 (Prophet/XGBoost 공용) ──────────────────────
+    from app.services.public_data import get_ext_dataframe
+    _ext_df = None
+    try:
+        _ext_df = await get_ext_dataframe(category, df["ds"])
+    except Exception as _e:
+        logger.warning("[ExtData] 외부 변수 로드 실패 (%s): %s", category, _e)
+
     def _run_prophet() -> pd.DataFrame:
         logging.getLogger("prophet").setLevel(logging.ERROR)
         logging.getLogger("cmdstanpy").setLevel(logging.ERROR)
         n_pts = len(df)
+        _df = df.copy()
         m = Prophet(
             yearly_seasonality=(n_pts >= 52),   # 1년치 이상 있을 때만
             weekly_seasonality=False,
             daily_seasonality=False,
             interval_width=0.80,
             seasonality_mode="additive",
-            changepoint_prior_scale=0.1,        # 변화점 민감도 상향 (0.05→0.1)
-            seasonality_prior_scale=12.0,       # 계절성 강도 상향
+            changepoint_prior_scale=0.1,
+            seasonality_prior_scale=12.0,
         )
         if n_pts >= 26:
-            # 반년 이상 데이터 시 월별 계절성 추가
             m.add_seasonality(name="monthly", period=4.33, fourier_order=5)
-        m.fit(df)
+
+        # 외부 변수 주입 (데이터 충분할 때만)
+        ext_cols = []
+        if _ext_df is not None and n_pts >= 26:
+            _df = _df.merge(_ext_df, on="ds", how="left")
+            for col in [c for c in _ext_df.columns if c != "ds"]:
+                if _df[col].notna().sum() >= n_pts * 0.5:  # 50% 이상 유효값
+                    _df[col].fillna(_df[col].mean(), inplace=True)
+                    m.add_regressor(col, standardize=True)
+                    ext_cols.append(col)
+            logger.info("[Prophet] 외부 변수 추가: %s", ext_cols)
+
+        m.fit(_df)
         future = m.make_future_dataframe(periods=forecast_n, freq=freq)
+
+        # 미래 기간 외부 변수: 월별 역사 평균으로 채움
+        if ext_cols:
+            for col in ext_cols:
+                month_avg = _df.groupby(_df["ds"].dt.month)[col].mean().to_dict()
+                future[col] = future["ds"].dt.month.map(month_avg)
+                future[col].fillna(_df[col].mean(), inplace=True)
+
         return m.predict(future)
 
     # ── 선형회귀: 폴백 + 계절 영향도 분석 ────────────────────────────────────
@@ -712,7 +740,7 @@ async def get_demand_forecast(category: str = Query(..., min_length=1), period: 
             ),
         }
 
-    # ── XGBoost: 계절 features (절대 시간 인덱스 제거 → 캐스케이드 방지) ─────────
+    # ── XGBoost: 계절 features + 공공데이터 외부 변수 ────────────────────────
     def _run_xgb():
         try:
             import xgboost as xgb
@@ -723,39 +751,62 @@ async def get_demand_forecast(category: str = Query(..., min_length=1), period: 
         try:
             y_arr = df["y"].values
             n     = len(y_arr)
-            LAG   = min(8, max(2, n // 10))   # 라그 축소 (12→8) 과적합 방지
+            LAG   = min(8, max(2, n // 10))
             logger.info("[XGB] n=%d, LAG=%d", n, LAG)
             if n < LAG + 4:
                 return None, None
 
-            # 월별 역사적 평균 — 평균 회귀 피처로 사용
             from collections import defaultdict as _dd
             month_vals: dict = _dd(list)
             for i, dt in enumerate(df["ds"]):
                 month_vals[dt.month].append(float(y_arr[i]))
-            month_avg = {m: float(np.mean(vs)) for m, vs in month_vals.items()}
-            global_mean = float(np.mean(y_arr))
-            hist_std    = float(np.std(y_arr))
+            month_avg    = {m: float(np.mean(vs)) for m, vs in month_vals.items()}
+            global_mean  = float(np.mean(y_arr))
+            hist_std     = float(np.std(y_arr))
 
-            def _feats(seasonal_pos: int, month: int, lags: list) -> list:
+            # 외부 변수: 날짜 → {col: val} 맵
+            _ext_cols: list[str] = []
+            _ext_by_ds: dict     = {}
+            _ext_month_avg: dict = {}
+            if _ext_df is not None:
+                _ext_cols = [c for c in _ext_df.columns if c != "ds"]
+                for _, row in _ext_df.iterrows():
+                    _ext_by_ds[row["ds"]] = [float(row.get(c, 0) or 0) for c in _ext_cols]
+                # 미래 예측용 월별 평균
+                for col in _ext_cols:
+                    _ext_month_avg[col] = _ext_df.groupby(_ext_df["ds"].dt.month)[col].mean().to_dict()
+                logger.info("[XGB] 외부 변수: %s", _ext_cols)
+
+            def _get_ext(ds) -> list:
+                # 훈련: 실제값, 예측: 월별 평균
+                if ds in _ext_by_ds:
+                    return _ext_by_ds[ds]
+                m = ds.month if hasattr(ds, "month") else 1
+                return [float(_ext_month_avg.get(c, {}).get(m, 0) or 0) for c in _ext_cols]
+
+            def _feats(seasonal_pos: int, month: int, lags: list, ds=None) -> list:
                 lag_arr = lags[-LAG:]
                 m_avg   = month_avg.get(month, global_mean)
-                return [
-                    seasonal_pos % 52,                           # 연간 계절 위치 (절대 추세 제거)
+                base = [
+                    seasonal_pos % 52,
                     month,
                     float(np.sin(2 * np.pi * month / 12)),
                     float(np.cos(2 * np.pi * month / 12)),
                     float(np.sin(2 * np.pi * (seasonal_pos % 52) / 52)),
-                    m_avg,                                       # 해당 월 역사 평균 (평균 회귀)
+                    m_avg,
                     *lag_arr,
                     float(np.mean(lag_arr)),
                     float(np.std(lag_arr)) if len(lag_arr) > 1 else 0.0,
                 ]
+                if _ext_cols and ds is not None:
+                    base += _get_ext(ds)
+                return base
 
             X_tr, Y_tr = [], []
             for i in range(LAG, n):
-                m = df["ds"].iloc[i].month
-                X_tr.append(_feats(i, m, list(y_arr[i - LAG:i])))
+                m  = df["ds"].iloc[i].month
+                ds = df["ds"].iloc[i]
+                X_tr.append(_feats(i, m, list(y_arr[i - LAG:i]), ds=ds))
                 Y_tr.append(float(y_arr[i]))
             X_tr = np.array(X_tr); Y_tr = np.array(Y_tr)
 
@@ -789,7 +840,7 @@ async def get_demand_forecast(category: str = Query(..., min_length=1), period: 
                 future_ds = last_dt + delta2 * (i + 1)
                 m   = future_ds.month
                 m_avg = month_avg.get(m, global_mean)
-                xf  = np.array([_feats(n + i, m, rolling)])
+                xf  = np.array([_feats(n + i, m, rolling, ds=future_ds)])
                 p   = float(model.predict(xf)[0])
                 # 월별 역사 평균 ±1.5 std 범위로 클리핑 (극단 예측 방지)
                 lo  = max(0.0, m_avg - 1.5 * hist_std)
