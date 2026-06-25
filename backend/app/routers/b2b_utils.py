@@ -49,7 +49,7 @@ def _calc_risk(growth: float) -> str:
     """성장률 기반 시장 위험도 산출 (두 엔드포인트 공통)"""
     return "낮음" if growth > -15 else ("중간" if growth > -30 else "높음")
 
-_GROQ_MODELS = (GROQ_PRIMARY_MODEL, GROQ_FALLBACK_MODEL, "gemma2-9b-it")
+_GROQ_MODELS = (GROQ_PRIMARY_MODEL, GROQ_FALLBACK_MODEL, "llama-3.1-8b-instant")
 _GROQ_CACHE: dict = {}
 _GROQ_TTL   = GROQ_CACHE_TTL
 _CACHE_VER  = "v8"
