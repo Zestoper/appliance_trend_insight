@@ -183,10 +183,13 @@ export default function B2BReport() {
                   </div>
                   <div className={s.reportKpiRow}>
                     {[
-                      { label: '검색 관심도',  val: metrics?.trend_score != null ? metrics.trend_score : '-', sub: '현재 지수' },
-                      { label: '시장 성장률',  val: growthStr, sub: '전기 대비', color: (growth ?? 0) >= 0 ? '#10b981' : '#ef4444' },
+                      { label: '검색 관심도',  val: metrics?.trend_score != null ? metrics.trend_score : '-',
+                        sub: metrics?.avg_score != null ? `기간 평균 ${metrics.avg_score} 대비` : '현재 지수',
+                        color: metrics?.trend_score != null && metrics?.avg_score != null
+                          ? (metrics.trend_score >= metrics.avg_score ? '#10b981' : '#ef4444') : undefined },
+                      { label: '시장 성장률',  val: growthStr, sub: '전기 대비 (기간 전반 vs 후반)', color: (growth ?? 0) >= 0 ? '#10b981' : '#ef4444' },
                       { label: '가격 신호',    val: insSignal, sub: '매입 시그널', color: sigCfg?.color },
-                      { label: '시장 평균가',  val: psum?.avg_price ? fmt만(psum.avg_price) : '-', sub: '현재 기준' },
+                      { label: '시장 평균가',  val: psum?.avg_price ? fmt만(psum.avg_price) : '-', sub: '네이버 쇼핑 기준' },
                       ...(accuracy?.overall_accuracy != null
                         ? [{ label: 'AI 적중률', val: `${accuracy.overall_accuracy}%`, sub: '최근 90일', color: '#6366f1' }]
                         : []),
@@ -263,6 +266,58 @@ export default function B2BReport() {
                           </div>
                         ))}
                       </div>
+                    </div>
+                  )}
+
+                  {/* AI 의사결정 과정 + 신뢰도 */}
+                  {(report.decision_chain?.length > 0 || report.ai_confidence > 0) && (
+                    <div className={s.decisionRow}>
+                      {report.decision_chain?.length > 0 && (
+                        <div className={s.decisionChainCard}>
+                          <p className={s.decisionChainTitle}>AI 의사결정 과정</p>
+                          <div className={s.decisionChainFlow}>
+                            {report.decision_chain.map((step, i) => (
+                              <div key={i} className={s.decisionChainStep}>
+                                <div className={s.decisionChainDot} style={{ background: acfg.color }} />
+                                <p className={s.decisionChainText}>{step}</p>
+                                {i < report.decision_chain.length - 1 && (
+                                  <div className={s.decisionChainArrow} style={{ color: acfg.color }}>↓</div>
+                                )}
+                              </div>
+                            ))}
+                            <div className={s.decisionChainResult} style={{ background: acfg.bg, borderColor: acfg.border, color: acfg.color }}>
+                              {acfg.icon} {action}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      {report.ai_confidence > 0 && (
+                        <div className={s.confidenceCard}>
+                          <p className={s.confidenceTitle}>AI 신뢰도</p>
+                          <div className={s.confidenceScore}>
+                            <span className={s.confidenceNum} style={{ color: acfg.color }}>{report.ai_confidence}</span>
+                            <span className={s.confidencePct}>%</span>
+                          </div>
+                          {report.confidence_breakdown?.length > 0 && (
+                            <div className={s.confidenceBreakdown}>
+                              {report.confidence_breakdown.map((item, i) => (
+                                <div key={i} className={s.confidenceItem}>
+                                  <span className={s.confidenceFactor}>{item.factor}</span>
+                                  <div className={s.confidenceBarWrap}>
+                                    <div className={s.confidenceBar} style={{ width: `${item.pct}%`, background: acfg.color }} />
+                                  </div>
+                                  <span className={s.confidencePctVal}>{item.pct}%</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          <p className={s.confidenceNote}>
+                            {report.ai_confidence >= 80 ? '데이터가 충분하여 높은 신뢰도를 보입니다.' :
+                             report.ai_confidence >= 60 ? '일부 데이터 부족으로 중간 신뢰도입니다.' :
+                             '최근 데이터가 부족하여 신뢰도가 낮습니다.'}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -405,7 +460,8 @@ export default function B2BReport() {
                         { label: '수요 피크',    val: forecastData.peak_period?.slice(0, 7) ?? '-' },
                         { label: '매입 권장',     val: timing.label, color: tcfg?.color },
                         { label: '성수기 진입까지', val: timing.days_to_peak > 0 ? `D-${timing.days_to_peak}일` : '피크 통과', color: tcfg?.color },
-                        { label: '예측 신뢰도',   val: fcConf != null ? `${fcConf}%` : '-' },
+                        { label: '예측 신뢰도',   val: fcConf != null ? `${fcConf}%` : '-',
+                          color: fcConf >= 80 ? '#10b981' : fcConf >= 60 ? '#f59e0b' : '#ef4444' },
                         { label: '트렌드',        val: fcDir === '상승' ? '↑ 상승' : fcDir === '하락' ? '↓ 하락' : '→ 안정', color: fcDir === '상승' ? '#10b981' : fcDir === '하락' ? '#ef4444' : '#6366f1' },
                       ].map(({ label, val, color }) => (
                         <div key={label} className={s.forecastKpiItem}>
@@ -414,6 +470,52 @@ export default function B2BReport() {
                         </div>
                       ))}
                     </div>
+
+                    {/* 예측 모델 정보 + 신뢰도 이유 */}
+                    <div className={s.forecastModelRow}>
+                      <div className={s.forecastDataSources}>
+                        <span className={s.forecastDataLabel}>예측에 사용된 데이터</span>
+                        {['검색량', '계절성', '가격 신호', '소비자 반응', 'RAG 인사이트'].map(src => (
+                          <span key={src} className={s.forecastDataChip}>{src}</span>
+                        ))}
+                        {forecastData.model_info?.used && (
+                          <span className={s.forecastModelChip}>
+                            {forecastData.model_info.used === 'ensemble' ? 'Prophet + XGBoost 앙상블' :
+                             forecastData.model_info.used === 'prophet'   ? 'Prophet 모델' : '선형 회귀'}
+                          </span>
+                        )}
+                      </div>
+                      <p className={s.forecastConfNote}>
+                        {fcConf >= 80 ? `신뢰도 ${fcConf}% — 데이터가 충분합니다. 예측 결과를 의사결정에 활용하세요.` :
+                         fcConf >= 60 ? `신뢰도 ${fcConf}% — 일부 데이터가 부족합니다. 추세 참고 수준으로 활용하세요.` :
+                         `신뢰도 ${fcConf}% — 최근 데이터가 부족하여 신뢰도가 낮습니다. 시장 상황을 병행 확인하세요.`}
+                      </p>
+                    </div>
+
+                    {/* 예측 신뢰구간 테이블 */}
+                    {forecastData.forecast?.length > 0 && (
+                      <div className={s.forecastCiTable}>
+                        <p className={s.tableBlockTitle}>수요 예측 구간 (신뢰구간 포함)</p>
+                        <table className={s.dataTable}>
+                          <thead>
+                            <tr><th>기간</th><th>예측값</th><th>하한</th><th>상한</th><th>범위</th></tr>
+                          </thead>
+                          <tbody>
+                            {forecastData.forecast.slice(0, 5).map((f, i) => (
+                              <tr key={i}>
+                                <td>{f.period?.slice(0, 7)}</td>
+                                <td className={s.numCell}><strong>{f.predicted}</strong></td>
+                                <td className={s.numCell} style={{ color: '#ef4444' }}>{f.ci_low}</td>
+                                <td className={s.numCell} style={{ color: '#10b981' }}>{f.ci_high}</td>
+                                <td className={s.numCell} style={{ color: '#6b7280', fontSize: 11 }}>
+                                  ±{Math.round((f.ci_high - f.ci_low) / 2 * 10) / 10}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
 
                     {/* 타이밍 메시지 */}
                     <div className={s.timingCard} style={{ borderColor: tcfg?.border, background: tcfg?.bg }}>
@@ -684,6 +786,54 @@ export default function B2BReport() {
                       </div>
                     </div>
                   )}
+                </div>
+
+                {/* ── 이번 주 Action List ── */}
+                {report.action_list?.length > 0 && (
+                  <div className={s.section}>
+                    <SectionHead num="07" title="이번 주 꼭 해야 할 Action List" />
+                    <div className={s.actionListCard}>
+                      {report.action_list.map((item, i) => (
+                        <div key={i} className={s.actionListItem} style={{ borderLeftColor: i < 2 ? acfg.color : i < 4 ? '#f59e0b' : '#6b7280' }}>
+                          <div className={s.actionListLeft}>
+                            <div className={s.actionStars}>
+                              {Array.from({ length: 5 }).map((_, si) => (
+                                <span key={si} style={{ color: si < item.stars ? '#f59e0b' : '#374151', fontSize: 14 }}>★</span>
+                              ))}
+                            </div>
+                            <p className={s.actionText}>{item.action}</p>
+                          </div>
+                          <div className={s.actionListRight}>
+                            {item.budget && item.budget !== '별도 예산 없음' && (
+                              <span className={s.actionBudget}>{item.budget}</span>
+                            )}
+                            <span className={s.actionDept}>{item.dept}</span>
+                            <span className={s.actionTiming} style={{ color: i < 2 ? acfg.color : '#6b7280' }}>{item.timing}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* ── 데이터 출처 & 분석 방법론 ── */}
+                <div className={s.dataSourceSection}>
+                  <p className={s.dataSourceTitle}>데이터 출처 및 분석 방법론</p>
+                  <div className={s.dataSourceGrid}>
+                    {[
+                      { name: '네이버 DataLab', desc: '검색 트렌드 · 연령별 관심도', icon: '📊' },
+                      { name: '네이버 쇼핑 API', desc: '브랜드 점유율 · 가격 · 쇼핑 키워드', icon: '🛒' },
+                      { name: '네이버 블로그/카페', desc: '소비자 리뷰 · 불만 데이터', icon: '💬' },
+                      { name: 'Groq LLM', desc: 'AI 전략 분석 · 인사이트 생성', icon: '🤖' },
+                      { name: 'Prophet + XGBoost', desc: '수요 예측 앙상블 모델', icon: '📈' },
+                      { name: 'RAG (pgvector)', desc: '소비자 반응 패턴 기반 인사이트', icon: '🧠' },
+                    ].map(src => (
+                      <div key={src.name} className={s.dataSourceItem}>
+                        <p className={s.dataSourceName}>{src.icon} {src.name}</p>
+                        <p className={s.dataSourceDesc}>{src.desc}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 {/* ── 리포트 푸터 ── */}

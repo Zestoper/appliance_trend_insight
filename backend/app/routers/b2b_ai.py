@@ -189,6 +189,12 @@ async def get_ai_report(category: str = Query(..., min_length=1), period: str = 
         "expected_sales_growth": "-",
         "expected_effects":      [],
         "projection_summary":    "-",
+        # AI 의사결정 & 신뢰도
+        "decision_chain":        [],
+        "ai_confidence":         0,
+        "confidence_breakdown":  [],
+        # 이번 주 Action List
+        "action_list":           [],
     }
 
     # 카테고리별 시장 맥락 (설치 형태 / 구매 목적 / 연관 가전)
@@ -299,6 +305,7 @@ async def get_ai_report(category: str = Query(..., min_length=1), period: str = 
                 rag_context = "\n[소비자 실반응 RAG 데이터]\n" + "\n".join(f"- {c[:_RAG_CHUNK_LEN]}" for c in chunks)
 
         _growth_pct = f"{'+' if growth >= 0 else ''}{growth}%"
+        _buy_lead_prompt = 14 if time_unit == "date" else (21 if time_unit == "week" else 45)
         prompt = (
             f"[{category} B2B 시장 실측 데이터 — {period}]\n\n"
             f"■ 검색 트렌드\n"
@@ -391,7 +398,27 @@ async def get_ai_report(category: str = Query(..., min_length=1), period: str = 
             f'    "연관 가전 패키지 판매 확대 (20자 이내, 예: 연관 가전 패키지 판매 확대)",\n'
             f'    "비수기 재고 손실 최소화 (20자 이내, 예: {off_months} 재고 손실 최소화)"\n'
             f'  ],\n'
-            f'  "projection_summary": "예상 결과 종합 판단 2~3문장. 시장 방향({trend_dir_str}·위험도 {risk})·성수기({peak_months})·추천 전략 효과를 종합해 B2B 유통 관점 기대 결과 서술. 마지막 문장은 핵심 위험 요소 언급."\n'
+            f'  "projection_summary": "예상 결과 종합 판단 2~3문장. 시장 방향({trend_dir_str}·위험도 {risk})·성수기({peak_months})·추천 전략 효과를 종합해 B2B 유통 관점 기대 결과 서술. 마지막 문장은 핵심 위험 요소 언급.",\n'
+            f'  "decision_chain": [\n'
+            f'    "검색 트렌드: 관심도 {current} ({trend_dir_str}, 기간 평균 대비 {_growth_pct})",\n'
+            f'    "브랜드 집중도: {top3} — 경쟁 구도 분석",\n'
+            f'    "성수기 신호: {peak_months} 진입 {_buy_lead_prompt}일 전 타이밍",\n'
+            f'    "소비자 니즈: {top_purpose}·{_first_kw} 키워드 수요 집중"\n'
+            f'  ],\n'
+            f'  "ai_confidence": 75,\n'
+            f'  "confidence_breakdown": [\n'
+            f'    {{"factor": "검색 트렌드", "pct": 35}},\n'
+            f'    {{"factor": "가격 신호", "pct": 20}},\n'
+            f'    {{"factor": "계절성", "pct": 25}},\n'
+            f'    {{"factor": "소비자 반응", "pct": 20}}\n'
+            f'  ],\n'
+            f'  "action_list": [\n'
+            f'    {{"stars": 5, "action": "가장 시급한 실행 항목 (20자 이내)", "dept": "담당 부서 (상품기획·마케팅·구매·영업 중 택1)", "timing": "이번 주", "budget": "예상 예산 (예: 500만원, 별도 없음 등)"}},\n'
+            f'    {{"stars": 5, "action": "두 번째 우선순위 항목 (20자 이내)", "dept": "담당 부서", "timing": "7일 이내", "budget": "예상 예산"}},\n'
+            f'    {{"stars": 4, "action": "세 번째 우선순위 항목 (20자 이내)", "dept": "담당 부서", "timing": "2주 이내", "budget": "예상 예산"}},\n'
+            f'    {{"stars": 3, "action": "네 번째 우선순위 항목 (20자 이내)", "dept": "담당 부서", "timing": "이번 달", "budget": "예상 예산"}},\n'
+            f'    {{"stars": 2, "action": "다섯 번째 우선순위 항목 (20자 이내)", "dept": "담당 부서", "timing": "다음 달", "budget": "예상 예산"}}\n'
+            f'  ]\n'
             f'}}\n\n'
             f'[절대 규칙]\n'
             f'1. consumer_needs·consumer_complaints·recommended_features는 위 ■쇼핑 키워드와 ■소비자 불만 데이터의 실제 단어를 직접 인용해야 함. "소비자들이 원하는" 같은 일반론 금지.\n'
@@ -399,7 +426,10 @@ async def get_ai_report(category: str = Query(..., min_length=1), period: str = 
             f'3. product_brief는 반드시 위 키워드·불만 수치를 직접 인용한 1문장 결론이어야 함.\n'
             f'4. action_basis 4개는 위 데이터의 수치(관심도 {current}, 성장률 {_growth_pct}, 브랜드 점유율 등) 인용 필수.\n'
             f'5. expected_sales_growth: 근거 없는 % 수치 절대 금지. summary: 3문장 이상, 수치 인용 포함.\n'
-            f'6. 임의 수량(100대 등), "일반적으로", "보통", "대체로" 같은 표현 절대 금지.'
+            f'6. 임의 수량(100대 등), "일반적으로", "보통", "대체로" 같은 표현 절대 금지.\n'
+            f'7. ai_confidence: 실제 데이터 신뢰도 기반 0~100 정수로 수정. confidence_breakdown.pct 4개 합계는 정확히 100이 되어야 함.\n'
+            f'8. action_list: 실제 카테고리({category})에 맞는 구체적 실행 항목 5개. action은 20자 이내 실행 가능한 문장. dept는 상품기획·마케팅·구매·영업 중 택1. timing은 "이번 주", "7일 이내", "2주 이내", "이번 달", "다음 달" 중 택1. budget은 현실적인 예상 예산(예: "1,000만원", "500만원", "별도 예산 없음")으로 작성.\n'
+            f'9. decision_chain: 위 실측 데이터 기반으로 수정 가능. 각 항목은 30자 이내.'
         )
 
         res = await _groq_create(

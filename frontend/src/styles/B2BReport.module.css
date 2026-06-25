@@ -456,6 +456,110 @@
 .factorWarn { color: #f59e0b; font-size: 13px; flex-shrink: 0; }
 .factorEmpty { font-size: 12px; color: var(--b2b-muted); }
 
+/* ── AI 의사결정 과정 + 신뢰도 ── */
+.decisionRow {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px;
+}
+.decisionChainCard {
+  background: var(--b2b-card); border-radius: 16px; padding: 20px;
+  box-shadow: var(--b2b-shadow);
+}
+.decisionChainTitle {
+  font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--b2b-muted); margin-bottom: 16px;
+}
+.decisionChainFlow { display: flex; flex-direction: column; gap: 0; }
+.decisionChainStep { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.decisionChainDot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-bottom: 2px; }
+.decisionChainText { font-size: 13px; color: var(--b2b-text1); line-height: 1.5; }
+.decisionChainArrow { font-size: 16px; margin: 4px 0 4px 0; line-height: 1; }
+.decisionChainResult {
+  margin-top: 10px; padding: 8px 14px; border-radius: 8px; border: 1px solid;
+  font-size: 13px; font-weight: 700; text-align: center;
+}
+.confidenceCard {
+  background: var(--b2b-card); border-radius: 16px; padding: 20px;
+  box-shadow: var(--b2b-shadow); display: flex; flex-direction: column; gap: 12px;
+}
+.confidenceTitle {
+  font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--b2b-muted);
+}
+.confidenceScore { display: flex; align-items: baseline; gap: 2px; }
+.confidenceNum { font-size: 48px; font-weight: 900; line-height: 1; }
+.confidencePct { font-size: 20px; font-weight: 700; color: var(--b2b-muted); }
+.confidenceBreakdown { display: flex; flex-direction: column; gap: 8px; }
+.confidenceItem { display: flex; align-items: center; gap: 8px; }
+.confidenceFactor { font-size: 12px; color: var(--b2b-text2); width: 70px; flex-shrink: 0; }
+.confidenceBarWrap { flex: 1; height: 6px; background: var(--b2b-line); border-radius: 3px; overflow: hidden; }
+.confidenceBar { height: 100%; border-radius: 3px; transition: width .3s; }
+.confidencePctVal { font-size: 11px; color: var(--b2b-muted); width: 30px; text-align: right; }
+.confidenceNote { font-size: 11px; color: var(--b2b-muted); line-height: 1.5; margin-top: 4px; }
+
+/* ── Action List ── */
+.actionListCard {
+  display: flex; flex-direction: column; gap: 10px; margin-top: 8px;
+}
+.actionListItem {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--b2b-card); border-radius: 12px; padding: 14px 18px;
+  border-left: 4px solid; box-shadow: var(--b2b-shadow); gap: 12px;
+}
+.actionListLeft { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.actionStars { display: flex; gap: 2px; }
+.actionText { font-size: 14px; font-weight: 600; color: var(--b2b-text1); }
+.actionListRight { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.actionDept {
+  font-size: 11px; font-weight: 600; color: var(--b2b-muted);
+  background: var(--b2b-bg); border-radius: 6px; padding: 3px 8px;
+}
+.actionTiming { font-size: 12px; font-weight: 700; }
+.actionBudget {
+  font-size: 11px; font-weight: 700; color: #10b981;
+  background: rgba(16,185,129,0.08); border-radius: 6px; padding: 3px 8px;
+  border: 1px solid rgba(16,185,129,0.2);
+}
+
+/* ── 수요예측 모델 정보 ── */
+.forecastModelRow {
+  display: flex; flex-direction: column; gap: 8px;
+  background: var(--b2b-card); border-radius: 12px; padding: 14px 18px;
+  margin-top: 10px; box-shadow: var(--b2b-shadow);
+}
+.forecastDataSources { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.forecastDataLabel { font-size: 11px; color: var(--b2b-muted); font-weight: 600; margin-right: 4px; }
+.forecastDataChip {
+  font-size: 11px; color: var(--b2b-text2); background: var(--b2b-bg);
+  border: 1px solid var(--b2b-line); border-radius: 20px; padding: 2px 10px;
+}
+.forecastModelChip {
+  font-size: 11px; color: #6366f1; background: rgba(99,102,241,0.08);
+  border: 1px solid rgba(99,102,241,0.2); border-radius: 20px; padding: 2px 10px; font-weight: 600;
+}
+.forecastConfNote {
+  font-size: 12px; color: var(--b2b-text2); line-height: 1.6;
+}
+.forecastCiTable { margin-top: 12px; }
+
+/* ── 데이터 출처 섹션 ── */
+.dataSourceSection {
+  background: var(--b2b-card); border-radius: 20px; padding: 24px;
+  box-shadow: var(--b2b-shadow); margin-bottom: 20px;
+}
+.dataSourceTitle {
+  font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--b2b-muted); margin-bottom: 16px;
+}
+.dataSourceGrid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+}
+.dataSourceItem {
+  background: var(--b2b-bg); border-radius: 10px; padding: 12px 14px;
+  border: 1px solid var(--b2b-line);
+}
+.dataSourceName { font-size: 12px; font-weight: 700; color: var(--b2b-text1); margin-bottom: 4px; }
+.dataSourceDesc { font-size: 11px; color: var(--b2b-muted); line-height: 1.5; }
+
 /* ── AI 종합 결론 ── */
 .conclusionCard {
   background: var(--b2b-card); border-radius: 20px; padding: 24px;
@@ -1023,6 +1127,12 @@
   .strategyGrid2 { grid-template-columns: 1fr; }
   .effectGrid { grid-template-columns: 1fr; }
   .factorGrid { grid-template-columns: 1fr; }
+  .decisionRow { grid-template-columns: 1fr; }
+  .confidenceNum { font-size: 36px; }
+  .actionListItem { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .actionListRight { align-items: flex-start; flex-direction: row; gap: 8px; flex-wrap: wrap; }
+  .dataSourceGrid { grid-template-columns: repeat(2, 1fr); }
+  .forecastDataSources { gap: 4px; }
   .buyingContextGrid { grid-template-columns: repeat(2, 1fr); }
   .twoCol { grid-template-columns: 1fr; }
   .twoColTable { grid-template-columns: 1fr; }
