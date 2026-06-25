@@ -847,8 +847,10 @@ export default function B2BReport() {
                       { name: '네이버 쇼핑 API', desc: '브랜드 점유율 · 가격 · 쇼핑 키워드', icon: '🛒' },
                       { name: '네이버 블로그/카페', desc: '소비자 리뷰 · 불만 데이터', icon: '💬' },
                       { name: 'Groq LLM', desc: 'AI 전략 분석 · 인사이트 생성', icon: '🤖' },
-                      { name: 'Prophet + XGBoost', desc: '수요 예측 앙상블 모델', icon: '📈' },
+                      { name: 'Prophet + XGBoost', desc: '수요 예측 앙상블 모델 (공공데이터 외부변수 반영)', icon: '📈' },
                       { name: 'RAG (pgvector)', desc: '소비자 반응 패턴 기반 인사이트', icon: '🧠' },
+                      { name: '기상청 ASOS', desc: '기온·습도 기반 수요 외부 변수 (data.go.kr)', icon: '🌤' },
+                      { name: '에어코리아', desc: 'PM2.5·PM10 대기질 지수 (data.go.kr)', icon: '🌫' },
                     ].map(src => (
                       <div key={src.name} className={s.dataSourceItem}>
                         <p className={s.dataSourceName}>{src.icon} {src.name}</p>
@@ -860,7 +862,7 @@ export default function B2BReport() {
 
                 {/* ── 리포트 푸터 ── */}
                 <div className={s.reportFooter}>
-                  <span>본 리포트는 네이버 DataLab 검색 데이터 및 Groq LLM 기반 AI 분석으로 생성되었습니다.</span>
+                  <span>본 리포트는 네이버 DataLab · 기상청 ASOS 등 공공데이터 및 Groq LLM 기반 AI 분석으로 생성되었습니다.</span>
                   <span>{today} · {PERIOD_LABEL[period]} 분석</span>
                 </div>
               </>
@@ -870,7 +872,7 @@ export default function B2BReport() {
           <B2BSidebar
             category={category} setCategory={setCategory}
             periods={PERIODS} period={period} setPeriod={setPeriod}
-            dataSources={['네이버 DataLab', 'Groq LLM', 'RAG (구매 패턴)']}
+            dataSources={['네이버 DataLab', 'Groq LLM', 'RAG (구매 패턴)', '기상청 ASOS (공공데이터)']}
             onRefresh={loadData} loading={loading} fetchedAt={fetchedAt}
             onDownload={() => setPrintModal(true)}
           />
