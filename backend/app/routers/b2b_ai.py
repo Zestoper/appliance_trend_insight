@@ -83,7 +83,8 @@ async def get_ai_report(category: str = Query(..., min_length=1), period: str = 
 
     # Supabase DB 캐시 확인 (인메모리 미스 시)
     from app.services.naver_cache import get_db_cache as _get_ai_db_cache, set_db_cache as _set_ai_db_cache
-    _db_ai = await _get_ai_db_cache(f"ai_report:{_CACHE_VER}:{category}:{period}")
+    _db_ai_key = f"ai_report:{_CACHE_VER}:{category}:{period}"
+    _db_ai = await _get_ai_db_cache(_db_ai_key)
     if _db_ai:
         _GROQ_CACHE[_ck] = (_time.time() + _GROQ_TTL, _db_ai)
         return _db_ai
@@ -499,7 +500,16 @@ async def get_ai_report(category: str = Query(..., min_length=1), period: str = 
     if "_groq_error" not in report:
         _GROQ_CACHE[_ck] = (_time.time() + _GROQ_TTL, result)
         try:
-            await _set_ai_db_cache(f"ai_report:{_CACHE_VER}:{category}:{period}", result, ttl_hours=2)
+            await _set_ai_db_cache(_db_ai_key, result, ttl_hours=8)
+        except Exception:
+            pass
+    else:
+        # AI 실패 시 만료된 DB 캐시라도 반환 (에러 화면 대신)
+        try:
+            from app.services.naver_cache import get_db_cache_stale as _get_stale
+            _stale = await _get_stale(_db_ai_key)
+            if _stale:
+                return _stale
         except Exception:
             pass
     return result
