@@ -288,17 +288,42 @@ function ProductCard({ product, report, loading, onRemove, isWinner }) {
 // ── 메인 ─────────────────────────────────────────────────
 const MAX_SLOTS = 3
 
+const CATEGORIES = [
+  { label: '에어컨',    emoji: '❄️' },
+  { label: '냉장고',    emoji: '🧊' },
+  { label: '세탁기',    emoji: '🫧' },
+  { label: '건조기',    emoji: '🌀' },
+  { label: '공기청정기', emoji: '💨' },
+  { label: '로봇청소기', emoji: '🤖' },
+  { label: '식기세척기', emoji: '🍽️' },
+  { label: 'TV',        emoji: '📺' },
+]
+
 export default function Compare() {
   const navigate = useNavigate()
 
   const { isLoggedIn, token } = useAuth()
 
-  const [list,           setList]           = useState([])
-  const [reports,        setReports]        = useState([null, null, null])
-  const [loading,        setLoading]        = useState([false, false, false])
-  const [thirdSlotOpen,  setThirdSlotOpen]  = useState(false)
-  const [aiCompare,      setAiCompare]      = useState(null)
-  const [aiCmpLoading,   setAiCmpLoading]   = useState(false)
+  const [list,            setList]            = useState([])
+  const [reports,         setReports]         = useState([null, null, null])
+  const [loading,         setLoading]         = useState([false, false, false])
+  const [thirdSlotOpen,   setThirdSlotOpen]   = useState(false)
+  const [aiCompare,       setAiCompare]       = useState(null)
+  const [aiCmpLoading,    setAiCmpLoading]    = useState(false)
+  const [activeCategory,  setActiveCategory]  = useState(null)
+  const [catProducts,     setCatProducts]     = useState([])
+  const [catLoading,      setCatLoading]      = useState(false)
+
+  // 카테고리 선택 시 상품 목록 fetch
+  useEffect(() => {
+    if (!activeCategory) { setCatProducts([]); return }
+    setCatLoading(true)
+    setCatProducts([])
+    fetch(`${API_BASE}/api/naver/products?query=${encodeURIComponent(activeCategory)}&page=1&display=10`)
+      .then(r => r.json())
+      .then(data => { setCatProducts(data.items ?? []); setCatLoading(false) })
+      .catch(() => setCatLoading(false))
+  }, [activeCategory])
 
   useEffect(() => {
     list.forEach((product, idx) => {
@@ -399,6 +424,70 @@ export default function Compare() {
         <div className={styles.titleRow}>
           <h1 className={styles.title}>제품 비교</h1>
           <p className={styles.subtitle}>최대 3개 제품을 나란히 비교해보세요</p>
+        </div>
+
+        {/* 카테고리 탭 */}
+        <div className={styles.catSection}>
+          <div className={styles.catTabs}>
+            {CATEGORIES.map(c => (
+              <button
+                key={c.label}
+                className={`${styles.catTab} ${activeCategory === c.label ? styles.catTabActive : ''}`}
+                onClick={() => setActiveCategory(prev => prev === c.label ? null : c.label)}
+              >
+                <span>{c.emoji}</span> {c.label}
+              </button>
+            ))}
+          </div>
+
+          {activeCategory && (
+            <div className={styles.catPickerWrap}>
+              {catLoading ? (
+                <div className={styles.catLoading}>
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} className={styles.catSkeleton} />
+                  ))}
+                </div>
+              ) : (
+                <div className={styles.catProducts}>
+                  {catProducts.map(p => {
+                    const alreadyAdded = list.some(l => l?.id === p.id)
+                    const isFull = list.filter(Boolean).length >= MAX_SLOTS
+                    return (
+                      <button
+                        key={p.id}
+                        className={`${styles.catProductCard} ${alreadyAdded ? styles.catProductAdded : ''}`}
+                        onClick={() => {
+                          if (alreadyAdded || isFull) return
+                          const nextIdx = list.length < MAX_SLOTS ? list.length : -1
+                          if (nextIdx === -1) return
+                          add(p, nextIdx)
+                          if (nextIdx === 2) setThirdSlotOpen(false)
+                        }}
+                        disabled={alreadyAdded || isFull}
+                        title={isFull && !alreadyAdded ? '최대 3개까지 비교 가능' : ''}
+                      >
+                        <div className={styles.catImgWrap}>
+                          {p.image
+                            ? <img src={p.image} alt={p.title} className={styles.catImg} />
+                            : <span className={styles.catImgFallback}>📦</span>
+                          }
+                        </div>
+                        <p className={styles.catProductName}>{p.title}</p>
+                        <p className={styles.catProductPrice}>
+                          {p.price > 0 ? `${p.price.toLocaleString()}원` : '가격 미정'}
+                        </p>
+                        {alreadyAdded
+                          ? <span className={styles.catAddedBadge}>추가됨</span>
+                          : <span className={styles.catAddBtn}>+ 비교 추가</span>
+                        }
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* 슬롯 그리드 */}
