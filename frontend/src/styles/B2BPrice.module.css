@@ -66,11 +66,11 @@
 
 /* ── Dark Brand Card ── */
 .darkCard {
-  background: #1a1a1a; border-radius: 20px; padding: 24px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.12), 0 4px 20px rgba(0,0,0,0.1);
+  background: var(--b2b-card); border-radius: 20px; padding: 24px;
+  box-shadow: var(--b2b-shadow); border: 1px solid var(--b2b-line);
 }
-.darkCardTitle { font-size: 16px; font-weight: 800; color: #fff; margin-bottom: 4px; }
-.darkCardSub { font-size: 11px; color: rgba(255,255,255,0.4); margin-bottom: 16px; }
+.darkCardTitle { font-size: 16px; font-weight: 800; color: var(--b2b-text1); margin-bottom: 4px; }
+.darkCardSub { font-size: 11px; color: var(--b2b-muted); margin-bottom: 16px; }
 
 /* ── Metrics 3-col ── */
 .metricsRow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
@@ -85,21 +85,21 @@
 /* ── Two-col grid ── */
 .twoCol { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 
-/* ── Brand Table (dark) ── */
+/* ── Brand Table ── */
 .brandTable { width: 100%; border-collapse: collapse; font-size: 13px; background: transparent; }
 .brandTable thead, .brandTable tbody, .brandTable tr { background: transparent; }
-.brandTable thead tr { border-bottom: 1px solid rgba(255,255,255,0.08); }
+.brandTable thead tr { border-bottom: 1px solid var(--b2b-line); }
 .brandTable th {
   font-size: 10px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.08em; color: rgba(255,255,255,0.35);
+  letter-spacing: 0.08em; color: var(--b2b-muted);
   padding: 6px 10px; text-align: left; background: transparent;
 }
-.brandTable td { padding: 10px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); background: transparent; }
+.brandTable td { padding: 10px 10px; border-bottom: 1px solid var(--b2b-line); background: transparent; }
 .brandTable tbody tr:last-child td { border-bottom: none; }
 
-.btBrand { display: flex; align-items: center; gap: 8px; font-weight: 600; color: #fff; }
+.btBrand { display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--b2b-text1); }
 .btDot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.btPrice { color: rgba(255,255,255,0.7); font-weight: 600; }
+.btPrice { color: var(--b2b-text2); font-weight: 600; }
 
 .tierBadge {
   display: inline-block; padding: 3px 10px; border-radius: 999px;
