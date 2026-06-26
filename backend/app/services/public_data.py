@@ -473,6 +473,17 @@ async def _refresh_ext_data_once() -> None:
         except Exception as e:
             logger.warning("[PublicData] KCA %s 갱신 실패: %s", cat, e)
 
+    # 에너지공단 KEMCO 효율등급 (카테고리별)
+    _KEMCO_CATEGORIES = ["에어컨", "냉장고", "TV", "선풍기", "공기청정기", "제습기", "세탁기"]
+    for cat in _KEMCO_CATEGORIES:
+        try:
+            data = await fetch_kemco_efficiency(cat)
+            if data:
+                await _set(f"ext:kemco:{cat}", data, ttl_hours=720)  # 30일
+                logger.info("[PublicData] KEMCO %s 1등급비율 %s%% 캐시 저장", cat, data.get("grade1_ratio"))
+        except Exception as e:
+            logger.warning("[PublicData] KEMCO %s 갱신 실패: %s", cat, e)
+
     logger.info("[PublicData] 공공데이터 갱신 완료")
 
 

@@ -705,10 +705,15 @@ export default function B2BDashboard() {
                       <span className={s.envSignalLabel}>{sig.label}</span>
                     </div>
                   ))}
-                  {envSignal.vars?.kma_temp != null && (
+                  {(envSignal.vars?.kma_temp != null || envSignal.vars?.kemco_grade1 != null) && (
                     <div className={s.envSignalMeta}>
-                      {envSignal.vars.kma_temp}°C · {envSignal.vars.kma_humidity}% 습도
+                      {envSignal.vars.kma_temp != null && (
+                        <>{envSignal.vars.kma_temp}°C · {envSignal.vars.kma_humidity}% 습도</>
+                      )}
                       {envSignal.vars.air_pm25 != null && ` · PM2.5 ${envSignal.vars.air_pm25}㎍`}
+                      {envSignal.vars.kemco_grade1 != null && (
+                        <> · 에너지 1등급 {envSignal.vars.kemco_grade1}%</>
+                      )}
                       {' · '}<span className={s.envSignalSource}>{envSignal.sources?.join(', ')}</span>
                     </div>
                   )}

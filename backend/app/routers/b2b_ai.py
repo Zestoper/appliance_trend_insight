@@ -341,6 +341,8 @@ async def get_ai_report(category: str = Query(..., min_length=1), period: str = 
                 parts.append(f"PM2.5 {_ev['air_pm25']}㎍/㎥({_grade})")
             if "kca_count" in _ev:
                 parts.append(f"소비자원 피해접수 {_ev['kca_count']}건")
+            if "kemco_grade1" in _ev:
+                parts.append(f"에너지 1등급 비율 {_ev['kemco_grade1']}% (총 {_ev.get('kemco_total', '?')}개 인증제품 중)")
             if parts:
                 _sig_labels = " / ".join(s["label"] for s in _env.get("signals", []))
                 _env_str = f"\n■ 외부 환경 신호 (공공데이터 기준)\n  {' · '.join(parts)}\n  → {_sig_labels if _sig_labels else '현재 수요 영향 없음'}\n"
@@ -1275,6 +1277,21 @@ async def _load_env_signal(category: str) -> dict:
     if kca and kca.get("items"):
         result["vars"]["kca_count"] = len(kca["items"])
         result["sources"].append("한국소비자원")
+
+    # 에너지공단 KEMCO 효율등급 1등급 비율
+    kemco = await _gc(f"ext:kemco:{category}")
+    if kemco and kemco.get("grade1_ratio") is not None:
+        ratio = kemco["grade1_ratio"]
+        total = kemco.get("total_products", 0)
+        result["vars"]["kemco_grade1"]  = ratio
+        result["vars"]["kemco_total"]   = total
+        result["sources"].append("에너지공단")
+        if ratio >= 50:
+            result["signals"].append({"icon": "⚡", "label": f"에너지 1등급 비율 {ratio}% — 고효율 프리미엄 제품 선호 뚜렷", "level": "high"})
+        elif ratio >= 25:
+            result["signals"].append({"icon": "⚡", "label": f"에너지 1등급 비율 {ratio}% — 효율등급 경쟁 확대 중", "level": "mid"})
+        else:
+            result["signals"].append({"icon": "⚡", "label": f"에너지 1등급 비율 {ratio}% — 보급형 중심 시장", "level": "low"})
 
     return result
 
