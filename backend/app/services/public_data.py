@@ -23,19 +23,19 @@ KEPCO_KEY       = os.getenv("KEPCO_API_KEY", "")
 
 # 카테고리별 사용할 외부 변수
 EXT_VARS: dict[str, list[str]] = {
-    "에어컨":     ["kma_temp", "kma_humidity", "kepco_rate"],
-    "선풍기":     ["kma_temp"],
-    "제습기":     ["kma_temp", "kma_humidity"],
-    "가습기":     ["kma_humidity"],
-    "공기청정기": ["air_pm25", "air_pm10"],
-    "냉장고":     ["kma_temp", "kepco_rate"],
-    "세탁기":     ["kepco_rate"],
-    "건조기":     ["kepco_rate"],
-    "TV":         ["customs_tv"],
-    "로봇청소기": [],
-    "식기세척기": [],
-    "에어프라이어": [],
-    "전기밥솥":   [],
+    "에어컨":      ["kma_temp", "kma_humidity", "kepco_rate", "cpi"],
+    "선풍기":      ["kma_temp", "cpi"],
+    "제습기":      ["kma_temp", "kma_humidity", "cpi"],
+    "가습기":      ["kma_humidity", "cpi"],
+    "공기청정기":  ["air_pm25", "air_pm10", "cpi"],
+    "냉장고":      ["kma_temp", "kepco_rate", "cpi"],
+    "세탁기":      ["kepco_rate", "cpi"],
+    "건조기":      ["kepco_rate", "cpi"],
+    "TV":          ["customs_tv", "cpi"],
+    "로봇청소기":  ["cpi"],
+    "식기세척기":  ["cpi"],
+    "에어프라이어": ["cpi"],
+    "전기밥솥":    ["cpi"],
 }
 
 # 관세청 HS 코드
