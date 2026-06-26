@@ -489,29 +489,32 @@ export default function Compare() {
         {/* 필터 섹션 */}
         <div className={styles.catSection}>
           <div className={styles.filterRows}>
-            {FILTER_GROUPS.map(group => (
-              <div key={group.key} className={styles.filterRow}>
-                <span className={styles.filterLabel}>{group.label}</span>
-                <div className={styles.filterChips}>
-                  {group.options.map(opt => (
-                    <button
-                      key={opt}
-                      className={`${styles.catTab} ${filters[group.key] === opt ? styles.catTabActive : ''}`}
-                      onClick={() => setFilters(prev => {
-                        const next = { ...prev, [group.key]: prev[group.key] === opt ? null : opt }
-                        // 제품 변경 시 세부 타입 초기화
-                        if (group.key === 'product') next.subtype = null
-                        return next
-                      })}
-                    >
-                      {opt}
-                    </button>
-                  ))}
+            {/* 순서: 제품 → 브랜드 → 타입(동적) → 가격 → 정렬 */}
+            {['product', 'brand'].map(key => {
+              const group = FILTER_GROUPS.find(g => g.key === key)
+              return (
+                <div key={key} className={styles.filterRow}>
+                  <span className={styles.filterLabel}>{group.label}</span>
+                  <div className={styles.filterChips}>
+                    {group.options.map(opt => (
+                      <button
+                        key={opt}
+                        className={`${styles.catTab} ${filters[key] === opt ? styles.catTabActive : ''}`}
+                        onClick={() => setFilters(prev => {
+                          const next = { ...prev, [key]: prev[key] === opt ? null : opt }
+                          if (key === 'product') next.subtype = null
+                          return next
+                        })}
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
 
-            {/* 세부 타입 — 제품 선택 시만 표시 */}
+            {/* 타입 — 제품 선택 시만 표시 */}
             {filters.product && PRODUCT_SUBTYPES[filters.product] && (
               <div className={styles.filterRow}>
                 <span className={styles.filterLabel}>타입</span>
@@ -531,6 +534,29 @@ export default function Compare() {
                 </div>
               </div>
             )}
+
+            {['price', 'sort'].map(key => {
+              const group = FILTER_GROUPS.find(g => g.key === key)
+              return (
+                <div key={key} className={styles.filterRow}>
+                  <span className={styles.filterLabel}>{group.label}</span>
+                  <div className={styles.filterChips}>
+                    {group.options.map(opt => (
+                      <button
+                        key={opt}
+                        className={`${styles.catTab} ${filters[key] === opt ? styles.catTabActive : ''}`}
+                        onClick={() => setFilters(prev => ({
+                          ...prev,
+                          [key]: prev[key] === opt ? null : opt,
+                        }))}
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
           </div>
 
           {(filters.product || filters.brand || filters.price || filters.sort) && (
