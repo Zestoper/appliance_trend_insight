@@ -214,29 +214,35 @@ async def fetch_kepco_rate() -> list[dict]:
 
 
 async def fetch_kemco_efficiency(category: str) -> dict:
-    """에너지공단: 카테고리별 에너지효율 1등급 비율"""
+    """에너지공단: 카테고리별 에너지효율 1등급 비율 (B553530/eep)"""
     if not PUBLIC_DATA_KEY:
         return {}
-    cat_code_map = {
-        "에어컨":  "1",
-        "냉장고":  "2",
-        "세탁기":  "4",
-        "TV":      "5",
-        "건조기":  "10",
+    # EEP_XX 경로 매핑 (실제 서비스 EndPoint: https://apis.data.go.kr/B553530/eep)
+    cat_path_map = {
+        "에어컨":     "EEP_24_LIST",  # 전기냉방기
+        "냉장고":     "EEP_20_LIST",  # 전기냉장고
+        "TV":         "EEP_17_LIST",  # 텔레비전수상기
+        "선풍기":     "EEP_07_LIST",
+        "공기청정기": "EEP_08_LIST",
+        "제습기":     "EEP_19_LIST",
+        "세탁기":     "EEP_01_LIST",  # 전기세탁기
     }
-    code = cat_code_map.get(category)
-    if not code:
+    path = cat_path_map.get(category)
+    if not path:
         return {}
-    url = "https://apis.data.go.kr/B552895/eficiencyRatingInfoService/getEfficProductList"
-    params = _base_params({"numOfRows": 200, "pageNo": 1, "prductClsfNo": code})
+    url = f"https://apis.data.go.kr/B553530/eep/{path}"
+    params = {"serviceKey": PUBLIC_DATA_KEY, "numOfRows": 100, "pageNo": 1}
     try:
-        async with httpx.AsyncClient(timeout=15.0) as c:
+        from xml.etree import ElementTree as ET
+        async with httpx.AsyncClient(timeout=30.0) as c:
             r = await c.get(url, params=params)
-        items = r.json()["response"]["body"]["items"]["item"]
+        root = ET.fromstring(r.text)
+        total_count = int(root.findtext(".//totalCount") or 0)
+        items = root.findall(".//item")
         total = len(items)
-        grade1 = sum(1 for i in items if str(i.get("energyGrade", "")) == "1")
+        grade1 = sum(1 for i in items if (i.findtext("GRADE") or "").strip() in ("1", "1등급"))
         return {
-            "total_products": total,
+            "total_products": total_count,
             "grade1_ratio":   round(grade1 / total * 100, 1) if total else 0,
             "fetched_at":     date.today().isoformat(),
         }
@@ -249,26 +255,44 @@ async def fetch_kca_complaints(category: str) -> list[dict]:
     """소비자원: 위해 피해 접수 건수 (카테고리별)"""
     if not PUBLIC_DATA_KEY:
         return []
-    url = "https://apis.data.go.kr/1130000/CsHarmInfoService/getHarmInfoList"
-    params = _base_params({
-        "numOfRows": 100,
-        "pageNo":    1,
-        "srchWrd":   category,
-    })
+    # 카테고리 → 검색 키워드 매핑 (품목소분류 기준 클라이언트 필터링)
+    cat_keywords = {
+        "에어컨":     ["에어컨"],
+        "냉장고":     ["냉장고", "김치냉장고"],
+        "세탁기":     ["세탁기"],
+        "건조기":     ["건조기"],
+        "TV":         ["텔레비전"],
+        "선풍기":     ["선풍기"],
+        "공기청정기": ["공기청정기"],
+        "제습기":     ["제습기"],
+        "가습기":     ["가습기"],
+        "로봇청소기": ["청소기"],
+        "식기세척기": ["식기세척기"],
+        "전기밥솥":   ["전기밥솥"],
+    }
+    keywords = cat_keywords.get(category, [category])
+    url = "https://apis.data.go.kr/B551919/open-api/harm/reception"
+    params = {"serviceKey": PUBLIC_DATA_KEY, "numOfRows": 300, "pageNo": 1, "apiFormat": "json"}
     try:
-        async with httpx.AsyncClient(timeout=15.0) as c:
+        async with httpx.AsyncClient(timeout=20.0) as c:
             r = await c.get(url, params=params)
         body = r.json()["response"]["body"]
         items = body.get("items", {}).get("item", [])
         if isinstance(items, dict):
             items = [items]
+        filtered = [
+            i for i in items
+            if any(kw in (i.get("itemMinor") or "") or kw in (i.get("itemMiddle") or "")
+                   for kw in keywords)
+        ]
         return [
             {
-                "date":    item.get("rceptDt", "")[:10],
-                "content": item.get("harmCntn", ""),
-                "product": item.get("prductNm", ""),
+                "date":     item.get("receiveDay", "")[:10],
+                "content":  item.get("injurySymptoms", ""),
+                "product":  item.get("itemMinor", ""),
+                "injury":   item.get("injuryPart", ""),
             }
-            for item in items
+            for item in filtered
         ]
     except Exception as e:
         logger.warning("[KCA] %s 소비자원 수집 실패: %s", category, e)
