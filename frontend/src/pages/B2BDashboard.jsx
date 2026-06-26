@@ -900,7 +900,11 @@ export default function B2BDashboard() {
                       )}
                     </div>
                   ) : (
-                    <p className={s.kwSummary} style={{ marginTop: 8 }}>{report.summary}</p>
+                    <div style={{ marginTop: 8 }}>
+                      {String(report.summary).split('\n\n').filter(Boolean).map((para, i) => (
+                        <p key={i} className={s.kwSummary} style={{ marginTop: i > 0 ? 10 : 0 }}>{para}</p>
+                      ))}
+                    </div>
                   )}
                 </div>
               </div>

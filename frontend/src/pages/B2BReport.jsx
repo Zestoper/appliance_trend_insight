@@ -396,9 +396,13 @@ export default function B2BReport() {
                 </div>
 
                 {/* ── 03 가격 전략 판단 ── */}
-                {priceData && ins && (
+                {priceData && (
                   <div className={s.section}>
                     <SectionHead num="03" title="가격 전략 판단" />
+                    {!ins && (
+                      <p className={s.emptyText} style={{ padding: '20px 0' }}>가격 데이터를 불러오는 중이거나 해당 카테고리의 가격 분석 데이터가 없습니다.</p>
+                    )}
+                    {ins && (<>
 
                     {/* 핵심 전략 카드 */}
                     <div className={s.strategyTopGrid}>
@@ -447,6 +451,7 @@ export default function B2BReport() {
                         <p className={s.positioningText}>{ins.strategy}</p>
                       </div>
                     )}
+                  </>)}
                   </div>
                 )}
 

@@ -443,7 +443,7 @@ tr:last-child td { border-bottom: none; }
     flex-wrap: wrap;
   }
   .kpi {
-    flex: 0 0 calc(50% - 1px);
+    flex: 0 0 100%;
     min-width: 0;
   }
 

@@ -86,7 +86,7 @@ function SearchSlot({ slotNum, onAdd, alreadyIds, collapsible = false, isOpen = 
     clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => {
       setSearching(true)
-      fetch(`${API_BASE}/api/naver/products?query=${encodeURIComponent(query)}&page=1&display=6`)
+      fetch(`${API_BASE}/api/naver/products?query=${encodeURIComponent(query)}&page=1&display=15`)
         .then(r => r.json())
         .then(data => { setResults(data.items ?? []); setSearching(false) })
         .catch(() => setSearching(false))
