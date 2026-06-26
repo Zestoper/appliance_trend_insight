@@ -425,3 +425,60 @@ async def get_ext_dataframe(category: str, ds_dates) -> "pd.DataFrame | None":
     except Exception as e:
         logger.warning("[PublicData] ext_dataframe 생성 실패 (%s): %s", category, e)
         return None
+
+
+_KCA_CATEGORIES = [
+    "에어컨", "냉장고", "세탁기", "건조기", "TV",
+    "선풍기", "공기청정기", "제습기", "가습기", "로봇청소기", "식기세척기", "전기밥솥",
+]
+
+
+async def _refresh_ext_data_once() -> None:
+    """공공데이터 전체 1회 갱신 → DB 캐시에 저장."""
+    from app.services.naver_cache import set_db_cache as _set
+
+    # KMA 기온/습도
+    try:
+        items = await fetch_kma_history(days=730)
+        if items:
+            await _set("ext:kma:history", {"items": items}, ttl_hours=30)
+            logger.info("[PublicData] KMA %d건 캐시 저장", len(items))
+    except Exception as e:
+        logger.warning("[PublicData] KMA 갱신 실패: %s", e)
+
+    # 에어코리아 PM2.5/PM10
+    try:
+        items = await fetch_airkorea_history(days=90)
+        if items:
+            await _set("ext:airkorea:history", {"items": items}, ttl_hours=30)
+            logger.info("[PublicData] AirKorea %d건 캐시 저장", len(items))
+    except Exception as e:
+        logger.warning("[PublicData] AirKorea 갱신 실패: %s", e)
+
+    # 통계청 KOSIS CPI
+    try:
+        items = await fetch_kosis_cpi()
+        if items:
+            await _set("ext:kosis:cpi", {"items": items}, ttl_hours=720)  # 30일
+            logger.info("[PublicData] KOSIS CPI %d건 캐시 저장", len(items))
+    except Exception as e:
+        logger.warning("[PublicData] KOSIS CPI 갱신 실패: %s", e)
+
+    # 소비자원 KCA 피해접수 (카테고리별)
+    for cat in _KCA_CATEGORIES:
+        try:
+            items = await fetch_kca_complaints(cat)
+            if items:
+                await _set(f"ext:kca:{cat}", {"items": items}, ttl_hours=168)  # 7일
+        except Exception as e:
+            logger.warning("[PublicData] KCA %s 갱신 실패: %s", cat, e)
+
+    logger.info("[PublicData] 공공데이터 갱신 완료")
+
+
+async def ext_data_refresh_loop() -> None:
+    """서버 시작 시 1회 즉시 갱신, 이후 24h마다 반복."""
+    await asyncio.sleep(10)  # 서버 초기화 대기
+    while True:
+        await _refresh_ext_data_once()
+        await asyncio.sleep(86400)  # 24h
