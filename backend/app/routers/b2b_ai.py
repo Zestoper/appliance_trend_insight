@@ -1287,11 +1287,11 @@ async def _load_env_signal(category: str) -> dict:
         result["vars"]["kemco_total"]   = total
         result["sources"].append("에너지공단")
         if ratio >= 50:
-            result["signals"].append({"icon": "⚡", "label": f"에너지 1등급 비율 {ratio}% — 고효율 프리미엄 제품 선호 뚜렷", "level": "high"})
+            result["signals"].append({"icon": "", "label": f"에너지 1등급 비율 {ratio}% — 고효율 프리미엄 제품 선호 뚜렷", "level": "high"})
         elif ratio >= 25:
-            result["signals"].append({"icon": "⚡", "label": f"에너지 1등급 비율 {ratio}% — 효율등급 경쟁 확대 중", "level": "mid"})
+            result["signals"].append({"icon": "", "label": f"에너지 1등급 비율 {ratio}% — 효율등급 경쟁 확대 중", "level": "mid"})
         else:
-            result["signals"].append({"icon": "⚡", "label": f"에너지 1등급 비율 {ratio}% — 보급형 중심 시장", "level": "low"})
+            result["signals"].append({"icon": "", "label": f"에너지 1등급 비율 {ratio}% — 보급형 중심 시장", "level": "low"})
 
     return result
 
