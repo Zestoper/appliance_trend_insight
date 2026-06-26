@@ -117,24 +117,24 @@ async def fetch_airkorea_history(days: int = 90) -> list[dict]:
 
 
 async def fetch_kosis_cpi() -> list[dict]:
-    """통계청 KOSIS: 소비자물가지수 월별 (최근 2년)"""
+    """통계청 KOSIS: 소비자물가지수 월별 (최근 2년) — tblId=DT_1J22003"""
     if not KOSIS_KEY:
         return []
     end_ym   = date.today().strftime("%Y%m")
     start_ym = (date.today() - timedelta(days=730)).strftime("%Y%m")
-    url = "https://kosis.kr/openapi/statisticsData.do"
+    url = "https://kosis.kr/openapi/Param/statisticsParameterData.do"
     params = {
-        "method":      "getList",
-        "apiKey":      KOSIS_KEY,
-        "orgId":       "101",          # 통계청
-        "tblId":       "DT_1J20005",   # 소비자물가지수
-        "objId":       "A",
-        "itmId":       "T10",          # 종합지수
-        "prdSe":       "M",            # 월별
-        "startPrdDe":  start_ym,
-        "endPrdDe":    end_ym,
-        "format":      "json",
-        "jsonVD":      "Y",
+        "method":     "getList",
+        "apiKey":     KOSIS_KEY,
+        "orgId":      "101",
+        "tblId":      "DT_1J22003",   # 소비자물가지수(2020=100)
+        "itmId":      "T ",            # 총지수
+        "objL1":      "T10 ",          # 전국
+        "prdSe":      "M",
+        "startPrdDe": start_ym,
+        "endPrdDe":   end_ym,
+        "format":     "json",
+        "jsonVD":     "Y",
     }
     try:
         async with httpx.AsyncClient(timeout=15.0) as c:
@@ -142,11 +142,11 @@ async def fetch_kosis_cpi() -> list[dict]:
         items = r.json()
         return [
             {
-                "ym":  item["PRD_DE"],     # YYYYMM
+                "ym":  item["PRD_DE"],
                 "cpi": float(item["DT"]),
             }
             for item in items
-            if item.get("DT")
+            if item.get("DT") and item.get("C1_NM") == "전국"
         ]
     except Exception as e:
         logger.warning("[KOSIS] CPI 수집 실패: %s", e)
