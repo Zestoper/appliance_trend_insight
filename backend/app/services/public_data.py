@@ -23,19 +23,19 @@ KEPCO_KEY       = os.getenv("KEPCO_API_KEY", "")
 
 # 카테고리별 사용할 외부 변수
 EXT_VARS: dict[str, list[str]] = {
-    "에어컨":     ["kma_temp", "kma_humidity", "kepco_rate"],
-    "선풍기":     ["kma_temp"],
-    "제습기":     ["kma_temp", "kma_humidity"],
-    "가습기":     ["kma_humidity"],
-    "공기청정기": ["air_pm25", "air_pm10"],
-    "냉장고":     ["kma_temp", "kepco_rate"],
-    "세탁기":     ["kepco_rate"],
-    "건조기":     ["kepco_rate"],
-    "TV":         ["customs_tv"],
-    "로봇청소기": [],
-    "식기세척기": [],
-    "에어프라이어": [],
-    "전기밥솥":   [],
+    "에어컨":      ["kma_temp", "kma_humidity", "kepco_rate", "cpi"],
+    "선풍기":      ["kma_temp", "cpi"],
+    "제습기":      ["kma_temp", "kma_humidity", "cpi"],
+    "가습기":      ["kma_humidity", "cpi"],
+    "공기청정기":  ["air_pm25", "air_pm10", "cpi"],
+    "냉장고":      ["kma_temp", "kepco_rate", "cpi"],
+    "세탁기":      ["kepco_rate", "cpi"],
+    "건조기":      ["kepco_rate", "cpi"],
+    "TV":          ["customs_tv", "cpi"],
+    "로봇청소기":  ["cpi"],
+    "식기세척기":  ["cpi"],
+    "에어프라이어": ["cpi"],
+    "전기밥솥":    ["cpi"],
 }
 
 # 관세청 HS 코드
@@ -124,24 +124,24 @@ async def fetch_airkorea_history(days: int = 90) -> list[dict]:
 
 
 async def fetch_kosis_cpi() -> list[dict]:
-    """통계청 KOSIS: 소비자물가지수 월별 (최근 2년)"""
+    """통계청 KOSIS: 소비자물가지수 월별 (최근 2년) — tblId=DT_1J22003"""
     if not KOSIS_KEY:
         return []
     end_ym   = date.today().strftime("%Y%m")
     start_ym = (date.today() - timedelta(days=730)).strftime("%Y%m")
-    url = "https://kosis.kr/openapi/statisticsData.do"
+    url = "https://kosis.kr/openapi/Param/statisticsParameterData.do"
     params = {
-        "method":      "getList",
-        "apiKey":      KOSIS_KEY,
-        "orgId":       "101",          # 통계청
-        "tblId":       "DT_1J20005",   # 소비자물가지수
-        "objId":       "A",
-        "itmId":       "T10",          # 종합지수
-        "prdSe":       "M",            # 월별
-        "startPrdDe":  start_ym,
-        "endPrdDe":    end_ym,
-        "format":      "json",
-        "jsonVD":      "Y",
+        "method":     "getList",
+        "apiKey":     KOSIS_KEY,
+        "orgId":      "101",
+        "tblId":      "DT_1J22003",   # 소비자물가지수(2020=100)
+        "itmId":      "T ",            # 총지수
+        "objL1":      "T10 ",          # 전국
+        "prdSe":      "M",
+        "startPrdDe": start_ym,
+        "endPrdDe":   end_ym,
+        "format":     "json",
+        "jsonVD":     "Y",
     }
     try:
         async with httpx.AsyncClient(timeout=15.0) as c:
@@ -149,11 +149,11 @@ async def fetch_kosis_cpi() -> list[dict]:
         items = r.json()
         return [
             {
-                "ym":  item["PRD_DE"],     # YYYYMM
+                "ym":  item["PRD_DE"],
                 "cpi": float(item["DT"]),
             }
             for item in items
-            if item.get("DT")
+            if item.get("DT") and item.get("C1_NM") == "전국"
         ]
     except Exception as e:
         logger.warning("[KOSIS] CPI 수집 실패: %s", e)
@@ -221,29 +221,35 @@ async def fetch_kepco_rate() -> list[dict]:
 
 
 async def fetch_kemco_efficiency(category: str) -> dict:
-    """에너지공단: 카테고리별 에너지효율 1등급 비율"""
+    """에너지공단: 카테고리별 에너지효율 1등급 비율 (B553530/eep)"""
     if not PUBLIC_DATA_KEY:
         return {}
-    cat_code_map = {
-        "에어컨":  "1",
-        "냉장고":  "2",
-        "세탁기":  "4",
-        "TV":      "5",
-        "건조기":  "10",
+    # EEP_XX 경로 매핑 (실제 서비스 EndPoint: https://apis.data.go.kr/B553530/eep)
+    cat_path_map = {
+        "에어컨":     "EEP_24_LIST",  # 전기냉방기
+        "냉장고":     "EEP_20_LIST",  # 전기냉장고
+        "TV":         "EEP_17_LIST",  # 텔레비전수상기
+        "선풍기":     "EEP_07_LIST",
+        "공기청정기": "EEP_08_LIST",
+        "제습기":     "EEP_19_LIST",
+        "세탁기":     "EEP_01_LIST",  # 전기세탁기
     }
-    code = cat_code_map.get(category)
-    if not code:
+    path = cat_path_map.get(category)
+    if not path:
         return {}
-    url = "https://apis.data.go.kr/B552895/eficiencyRatingInfoService/getEfficProductList"
-    params = _base_params({"numOfRows": 200, "pageNo": 1, "prductClsfNo": code})
+    url = f"https://apis.data.go.kr/B553530/eep/{path}"
+    params = {"serviceKey": PUBLIC_DATA_KEY, "numOfRows": 100, "pageNo": 1}
     try:
-        async with httpx.AsyncClient(timeout=15.0) as c:
+        from xml.etree import ElementTree as ET
+        async with httpx.AsyncClient(timeout=30.0) as c:
             r = await c.get(url, params=params)
-        items = r.json()["response"]["body"]["items"]["item"]
+        root = ET.fromstring(r.text)
+        total_count = int(root.findtext(".//totalCount") or 0)
+        items = root.findall(".//item")
         total = len(items)
-        grade1 = sum(1 for i in items if str(i.get("energyGrade", "")) == "1")
+        grade1 = sum(1 for i in items if (i.findtext("GRADE") or "").strip() in ("1", "1등급"))
         return {
-            "total_products": total,
+            "total_products": total_count,
             "grade1_ratio":   round(grade1 / total * 100, 1) if total else 0,
             "fetched_at":     date.today().isoformat(),
         }
@@ -256,26 +262,44 @@ async def fetch_kca_complaints(category: str) -> list[dict]:
     """소비자원: 위해 피해 접수 건수 (카테고리별)"""
     if not PUBLIC_DATA_KEY:
         return []
-    url = "https://apis.data.go.kr/1130000/CsHarmInfoService/getHarmInfoList"
-    params = _base_params({
-        "numOfRows": 100,
-        "pageNo":    1,
-        "srchWrd":   category,
-    })
+    # 카테고리 → 검색 키워드 매핑 (품목소분류 기준 클라이언트 필터링)
+    cat_keywords = {
+        "에어컨":     ["에어컨"],
+        "냉장고":     ["냉장고", "김치냉장고"],
+        "세탁기":     ["세탁기"],
+        "건조기":     ["건조기"],
+        "TV":         ["텔레비전"],
+        "선풍기":     ["선풍기"],
+        "공기청정기": ["공기청정기"],
+        "제습기":     ["제습기"],
+        "가습기":     ["가습기"],
+        "로봇청소기": ["청소기"],
+        "식기세척기": ["식기세척기"],
+        "전기밥솥":   ["전기밥솥"],
+    }
+    keywords = cat_keywords.get(category, [category])
+    url = "https://apis.data.go.kr/B551919/open-api/harm/reception"
+    params = {"serviceKey": PUBLIC_DATA_KEY, "numOfRows": 300, "pageNo": 1, "apiFormat": "json"}
     try:
-        async with httpx.AsyncClient(timeout=15.0) as c:
+        async with httpx.AsyncClient(timeout=20.0) as c:
             r = await c.get(url, params=params)
         body = r.json()["response"]["body"]
         items = body.get("items", {}).get("item", [])
         if isinstance(items, dict):
             items = [items]
+        filtered = [
+            i for i in items
+            if any(kw in (i.get("itemMinor") or "") or kw in (i.get("itemMiddle") or "")
+                   for kw in keywords)
+        ]
         return [
             {
-                "date":    item.get("rceptDt", "")[:10],
-                "content": item.get("harmCntn", ""),
-                "product": item.get("prductNm", ""),
+                "date":     item.get("receiveDay", "")[:10],
+                "content":  item.get("injurySymptoms", ""),
+                "product":  item.get("itemMinor", ""),
+                "injury":   item.get("injuryPart", ""),
             }
-            for item in items
+            for item in filtered
         ]
     except Exception as e:
         logger.warning("[KCA] %s 소비자원 수집 실패: %s", category, e)
@@ -408,3 +432,71 @@ async def get_ext_dataframe(category: str, ds_dates) -> "pd.DataFrame | None":
     except Exception as e:
         logger.warning("[PublicData] ext_dataframe 생성 실패 (%s): %s", category, e)
         return None
+
+
+_KCA_CATEGORIES = [
+    "에어컨", "냉장고", "세탁기", "건조기", "TV",
+    "선풍기", "공기청정기", "제습기", "가습기", "로봇청소기", "식기세척기", "전기밥솥",
+]
+
+
+async def _refresh_ext_data_once() -> None:
+    """공공데이터 전체 1회 갱신 → DB 캐시에 저장."""
+    from app.services.naver_cache import set_db_cache as _set
+
+    # KMA 기온/습도
+    try:
+        items = await fetch_kma_history(days=730)
+        if items:
+            await _set("ext:kma:history", {"items": items}, ttl_hours=30)
+            logger.info("[PublicData] KMA %d건 캐시 저장", len(items))
+    except Exception as e:
+        logger.warning("[PublicData] KMA 갱신 실패: %s", e)
+
+    # 에어코리아 PM2.5/PM10
+    try:
+        items = await fetch_airkorea_history(days=90)
+        if items:
+            await _set("ext:airkorea:history", {"items": items}, ttl_hours=30)
+            logger.info("[PublicData] AirKorea %d건 캐시 저장", len(items))
+    except Exception as e:
+        logger.warning("[PublicData] AirKorea 갱신 실패: %s", e)
+
+    # 통계청 KOSIS CPI
+    try:
+        items = await fetch_kosis_cpi()
+        if items:
+            await _set("ext:kosis:cpi", {"items": items}, ttl_hours=720)  # 30일
+            logger.info("[PublicData] KOSIS CPI %d건 캐시 저장", len(items))
+    except Exception as e:
+        logger.warning("[PublicData] KOSIS CPI 갱신 실패: %s", e)
+
+    # 소비자원 KCA 피해접수 (카테고리별)
+    for cat in _KCA_CATEGORIES:
+        try:
+            items = await fetch_kca_complaints(cat)
+            if items:
+                await _set(f"ext:kca:{cat}", {"items": items}, ttl_hours=168)  # 7일
+        except Exception as e:
+            logger.warning("[PublicData] KCA %s 갱신 실패: %s", cat, e)
+
+    # 에너지공단 KEMCO 효율등급 (카테고리별)
+    _KEMCO_CATEGORIES = ["에어컨", "냉장고", "TV", "선풍기", "공기청정기", "제습기", "세탁기"]
+    for cat in _KEMCO_CATEGORIES:
+        try:
+            data = await fetch_kemco_efficiency(cat)
+            if data:
+                await _set(f"ext:kemco:{cat}", data, ttl_hours=720)  # 30일
+                logger.info("[PublicData] KEMCO %s 1등급비율 %s%% 캐시 저장", cat, data.get("grade1_ratio"))
+        except Exception as e:
+            logger.warning("[PublicData] KEMCO %s 갱신 실패: %s", cat, e)
+
+    logger.info("[PublicData] 공공데이터 갱신 완료")
+
+
+async def ext_data_refresh_loop() -> None:
+    """서버 시작 시 1회 즉시 갱신, 이후 24h마다 반복."""
+    await asyncio.sleep(10)  # 서버 초기화 대기
+    while True:
+        await _refresh_ext_data_once()
+        await asyncio.sleep(86400)  # 24h
