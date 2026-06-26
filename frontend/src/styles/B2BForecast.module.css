@@ -239,7 +239,8 @@
 .scenarioRows { display: flex; flex-direction: column; gap: 12px; margin-bottom: 14px; }
 .scenarioRow { display: flex; align-items: center; gap: 10px; }
 .scenarioDot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.scenarioLabel { font-size: 13px; color: var(--b2b-text2); flex: 1; }
+.scenarioLabel { font-size: 13px; font-weight: 700; color: var(--b2b-text2); min-width: 32px; }
+.scenarioDesc { font-size: 11px; color: var(--b2b-muted); flex: 1; }
 .scenarioPct { font-size: 22px; font-weight: 900; letter-spacing: -0.5px; }
 .scenarioNote { font-size: 10px; color: var(--b2b-muted); }
 

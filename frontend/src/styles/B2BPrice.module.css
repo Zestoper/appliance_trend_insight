@@ -267,6 +267,33 @@
   margin: 0;
   padding-top: 1px;
 }
+.insightTriGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 14px;
+}
+.insightTriItem {
+  background: var(--b2b-bg);
+  border-radius: 12px;
+  padding: 14px;
+}
+.insightTriLabel {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  margin: 0 0 8px;
+}
+.insightTriText {
+  font-size: 12.5px;
+  color: var(--b2b-text2);
+  line-height: 1.6;
+  margin: 0;
+}
+@media (max-width: 700px) {
+  .insightTriGrid { grid-template-columns: 1fr; }
+}
 .insightSummaryBox {
   padding-top: 16px;
   border-top: 1px solid var(--b2b-line);

@@ -7,7 +7,6 @@ import { useAuth } from '../context/AuthContext';
 import s from '../styles/B2BPrice.module.css';
 import { API_BASE } from '../config';
 
-const CATEGORIES = ['에어컨', '냉장고', '세탁기', '건조기', '공기청정기', '로봇청소기', '식기세척기', 'TV'];
 const BRAND_COLORS = ['#6366f1', '#a855f7', '#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
 function SectionHead({ num, title }) {
@@ -48,43 +47,10 @@ function priceTier(avg, category) {
 
 function tierColor(tier) {
   if (tier === '보급형') return '#10b981';
-  if (tier === '중간')   return '#6366f1';
+  if (tier === '중간')   return '#8b5cf6';
   return '#f59e0b';
 }
 
-/* ── Distribution SVG Bar Chart ── */
-function DistributionChart({ distribution }) {
-  if (!distribution || distribution.length === 0) return <div className={s.noData}>데이터 없음</div>;
-  const maxCount = Math.max(...distribution.map(d => d.count), 1);
-  const W = 340, H = 110, padB = 28, padT = 12, padL = 28, padR = 6;
-  const chartW = W - padL - padR;
-  const barW = chartW / distribution.length - 4;
-
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto' }}>
-      {/* Y axis unit label — 차트 내부 상단 좌측 */}
-      <text x={padL + 3} y={padT + 9} textAnchor="start" fontSize="8" fill="#8e8e93" opacity="0.8">제품 수</text>
-      {distribution.map((d, i) => {
-        const bh = Math.max(((d.count / maxCount) * (H - padT - padB)), 3);
-        const bx = padL + i * (chartW / distribution.length) + 2;
-        const by = H - padB - bh;
-        return (
-          <g key={i}>
-            <rect x={bx} y={by} width={barW} height={bh}
-              fill={BRAND_COLORS[i % BRAND_COLORS.length]}
-              rx="3" opacity="0.85" />
-            <text x={bx + barW / 2} y={by - 3} textAnchor="middle" fontSize="8" fill="#8e8e93">
-              {d.count}
-            </text>
-            <text x={bx + barW / 2} y={H - 6} textAnchor="middle" fontSize="7.5" fill="#8e8e93">
-              {(d.label ?? d.range ?? '').replace('만원', '')}
-            </text>
-          </g>
-        );
-      })}
-    </svg>
-  );
-}
 
 /* ── Price History Line Chart ── */
 function PriceHistoryChart({ history }) {
@@ -237,23 +203,16 @@ export default function B2BPrice() {
   const minPrice    = sum?.min_price    ?? data?.min_price;
   const medianPrice = sum?.median_price ?? data?.median_price;
   const totalProds  = sum?.total_products ?? data?.total_products;
-  const distribution = data?.distribution ?? data?.price_distribution ?? [];
-
   // 가격 변동률 계산 (price_history 배열 활용 — Danawa 백필 데이터)
   const priceHistory = data?.price_history ?? [];
   const priceChangeData = (() => {
     if (priceHistory.length < 2) return null;
     const sorted = [...priceHistory].sort((a, b) => a.date.localeCompare(b.date));
     const current = sorted[sorted.length - 1];
-    const sixMonthStr = (() => {
-      const d = new Date(); d.setMonth(d.getMonth() - 6); return d.toISOString().slice(0, 10);
-    })();
-    const past = sorted.find(h => h.date <= sixMonthStr) ?? sorted[0];
-    if (past.date === current.date) return null;
-    const pct = Math.round((current.avg_price - past.avg_price) / past.avg_price * 1000) / 10;
-    const daysAgo = Math.round((Date.now() - new Date(past.date)) / 86400000);
-    const periodLabel = daysAgo >= 150 ? '6개월 전' : daysAgo >= 80 ? '3개월 전' : daysAgo >= 25 ? '1개월 전' : `${daysAgo}일 전`;
-    return { past: past.avg_price, current: current.avg_price, pct, periodLabel };
+    const highRecord = sorted.reduce((m, h) => h.avg_price > m.avg_price ? h : m, sorted[0]);
+    if (highRecord.date === current.date && sorted.length < 3) return null;
+    const pct = Math.round((current.avg_price - highRecord.avg_price) / highRecord.avg_price * 1000) / 10;
+    return { past: highRecord.avg_price, current: current.avg_price, pct, periodLabel: '최고 평균가' };
   })();
 
   const brandRows = (data?.by_brand ?? []).map(b => ({ brand: b.brand, avg: b.avg_price, count: b.count }));
@@ -313,10 +272,10 @@ export default function B2BPrice() {
                   </div>
                   <div className={s.reportKpiRow}>
                     {[
-                      { label: '시장 평균가', val: fmtWon(avgPrice),    sub: '전체 제품 평균' },
-                      { label: '최저가',      val: fmtWon(minPrice),    sub: '현재 최저 판매가', color: '#10b981' },
-                      { label: '중간가',      val: fmtWon(medianPrice), sub: '중앙값 기준' },
-                      { label: '가격 변동',   val: changePct != null ? `${changePct >= 0 ? '+' : ''}${changePct}%` : '-', sub: '전일 대비', color: changePct != null ? (changePct >= 0 ? '#ef4444' : '#10b981') : undefined },
+                      { label: '시장 평균가', val: fmtWon(avgPrice),    sub: '분석 제품 평균' },
+                      { label: '최저가',      val: fmtWon(minPrice),    sub: '최저 판매 제품', color: '#10b981' },
+                      { label: '중간가',      val: fmtWon(medianPrice), sub: '가격 분포 중앙값' },
+                      { label: '가격 변동',   val: changePct != null ? `${changePct >= 0 ? '+' : ''}${changePct}%` : '-', sub: '최근 변동률', color: changePct != null ? (changePct >= 0 ? '#ef4444' : '#10b981') : undefined },
                       { label: 'AI 신호',     val: signal,              sub: 'AI 가격 판단', color: sigColor },
                     ].map(({ label, val, sub, color }) => (
                       <div key={label} className={s.reportKpi}>
@@ -347,12 +306,12 @@ export default function B2BPrice() {
                 <div className={s.metricCard}>
                   <p className={s.metricLabel}>최저가</p>
                   <p className={s.metricVal} style={{ color: '#10b981' }}>{fmtWon(minPrice)}</p>
-                  <p className={s.metricSub}>현재 최저 판매가</p>
+                  <p className={s.metricSub}>최저 판매 제품</p>
                 </div>
                 <div className={s.metricCard}>
                   <p className={s.metricLabel}>중간가</p>
                   <p className={s.metricVal} style={{ color: '#3b82f6' }}>{fmtWon(medianPrice)}</p>
-                  <p className={s.metricSub}>중앙값 기준</p>
+                  <p className={s.metricSub}>가격 분포 중앙값</p>
                 </div>
               </div>
             </div>
@@ -406,7 +365,7 @@ export default function B2BPrice() {
                   {priceChangeData ? (
                     <div className={s.priceChangeBox}>
                       <div className={s.priceChangeRow}>
-                        <span className={s.priceChangeTimeLabel}>{priceChangeData.periodLabel} 평균가</span>
+                        <span className={s.priceChangeTimeLabel}>최고 평균가</span>
                         <span className={s.priceChangePastVal}>{fmtWon(priceChangeData.past)}</span>
                       </div>
                       <div className={s.priceChangeDivider} />
@@ -415,7 +374,7 @@ export default function B2BPrice() {
                         <span className={s.priceChangeCurrentVal}>{fmtWon(priceChangeData.current)}</span>
                       </div>
                       <p className={`${s.priceChangePct} ${priceChangeData.pct >= 0 ? s.priceChangeUp : s.priceChangeDown}`}>
-                        {priceChangeData.pct >= 0 ? '↑' : '↓'} {priceChangeData.pct >= 0 ? '+' : ''}{priceChangeData.pct}%
+                        {priceChangeData.pct >= 0 ? '↑' : '↓'} 누적 변동률 {priceChangeData.pct >= 0 ? '+' : ''}{priceChangeData.pct}%
                       </p>
                     </div>
                   ) : (
@@ -431,7 +390,7 @@ export default function B2BPrice() {
               </div>
             </div>
 
-            {/* ── Section 3: 가격 수준별 브랜드 비중 ── */}
+            {/* ── Section 3: 가격대별 제품 비중 ── */}
             {brandRows.length > 0 && (() => {
               const [low, high] = TIER_THRESHOLDS[category] ?? [500000, 1000000]
               const tierDefs = [
@@ -450,9 +409,9 @@ export default function B2BPrice() {
                 .filter(t => t.count > 0)
               return (
                 <div className={s.section}>
-                  <SectionHead num="03" title="가격 수준별 브랜드 비중" />
+                  <SectionHead num="03" title="가격대별 제품 비중" />
                   <div className={s.card}>
-                    <p className={s.cardTitle}>가격 수준별 브랜드 비중</p>
+                    <p className={s.cardTitle}>가격대별 제품 비중</p>
                     <p className={s.cardSub}>브랜드별 판매 제품 수 기준 · 네이버 쇼핑</p>
                     <div className={s.tierBars}>
                       {bars.map(t => (
@@ -515,7 +474,11 @@ export default function B2BPrice() {
                   ? `${pi.brand_pick} 등 주요 브랜드의 가격 구조가 ${priceTier(brandRows.find(b => b.brand === pi.brand_pick)?.avg ?? brandRows[0]?.avg, category)} 수준에 형성되어 있습니다.`
                   : null;
 
-                const points = [pi.reason, changeCtx, brandCtx, pi.strategy].filter(Boolean);
+                const triSections = [
+                  { label: '시장 상황', text: [pi.reason, changeCtx].filter(Boolean).join(' ') },
+                  { label: '브랜드 특징', text: brandCtx ?? (pi.brand_pick ? `${pi.brand_pick} 중심 구조가 형성되어 있습니다.` : null) },
+                  { label: 'AI 판단', text: pi.strategy },
+                ].filter(s => s.text);
 
                 return (
                   <div className={s.section}>
@@ -527,13 +490,11 @@ export default function B2BPrice() {
                           <span className={s.insightBrandBadge}>{pi.brand_pick} 납품 추천</span>
                         )}
                       </div>
-                      <div className={s.insightPoints}>
-                        {points.map((pt, i) => (
-                          <div key={i} className={s.insightPointRow}>
-                            <span className={s.insightNum} style={{ color: scfg.color }}>
-                              {['①','②','③','④'][i]}
-                            </span>
-                            <p className={s.insightPointText}>{pt}</p>
+                      <div className={s.insightTriGrid}>
+                        {triSections.map(({ label, text }) => (
+                          <div key={label} className={s.insightTriItem}>
+                            <p className={s.insightTriLabel} style={{ color: scfg.color }}>{label}</p>
+                            <p className={s.insightTriText}>{text}</p>
                           </div>
                         ))}
                       </div>

@@ -1163,7 +1163,7 @@ async def get_demand_forecast(category: str = Query(..., min_length=1), period: 
     else:
         timing_signal = {
             "type":         "hold",
-            "label":        "현행 유지",
+            "label":        "AI 전망",
             "days_to_peak": days_to_peak,
             "days_to_buy":  0,
             "peak_period":  peak_period[:10],

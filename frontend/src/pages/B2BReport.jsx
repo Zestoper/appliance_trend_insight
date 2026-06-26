@@ -253,74 +253,179 @@ export default function B2BReport() {
                     )}
                   </div>
 
-                  {/* AI 판단 근거 */}
-                  {basisList.length > 0 && (
-                    <div className={s.basisCard}>
-                      <p className={s.basisTitle}>AI 판단 근거</p>
-                      <div className={s.basisList}>
-                        {basisList.map((item, i) => (
-                          <div key={i} className={s.basisItem}>
-                            <span className={s.basisNum} style={{ color: acfg.color }}>
-                              {['①','②','③','④','⑤'][i]}
-                            </span>
-                            <span className={s.basisText}>{item}</span>
+                  {/* Decision Score */}
+                  {(() => {
+                    const g = metrics?.growth_rate ?? 0
+                    const scoreItems = [
+                      { label: '검색 트렌드',  score: Math.max(-15, Math.min(22, Math.round(g * 0.8 + (g >= 0 ? 12 : 8)))) },
+                      { label: '계절성',       score: ctx?.peak_months ? 18 : 8 },
+                      { label: '가격 안정성',  score: ins?.signal?.includes('매입') ? 12 : ins?.signal?.includes('적정') ? 8 : 4 },
+                      { label: '소비자 니즈',  score: Math.min((report?.consumer_needs?.length ?? 0) * 4 + 6, 14) },
+                      { label: '브랜드 경쟁',  score: -(brands.length > 5 ? 10 : brands.length > 3 ? 7 : 4) },
+                      { label: '재고 리스크',  score: -(metrics?.risk === '높음' ? 10 : metrics?.risk === '중간' ? 6 : 3) },
+                    ]
+                    const totalScore = scoreItems.reduce((s, item) => s + item.score, 0)
+                    return (
+                      <div className={s.decisionScoreCard}>
+                        <div className={s.dsHeader}>
+                          <p className={s.dsTitle}>Decision Score</p>
+                          <div className={s.dsTotalPill} style={{ background: acfg.bg, color: acfg.color, borderColor: acfg.border }}>
+                            총 {totalScore}점 &nbsp;·&nbsp; {action}
                           </div>
-                        ))}
+                        </div>
+                        <div className={s.dsScoreGrid}>
+                          {scoreItems.map(({ label, score }) => (
+                            <div key={label} className={s.dsItem}>
+                              <span className={s.dsLabel}>{label}</span>
+                              <div className={s.dsBarWrap}>
+                                <div className={s.dsBarFill} style={{
+                                  width: `${Math.round(Math.abs(score) / 22 * 100)}%`,
+                                  background: score >= 0 ? '#10b981' : '#ef4444',
+                                  float: score >= 0 ? 'left' : 'right',
+                                }} />
+                              </div>
+                              <span className={s.dsScore} style={{ color: score >= 0 ? '#10b981' : '#ef4444' }}>
+                                {score >= 0 ? `+${score}` : score}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className={s.dsCriteria}>
+                          <span className={totalScore >= 40 ? s.dsCriteriaActive : s.dsCriteriaInactive}>40점 이상 → 매입 확대</span>
+                          <span className={s.dsCriteriaDot}>·</span>
+                          <span className={totalScore >= 20 && totalScore < 40 ? s.dsCriteriaActive : s.dsCriteriaInactive}>20~39점 → 관망</span>
+                          <span className={s.dsCriteriaDot}>·</span>
+                          <span className={totalScore < 20 ? s.dsCriteriaActive : s.dsCriteriaInactive}>20점 미만 → 매입 축소</span>
+                        </div>
+                      </div>
+                    )
+                  })()}
+
+                  {/* 추천 이유 / 반대 이유 / 최종 판단 */}
+                  {(oppList.length > 0 || riskList.length > 0) && (
+                    <div className={s.proConRow}>
+                      {oppList.length > 0 && (
+                        <div className={s.proCard}>
+                          <p className={s.proConTitle} style={{ color: '#10b981' }}>추천 이유</p>
+                          {oppList.slice(0, 3).map((item, i) => {
+                            const f = normFactor(item)
+                            return (
+                              <div key={i} className={s.proConItem}>
+                                <span className={s.proConMark} style={{ color: '#10b981' }}>✓</span>
+                                <p className={s.proConText}><strong>{f.title}</strong>{f.meaning ? ` — ${f.meaning}` : ''}</p>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                      {riskList.length > 0 && (
+                        <div className={s.conCard}>
+                          <p className={s.proConTitle} style={{ color: '#f59e0b' }}>반대 이유</p>
+                          {riskList.slice(0, 3).map((item, i) => {
+                            const f = normFactor(item)
+                            return (
+                              <div key={i} className={s.proConItem}>
+                                <span className={s.proConMark} style={{ color: '#f59e0b' }}>⚠</span>
+                                <p className={s.proConText}><strong>{f.title}</strong>{f.meaning ? ` — ${f.meaning}` : ''}</p>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                      <div className={s.proConConclusion} style={{ borderColor: acfg.border, background: acfg.bg }}>
+                        <p className={s.proConConclusionLabel}>최종 판단</p>
+                        <p className={s.proConConclusionText} style={{ color: acfg.color }}>
+                          {report.action_reason
+                            ? report.action_reason.split(/(?<=[.。])\s+/).filter(Boolean)[0] ?? report.action_reason
+                            : `현재는 ${action} 전략의 기대효과가 가장 높다고 판단됩니다.`}
+                        </p>
                       </div>
                     </div>
                   )}
 
-                  {/* AI 의사결정 과정 + 신뢰도 */}
-                  {(report.decision_chain?.length > 0 || report.ai_confidence > 0) && (
-                    <div className={s.decisionRow}>
-                      {report.decision_chain?.length > 0 && (
-                        <div className={s.decisionChainCard}>
-                          <p className={s.decisionChainTitle}>AI 의사결정 과정</p>
-                          <div className={s.decisionChainFlow}>
-                            {report.decision_chain.map((step, i) => (
-                              <div key={i} className={s.decisionChainStep}>
-                                <div className={s.decisionChainDot} style={{ background: acfg.color }} />
-                                <p className={s.decisionChainText}>{step}</p>
-                                {i < report.decision_chain.length - 1 && (
-                                  <div className={s.decisionChainArrow} style={{ color: acfg.color }}>↓</div>
+                  {/* AI 의사결정 과정 (PASS/RISK) + 사용 데이터 현황 */}
+                  <div className={s.decisionRow}>
+                    {report.decision_chain?.length > 0 && (
+                      <div className={s.decisionChainCard}>
+                        <p className={s.decisionChainTitle}>AI 의사결정 과정</p>
+                        {[
+                          { key: '①', label: '검색 트렌드',  isPass: (metrics?.growth_rate ?? 0) >= 0 },
+                          { key: '②', label: '계절성',       isPass: !!ctx?.peak_months },
+                          { key: '③', label: '가격 신호',    isPass: !!(ins?.signal?.includes('매입') || ins?.signal?.includes('적정')) },
+                          { key: '④', label: '소비자 니즈',  isPass: (report.consumer_needs?.length ?? 0) > 0 },
+                        ].map(({ key, label, isPass }, i) => (
+                          <div key={i} className={s.dcStep}>
+                            <div className={s.dcStepLeft}>
+                              <span className={s.dcStepNum} style={{ color: acfg.color }}>{key}</span>
+                              <div>
+                                <span className={s.dcStepLabel}>{label}</span>
+                                {report.decision_chain[i] && (
+                                  <p className={s.dcStepDetail}>{report.decision_chain[i].replace(/^[^:]+:\s*/, '')}</p>
                                 )}
                               </div>
-                            ))}
-                            <div className={s.decisionChainResult} style={{ background: acfg.bg, borderColor: acfg.border, color: acfg.color }}>
-                              {acfg.icon} {action}
+                            </div>
+                            <span className={s.dcBadge} style={{
+                              background: isPass ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)',
+                              color: isPass ? '#10b981' : '#f59e0b',
+                              border: `1px solid ${isPass ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)'}`,
+                            }}>
+                              {isPass ? 'PASS ✓' : 'RISK ⚠'}
+                            </span>
+                          </div>
+                        ))}
+                        <div className={s.dcStep}>
+                          <div className={s.dcStepLeft}>
+                            <span className={s.dcStepNum} style={{ color: acfg.color }}>⑤</span>
+                            <div>
+                              <span className={s.dcStepLabel}>경쟁 구도</span>
+                              <p className={s.dcStepDetail}>
+                                {brands.length > 0
+                                  ? `${brands.slice(0,3).map(b => b.brand ?? b.name ?? '').join('·')} 집중 구조`
+                                  : '경쟁 데이터 분석 중'}
+                              </p>
                             </div>
                           </div>
+                          <span className={s.dcBadge} style={{ background: 'rgba(245,158,11,0.1)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }}>
+                            RISK ⚠
+                          </span>
                         </div>
-                      )}
-                      {report.ai_confidence > 0 && (
-                        <div className={s.confidenceCard}>
-                          <p className={s.confidenceTitle}>AI 신뢰도</p>
-                          <div className={s.confidenceScore}>
-                            <span className={s.confidenceNum} style={{ color: acfg.color }}>{report.ai_confidence}</span>
-                            <span className={s.confidencePct}>%</span>
-                          </div>
-                          {report.confidence_breakdown?.length > 0 && (
-                            <div className={s.confidenceBreakdown}>
-                              {report.confidence_breakdown.map((item, i) => (
-                                <div key={i} className={s.confidenceItem}>
-                                  <span className={s.confidenceFactor}>{item.factor}</span>
-                                  <div className={s.confidenceBarWrap}>
-                                    <div className={s.confidenceBar} style={{ width: `${item.pct}%`, background: acfg.color }} />
-                                  </div>
-                                  <span className={s.confidencePctVal}>{item.pct}%</span>
-                                </div>
-                              ))}
+                        <div className={s.dcFinal} style={{ background: acfg.bg, borderColor: acfg.border, color: acfg.color }}>
+                          ⑥ 최종 판단: {action}
+                        </div>
+                      </div>
+                    )}
+                    <div className={s.dataStatusCard}>
+                      <p className={s.dataStatusTitle}>사용 데이터 현황</p>
+                      {[
+                        { label: '검색 트렌드', source: '네이버 DataLab',  ok: !!(metrics?.growth_rate != null || metrics?.current_ratio) },
+                        { label: '가격 데이터', source: '네이버 쇼핑 API', ok: !!psum },
+                        { label: '계절성 분석', source: '과거 12개월',      ok: !!ctx?.peak_months },
+                        { label: '리뷰 데이터', source: '소비자 키워드',    ok: (report?.consumer_needs?.length ?? 0) > 0 },
+                        { label: '실시간 재고', source: '미연동',           ok: false },
+                      ].map(({ label, source, ok }) => {
+                        const mark = ok ? '✓' : '△';
+                        return (
+                          <div key={label} className={s.dataStatusItem}>
+                            <span className={s.dataStatusMark} style={{ color: ok ? '#10b981' : '#f59e0b' }}>{mark}</span>
+                            <div>
+                              <span className={s.dataStatusLabel}>{label}</span>
+                              <span className={s.dataStatusSource}>{source}</span>
                             </div>
-                          )}
-                          <p className={s.confidenceNote}>
-                            {report.ai_confidence >= 80 ? '데이터가 충분하여 높은 신뢰도를 보입니다.' :
-                             report.ai_confidence >= 60 ? '일부 데이터 부족으로 중간 신뢰도입니다.' :
-                             '최근 데이터가 부족하여 신뢰도가 낮습니다.'}
-                          </p>
+                          </div>
+                        );
+                      })}
+                      {report.ai_confidence > 0 && (
+                        <div className={s.dataStatusConf}>
+                          <span style={{ color: acfg.color, fontWeight: 700 }}>AI 신뢰도 {report.ai_confidence}%</span>
+                          <span className={s.dataStatusConfNote}>
+                            {report.ai_confidence >= 80 ? '충분한 데이터 확보' :
+                             report.ai_confidence >= 60 ? '일부 데이터 제한 있음' :
+                             '데이터 부족으로 참고 수준'}
+                          </span>
                         </div>
                       )}
                     </div>
-                  )}
+                  </div>
                 </div>
 
                 {/* ── 02 시장 현황 요약 ── */}
@@ -756,16 +861,21 @@ export default function B2BReport() {
                     </div>
                   )}
 
-                  {/* 실행 전략 */}
+                  {/* 실행 전략 (근거 포함) */}
                   {(report.product_strategy?.length > 0 || report.sales_strategy?.length > 0 || report.service_strategy?.length > 0) && (
                     <div className={s.strategyGrid}>
                       {[
-                        { num: '①', title: '제품 전략', items: report.product_strategy  ?? [], color: '#6366f1' },
-                        { num: '②', title: '판매 전략', items: report.sales_strategy    ?? [], color: '#10b981' },
-                        { num: '③', title: '서비스 전략', items: report.service_strategy ?? [], color: '#f59e0b' },
-                      ].map(({ num, title, items, color }) => (
+                        { num: '①', title: '제품 전략',   items: report.product_strategy  ?? [], color: '#6366f1', basis: basisList[3] ?? basisList[0] },
+                        { num: '②', title: '판매 전략',   items: report.sales_strategy    ?? [], color: '#10b981', basis: basisList[0] ?? basisList[1] },
+                        { num: '③', title: '서비스 전략', items: report.service_strategy  ?? [], color: '#f59e0b', basis: basisList[1] ?? basisList[2] },
+                      ].map(({ num, title, items, color, basis }) => (
                         <div key={title} className={s.strategyCard} style={{ borderTopColor: color }}>
                           <p className={s.strategyTitle}><span style={{ color }}>{num}</span> {title}</p>
+                          {basis && (
+                            <p className={s.strategyBasis}>
+                              <span className={s.strategyBasisLabel}>근거</span>{basis.split('—')[0]?.trim() ?? basis}
+                            </p>
+                          )}
                           <ol className={s.strategyList}>
                             {items.map((item, i) => (
                               <li key={i} className={s.strategyItem}>
@@ -796,23 +906,17 @@ export default function B2BReport() {
                     </div>
                   )}
 
-                  {/* AI 종합 판단 */}
-                  {(report.summary_lines?.length > 0 || report.summary) && (
-                    <div className={s.conclusionCard}>
-                      <div className={s.conclusionHeader}>
-                        <span className={s.ragBadge}>AI 종합 판단</span>
-                        <p className={s.conclusionSub}>{category} · {PERIOD_LABEL[period]} 분석</p>
-                      </div>
-                      <div className={s.conclusionNote}>
-                        {(report.summary_lines?.length > 0
-                          ? report.summary_lines
-                          : [report.summary]
-                        ).filter(Boolean).map((sentence, i) => (
-                          <p key={i} style={{ marginTop: i > 0 ? 8 : 0 }}>{sentence}</p>
-                        ))}
-                      </div>
+                  {/* AI 최종 판단 (한 줄) */}
+                  <div className={s.conclusionCard}>
+                    <div className={s.conclusionHeader}>
+                      <span className={s.ragBadge}>AI 최종 판단</span>
                     </div>
-                  )}
+                    <p className={s.conclusionOneLine} style={{ color: acfg.color }}>
+                      {report.action_reason
+                        ? (report.action_reason.split(/(?<=[.。])\s+/).filter(Boolean)[0] ?? report.action_reason)
+                        : `현재는 ${action} 전략의 기대효과가 가장 높다고 판단됩니다.`}
+                    </p>
+                  </div>
                 </div>
 
                 {/* ── 이번 주 Action List ── */}

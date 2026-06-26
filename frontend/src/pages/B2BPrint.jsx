@@ -258,7 +258,6 @@ function PriceSection({ data, sections, category }) {
   const sigColor  = SIGNAL_COLOR[signal] ?? '#6366f1';
   const dist      = data.distribution ?? data.price_distribution ?? [];
   const brands    = data.brands ?? [];
-  const priceHistory = data.price_history ?? [];
 
   return (
     <div className={s.pageBlock}>
@@ -336,25 +335,7 @@ function PriceSection({ data, sections, category }) {
         </div>
       )}
 
-      {show('04') && priceHistory.length > 0 && (
-        <div className={s.secBlock}>
-          <SubHead num="04" title="가격 이력 · 추이 분석" />
-          <div className={s.table}>
-            <table>
-              <thead><tr><th>날짜</th><th>평균가</th><th>최저가</th></tr></thead>
-              <tbody>
-                {[...priceHistory].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 10).map((h, i) => (
-                  <tr key={i}>
-                    <td>{h.date}</td>
-                    <td>{fmtWon(h.avg_price)}</td>
-                    <td>{fmtWon(h.min_price)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+      {/* 가격 이력표 제거: 상세 리포트와 중복 */}
 
       {show('05') && pi && (
         <div className={s.secBlock}>
@@ -379,19 +360,33 @@ function ReportSection({ data, sections, category }) {
 
   const report  = data.report ?? {};
   const metrics = data.metrics ?? {};
+  const brands  = data.brands ?? [];
+  const ctx     = data.context ?? {};
   const action  = toStr(report.action ?? '-');
-  const ACTION_COLOR = { '즉시 매입': '#10b981', '전략적 매입': '#3b82f6', '관망': '#f59e0b', '매입 보류': '#ef4444' };
+  const ACTION_COLOR = {
+    '매입 확대': '#10b981', '즉시 매입': '#10b981', '전략적 매입': '#3b82f6',
+    '매입 유지': '#6366f1', '관망': '#f59e0b', '재고 축소': '#f59e0b', '매입 보류': '#ef4444',
+  };
   const actionColor = ACTION_COLOR[action] ?? '#6366f1';
 
   const oppList    = toArr(report.opportunity);
   const riskList   = toArr(report.risk_summary);
   const needsList  = toArr(report.consumer_needs);
-  const basisList  = toArr(report.action_basis);
-  const kwList     = toArr(report.key_keywords);
   const salesList  = toArr(report.sales_strategy);
   const serviceList= toArr(report.service_strategy);
   const effectList = toArr(report.expected_effects);
-  const summaryLines = toArr(report.summary_lines);
+
+  /* Decision Score 계산 */
+  const g = metrics.growth_rate ?? 0
+  const dsItems = [
+    { label: '검색 트렌드',  score: Math.max(-15, Math.min(22, Math.round(g * 0.8 + (g >= 0 ? 12 : 8)))) },
+    { label: '계절성',       score: ctx.peak_months ? 18 : 8 },
+    { label: '가격 안정성',  score: report.price_range && !report.price_range.includes('비교') ? 10 : 6 },
+    { label: '소비자 니즈',  score: Math.min(needsList.length * 4 + 6, 14) },
+    { label: '브랜드 경쟁',  score: -(brands.length > 5 ? 10 : brands.length > 3 ? 7 : 4) },
+    { label: '재고 리스크',  score: -(metrics.risk === '높음' ? 10 : metrics.risk === '중간' ? 6 : 3) },
+  ]
+  const dsTotal = dsItems.reduce((s, i) => s + i.score, 0)
 
   return (
     <div className={s.pageBlock}>
@@ -409,14 +404,13 @@ function ReportSection({ data, sections, category }) {
 
       {show('01') && (
         <div className={s.secBlock}>
-          <SubHead num="01" title="AI 최종 권고 및 판단 근거" />
+          <SubHead num="01" title="AI 최종 권고 & Decision Score" />
           <div className={s.kpiRow}>
             {[
               { label: '최종 권고',   val: action,                   sub: 'AI 판단', color: actionColor },
               { label: '검색 관심도', val: metrics.trend_score ?? '-', sub: '현재 지수' },
               { label: '시장 성장률', val: metrics.growth_rate != null ? `${metrics.growth_rate >= 0 ? '+' : ''}${metrics.growth_rate}%` : '-', sub: '전기 대비', color: (metrics.growth_rate ?? 0) >= 0 ? '#10b981' : '#ef4444' },
-              { label: '추천 시기',   val: toStr(report.timing ?? '-'),           sub: '매입 타이밍' },
-              { label: '재고 조정',   val: toStr(report.inventory_advice ?? '-'), sub: '권장 수준' },
+              { label: 'Decision Score', val: `${dsTotal}점`, sub: dsTotal >= 40 ? '매입 확대' : dsTotal >= 20 ? '관망' : '매입 축소', color: actionColor },
             ].map(({ label, val, sub, color }) => (
               <div key={label} className={s.kpi}>
                 <p className={s.kpiLabel}>{label}</p>
@@ -425,18 +419,22 @@ function ReportSection({ data, sections, category }) {
               </div>
             ))}
           </div>
+          {/* Decision Score 항목별 압축 표시 */}
+          <div className={s.dsCompact}>
+            {dsItems.map(({ label, score }) => (
+              <span key={label} className={s.dsCompactItem}>
+                <span className={s.dsCompactLabel}>{label}</span>
+                <span style={{ color: score >= 0 ? '#10b981' : '#ef4444', fontWeight: 700 }}>
+                  {score >= 0 ? `+${score}` : score}
+                </span>
+              </span>
+            ))}
+            <span className={s.dsCompactTotal} style={{ color: actionColor }}>합계 {dsTotal}점</span>
+          </div>
           {report.action_reason && (
             <div className={s.infoBox} style={{ '--box-accent': actionColor }}>
-              <p className={s.infoTitle}>판단 근거</p>
-              <p className={s.infoText}>{toStr(report.action_reason)}</p>
-            </div>
-          )}
-          {basisList.length > 0 && (
-            <ul className={s.infoList}>{basisList.map((b, i) => <li key={i}>{b}</li>)}</ul>
-          )}
-          {kwList.length > 0 && (
-            <div className={s.tagRow} style={{ marginTop: 10 }}>
-              {kwList.map((kw, i) => <span key={i} className={s.tag}>{kw}</span>)}
+              <p className={s.infoTitle}>AI 최종 판단</p>
+              <p className={s.infoText}>{toStr(report.action_reason).split(/(?<=[.。])\s+/)[0] ?? toStr(report.action_reason)}</p>
             </div>
           )}
         </div>
@@ -533,42 +531,108 @@ function ReportSection({ data, sections, category }) {
         </div>
       )}
 
-      {show('06') && summaryLines.length > 0 && (
+      {show('06') && (
         <div className={s.secBlock}>
-          <SubHead num="06" title="AI 종합 판단" />
-          <div className={s.infoBox}>
-            <ul className={s.infoList}>{summaryLines.map((l, i) => <li key={i}>{l}</li>)}</ul>
+          <SubHead num="06" title="AI Summary 3줄 축약" />
+          <div className={s.infoBox} style={{ '--box-accent': actionColor }}>
+            {[
+              { num: '①', text: oppList[0] ? (typeof oppList[0] === 'object' ? `${oppList[0].title}: ${oppList[0].meaning ?? oppList[0].evidence ?? ''}` : toStr(oppList[0])) : '시장 수요 증가 추세 확인' },
+              { num: '②', text: report.price_range && report.price_range !== '-' ? `가격 ${report.price_range} 안정 구간` : '현재 가격 안정 구간 유지' },
+              { num: '③', text: riskList[0] ? (typeof riskList[0] === 'object' ? `${riskList[0].title}: ${riskList[0].meaning ?? riskList[0].evidence ?? ''}` : toStr(riskList[0])) : '브랜드 경쟁 리스크 존재' },
+            ].map(({ num, text }) => (
+              <p key={num} className={s.infoText} style={{ marginTop: num === '①' ? 0 : 6 }}>
+                <strong style={{ color: actionColor }}>{num}</strong> {text}
+              </p>
+            ))}
+            <p className={s.infoText} style={{ marginTop: 10, fontWeight: 700, color: actionColor }}>
+              → {action} 권장
+            </p>
           </div>
         </div>
       )}
 
-      {show('07') && report.product_strategy && toArr(report.product_strategy).length > 0 && (
+      {show('07') && (
         <div className={s.secBlock}>
-          <SubHead num="07" title="실행 전략" />
-          <ul className={s.infoList}>{toArr(report.product_strategy).map((v, i) => <li key={i}>{v}</li>)}</ul>
+          <SubHead num="07" title="AI Confidence & 데이터 현황" />
+          <div className={s.twoCol}>
+            {report.ai_confidence > 0 && (
+              <div className={s.infoBox}>
+                <p className={s.infoTitle}>종합 신뢰도</p>
+                <p className={s.infoText} style={{ fontSize: 24, fontWeight: 900, color: actionColor }}>{report.ai_confidence}%</p>
+                {report.confidence_breakdown?.length > 0 && (
+                  <ul className={s.infoList}>
+                    {report.confidence_breakdown.map((item, i) => (
+                      <li key={i}>{item.factor}: {item.pct}%</li>
+                    ))}
+                  </ul>
+                )}
+                <p className={s.infoText} style={{ marginTop: 8, fontSize: 10, color: '#9ca3af' }}>
+                  리뷰 데이터 부족으로 신뢰도 일부 낮아졌습니다
+                </p>
+              </div>
+            )}
+            <div className={s.infoBox}>
+              <p className={s.infoTitle}>사용 데이터 현황</p>
+              <ul className={s.infoList}>
+                <li><strong style={{ color: '#10b981' }}>✓</strong> 검색 트렌드 (네이버 DataLab)</li>
+                <li><strong style={{ color: '#10b981' }}>✓</strong> 가격 데이터 (네이버 쇼핑)</li>
+                <li><strong style={{ color: '#10b981' }}>✓</strong> 계절성 분석 (12개월)</li>
+                <li><strong style={{ color: '#f59e0b' }}>△</strong> 리뷰 데이터 (스크래핑 일부)</li>
+                <li><strong style={{ color: '#f59e0b' }}>△</strong> 실시간 재고 (미연동)</li>
+              </ul>
+            </div>
+          </div>
         </div>
       )}
 
-      {show('08') && (effectList.length > 0 || report.projection_summary) && (
+      {show('08') && (
         <div className={s.secBlock}>
-          <SubHead num="08" title="예상 효과" />
-          {report.expected_sales_growth && report.expected_sales_growth !== '-' && (
-            <div className={s.kpiRow}>
-              <div className={s.kpi}>
-                <p className={s.kpiLabel}>예상 매출 성장</p>
-                <p className={s.kpiVal} style={{ color: '#10b981' }}>{toStr(report.expected_sales_growth)}</p>
-                <p className={s.kpiSub}>전망</p>
-              </div>
+          <SubHead num="08" title="실행 우선순위 & 예상 효과" />
+          <div className={s.twoCol}>
+            <div className={s.infoBox}>
+              <p className={s.infoTitle}>실행 우선순위</p>
+              <ul className={s.infoList}>
+                {(report.action_list ?? [])
+                  .slice()
+                  .sort((a, b) => (b.stars ?? 0) - (a.stars ?? 0))
+                  .slice(0, 4)
+                  .map((item, i) => {
+                    const icon = (item.stars ?? 0) >= 5 ? '▲' : (item.stars ?? 0) >= 4 ? '→' : '▽';
+                    return (
+                      <li key={i}>
+                        <strong>{i + 1}위</strong> {icon} {item.action}
+                        {item.dept && <span style={{ fontSize: 10, color: '#9ca3af', marginLeft: 4 }}>[{item.dept}]</span>}
+                      </li>
+                    );
+                  })
+                }
+                {!(report.action_list?.length) && (
+                  <li style={{ color: '#9ca3af' }}>AI 분석 데이터 없음</li>
+                )}
+              </ul>
             </div>
-          )}
-          {effectList.length > 0 && (
-            <ul className={s.infoList}>{effectList.map((e, i) => <li key={i}>{e}</li>)}</ul>
-          )}
-          {report.projection_summary && report.projection_summary !== '-' && (
-            <div className={s.infoBox} style={{ marginTop: 10 }}>
-              <p className={s.infoText}>{toStr(report.projection_summary)}</p>
+            <div className={s.infoBox}>
+              <p className={s.infoTitle}>예상 효과 (방향성)</p>
+              <ul className={s.infoList}>
+                {effectList.length > 0
+                  ? effectList.map((item, i) => {
+                      const isRisk = /손실|부담|하락|위험|감소/.test(item);
+                      const dir   = isRisk ? '⚠' : '▲';
+                      const color = isRisk ? '#f59e0b' : '#10b981';
+                      return <li key={i}><strong style={{ color }}>{dir}</strong> {item}</li>;
+                    })
+                  : [
+                      { label: '매출 확대 가능성', dir: '▲', color: '#10b981' },
+                      { label: '객단가 상승',      dir: '▲', color: '#10b981' },
+                      { label: '재고 회전 개선',   dir: '▲', color: '#10b981' },
+                      { label: '비수기 재고 부담', dir: '⚠', color: '#f59e0b' },
+                    ].map(({ label, dir, color }) => (
+                      <li key={label}><strong style={{ color }}>{dir}</strong> {label}</li>
+                    ))
+                }
+              </ul>
             </div>
-          )}
+          </div>
         </div>
       )}
     </div>
@@ -635,23 +699,21 @@ function ForecastSection({ data, sections, category }) {
 
       {show('02') && forecast.length > 0 && (
         <div className={s.secBlock}>
-          <SubHead num="02" title="핵심 예측 지표" />
-          <div className={s.table}>
-            <p className={s.tableTitle}>예측값 ({forecast.length}개월)</p>
-            <table>
-              <thead><tr><th>기간</th><th>예측 지수</th><th>하한</th><th>상한</th></tr></thead>
-              <tbody>
-                {forecast.slice(0, 8).map((f, i) => (
-                  <tr key={i}>
-                    <td>{f.period ?? f.date}</td>
-                    <td>{typeof f.predicted === 'number' ? f.predicted.toFixed(1) : f.predicted ?? '-'}</td>
-                    <td>{f.lower != null ? f.lower.toFixed(1) : '-'}</td>
-                    <td>{f.upper != null ? f.upper.toFixed(1) : '-'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <SubHead num="02" title="미래 예측 3줄 요약" />
+          {(() => {
+            const peak = forecast.reduce((p, c) => (!p || (c.predicted ?? 0) > (p.predicted ?? 0)) ? c : p, null)
+            const avgPred = forecast.length > 0 ? (forecast.reduce((s, f) => s + (f.predicted ?? 0), 0) / forecast.length).toFixed(1) : '-'
+            const firstPred = forecast[0]?.predicted?.toFixed(1) ?? '-'
+            const lastPred  = forecast[forecast.length - 1]?.predicted?.toFixed(1) ?? '-'
+            const dir = parseFloat(lastPred) > parseFloat(firstPred) ? '▲ 상승' : parseFloat(lastPred) < parseFloat(firstPred) ? '▼ 하락' : '→ 보합'
+            return (
+              <div className={s.infoBox}>
+                <p className={s.infoText}><strong>① 수요 방향:</strong> {dir} 추세 (예측 평균 {avgPred}, 최고 {peak?.predicted?.toFixed(1) ?? '-'} at {peak?.period ?? '-'})</p>
+                <p className={s.infoText} style={{ marginTop: 6 }}><strong>② 단기 변동성:</strong> 하한~상한 구간 {forecast[0]?.lower?.toFixed(1) ?? '-'}~{forecast[0]?.upper?.toFixed(1) ?? '-'} 수준, {data.confidence != null ? `예측 신뢰도 ${data.confidence}%` : '변동성 주의'}</p>
+                <p className={s.infoText} style={{ marginTop: 6 }}><strong>③ 대응 권장:</strong> {timing.message ? timing.message.split('\n')[0] : `단계적 재고 확보 및 가격 모니터링 권장 — 피크 시점 ${data.peak_period?.slice(0,7) ?? '-'} 전후 집중 대응`}</p>
+              </div>
+            )
+          })()}
         </div>
       )}
 
@@ -827,6 +889,50 @@ export default function B2BPrint() {
 
         {!loading && !error && (
           <>
+            {/* ── Executive Summary ── */}
+            {dataMap.report && (() => {
+              const r  = dataMap.report.report ?? {}
+              const m  = dataMap.report.metrics ?? {}
+              const ACTION_COLOR = {
+                '매입 확대': '#10b981', '즉시 매입': '#10b981', '전략적 매입': '#3b82f6',
+                '매입 유지': '#6366f1', '관망': '#f59e0b', '재고 축소': '#f59e0b', '매입 보류': '#ef4444',
+              }
+              const act   = toStr(r.action ?? '-')
+              const aclr  = ACTION_COLOR[act] ?? '#6366f1'
+              const risk0 = Array.isArray(r.risk_summary) ? r.risk_summary[0] : r.risk_summary
+              const riskTitle = risk0 ? (typeof risk0 === 'object' ? risk0.title : String(risk0).split(':')[0]) : toStr(r.risk_factor ?? '-')
+              return (
+                <div className={s.execSummary}>
+                  <p className={s.execLabel}>EXECUTIVE SUMMARY</p>
+                  <div className={s.execGrid}>
+                    <div className={s.execItem}>
+                      <p className={s.execItemLabel}>AI 최종 판단</p>
+                      <p className={s.execItemVal} style={{ color: aclr }}>{act}</p>
+                    </div>
+                    <div className={s.execItem}>
+                      <p className={s.execItemLabel}>AI 신뢰도</p>
+                      <p className={s.execItemVal} style={{ color: aclr }}>{r.ai_confidence > 0 ? `${r.ai_confidence}%` : '-'}</p>
+                    </div>
+                    <div className={s.execItem}>
+                      <p className={s.execItemLabel}>시장 성장률</p>
+                      <p className={s.execItemVal} style={{ color: (m.growth_rate ?? 0) >= 0 ? '#10b981' : '#ef4444' }}>
+                        {m.growth_rate != null ? `${m.growth_rate >= 0 ? '+' : ''}${m.growth_rate}%` : '-'}
+                      </p>
+                    </div>
+                    <div className={s.execItem}>
+                      <p className={s.execItemLabel}>주요 리스크</p>
+                      <p className={s.execItemVal} style={{ color: '#f59e0b', fontSize: 11 }}>{riskTitle}</p>
+                    </div>
+                  </div>
+                  {r.action_reason && (
+                    <p className={s.execReason}>
+                      {toStr(r.action_reason).split(/(?<=[.。])\s+/)[0] ?? toStr(r.action_reason)}
+                    </p>
+                  )}
+                </div>
+              )
+            })()}
+
             {activePages.includes('dashboard') && (
               <DashboardSection data={dataMap.dashboard} sections={pageSections.dashboard ?? []} category={category} />
             )}

@@ -7,7 +7,6 @@ import { useAuth } from '../context/AuthContext'
 import s from '../styles/B2BDashboard.module.css'
 import { API_BASE } from '../config'
 
-const CATEGORIES = ['에어컨', '냉장고', '세탁기', '건조기', '공기청정기', '로봇청소기', '식기세척기', 'TV']
 const PERIODS = [
   { label: '1개월', value: '1m' },
   { label: '3개월', value: '3m' },
@@ -518,6 +517,9 @@ function KeywordSection({ title, items, isComplaint, token, category }) {
                           <p style={{ fontSize: 11, color: 'var(--b2b-muted)', marginTop: 2 }}>
                             블로그 {reviewData.blog.toLocaleString()} · 카페 {reviewData.cafe.toLocaleString()}
                           </p>
+                          <p style={{ fontSize: 10, color: 'var(--b2b-muted)', marginTop: 3, fontStyle: 'italic' }}>
+                            소비자 반응 데이터 기준
+                          </p>
                         </>
                       )
                     : null
@@ -707,9 +709,13 @@ export default function B2BDashboard() {
                   ))}
                   {envSignal.vars?.kma_temp != null && (
                     <div className={s.envSignalMeta}>
-                      {envSignal.vars.kma_temp}°C · {envSignal.vars.kma_humidity}% 습도
+                      기온 {envSignal.vars.kma_temp}℃
+                      {envSignal.vars.kma_humidity != null && ` · 습도 ${envSignal.vars.kma_humidity}%`}
+                      {envSignal.signals?.[0]?.label && ` → ${envSignal.signals[0].label}`}
                       {envSignal.vars.air_pm25 != null && ` · PM2.5 ${envSignal.vars.air_pm25}㎍`}
-                      {' · '}<span className={s.envSignalSource}>{envSignal.sources?.join(', ')}</span>
+                      {envSignal.sources?.length > 0 && (
+                        <>{' · '}<span className={s.envSignalSource}>{envSignal.sources.join(', ')}</span></>
+                      )}
                     </div>
                   )}
                 </div>

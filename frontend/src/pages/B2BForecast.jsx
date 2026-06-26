@@ -103,6 +103,7 @@ function ForecastChart({ history, forecast, trainLastRatio }) {
         ))}
         <line x1={divX} y1={padT - 4} x2={divX} y2={H - padB + 4}
           stroke="rgba(99,102,241,0.35)" strokeWidth="1" strokeDasharray="4 3" />
+        <text x={divX + 3} y={padT + 1} textAnchor="start" fontSize="8" fill="rgba(99,102,241,0.7)" fontWeight="700">현재</text>
         <polyline points={histLine} fill="none" stroke="#ef4444" strokeWidth="1.5"
           strokeLinecap="round" strokeLinejoin="round" />
         {history.map((d, i) => (
@@ -155,15 +156,6 @@ function calcPeakSeason(monthlyEffects) {
   return { start: Math.min(...nums), end: Math.max(...nums), count: pos.length };
 }
 
-/* ── 월별 수요 레벨 ── */
-function demandLevel(val, min, max) {
-  const pct = (max - min) > 0 ? (val - min) / (max - min) : 0.5;
-  if (pct >= 0.75) return { label: '매우 높음', color: '#10b981' };
-  if (pct >= 0.50) return { label: '높음',     color: '#6366f1' };
-  if (pct >= 0.35) return { label: '보통',     color: '#94a3b8' };
-  if (pct >= 0.20) return { label: '감소',     color: '#f59e0b' };
-  return              { label: '낮음',     color: '#ef4444' };
-}
 
 /* ── 영향도 레벨 (▲▲▲ 개수) ── */
 function effectLevel(effect, max) {
@@ -322,10 +314,10 @@ export default function B2BForecast() {
                       <div className={s.reportKpiRow}>
                         {[
                           { label: '수요 방향',   val: `${tcfg.icon} ${displayDir}`, sub: '향후 전망',          color: tcfg.color },
-                          { label: '향후 3개월',  val: trendPct != null ? `${trendPct >= 0 ? '+' : ''}${trendPct}%` : '-', sub: '현재 대비 예측 변화', color: trendPct != null ? (trendPct >= 0 ? '#10b981' : '#ef4444') : undefined },
+                          { label: '예상 변화율',  val: trendPct != null ? `${trendPct >= 0 ? '+' : ''}${trendPct}%` : '-', sub: '향후 3개월 기준', color: trendPct != null ? (trendPct >= 0 ? '#10b981' : '#ef4444') : undefined },
                           { label: '예상 피크',   val: peakMonth,       sub: '수요 최고점 시점' },
                           { label: '성수기 기간', val: peakSeason ? `${peakSeason.start}~${peakSeason.end}월` : '-', sub: peakSeason ? `약 ${peakSeason.count}개월` : '계절 분석 기반' },
-                          { label: '분석 모델',   val: 'Prophet+XGB',   sub: '앙상블 예측 모델' },
+                          { label: '예측 모델',   val: 'Prophet + XGBoost', sub: '앙상블 예측 모델' },
                         ].map(({ label, val, sub, color }) => (
                           <div key={label} className={s.reportKpi}>
                             <p className={s.reportKpiLabel}>{label}</p>
@@ -401,7 +393,7 @@ export default function B2BForecast() {
                       <p className={s.metricLabel}>② 예상 피크 시점</p>
                       <p className={s.metricVal} style={{ color: '#6366f1' }}>{peakMonth}</p>
                       <p className={s.metricSub}>
-                        {peakVal != null ? `최대 관심도 ${peakVal} 예상` : '수요 최고점 예측'}
+                        {peakVal != null ? `최대 수요 예상 (지수 ${peakVal})` : '수요 최고점 예측'}
                       </p>
                     </div>
                     <div className={s.metricCard}>
@@ -411,7 +403,7 @@ export default function B2BForecast() {
                           <p className={s.metricVal} style={{ color: '#f59e0b' }}>
                             {peakSeason.start}월~{peakSeason.end}월
                           </p>
-                          <p className={s.metricSub}>약 {peakSeason.count}개월 강세 예상</p>
+                          <p className={s.metricSub}>계절 수요 집중 ({peakSeason.count}개월)</p>
                         </>
                       ) : (
                         <>
@@ -434,6 +426,11 @@ export default function B2BForecast() {
                           <p className={s.cardSub}>
                             성수기 {data.influence.peak_month} · 비수기 {data.influence.low_month}
                           </p>
+                        </div>
+                        <div style={{ display: 'flex', gap: 10, fontSize: 11, color: 'var(--b2b-muted)' }}>
+                          <span style={{ color: '#6366f1', fontWeight: 700 }}>▲</span><span>증가</span>
+                          <span style={{ fontWeight: 700 }}>→</span><span>보합</span>
+                          <span style={{ color: '#ef4444', fontWeight: 700 }}>▼</span><span>감소</span>
                         </div>
                       </div>
                       <div className={s.monthGrid}>
@@ -476,6 +473,7 @@ export default function B2BForecast() {
                         <div className={s.scenarioRow}>
                           <span className={s.scenarioDot} style={{ background: '#10b981' }} />
                           <span className={s.scenarioLabel}>낙관</span>
+                          <span className={s.scenarioDesc}>수요 회복 시</span>
                           <span className={s.scenarioPct} style={{ color: '#10b981' }}>
                             {optPct >= 0 ? '+' : ''}{optPct}%
                           </span>
@@ -483,6 +481,7 @@ export default function B2BForecast() {
                         <div className={s.scenarioRow}>
                           <span className={s.scenarioDot} style={{ background: '#6366f1' }} />
                           <span className={s.scenarioLabel}>기준</span>
+                          <span className={s.scenarioDesc}>현재 예측</span>
                           <span className={s.scenarioPct} style={{ color: '#6366f1' }}>
                             {basePct >= 0 ? '+' : ''}{basePct}%
                           </span>
@@ -490,6 +489,7 @@ export default function B2BForecast() {
                         <div className={s.scenarioRow}>
                           <span className={s.scenarioDot} style={{ background: '#ef4444' }} />
                           <span className={s.scenarioLabel}>비관</span>
+                          <span className={s.scenarioDesc}>수요 둔화 지속</span>
                           <span className={s.scenarioPct} style={{ color: '#ef4444' }}>
                             {pessPct <= 0 ? '' : '+'}{pessPct}%
                           </span>
@@ -517,13 +517,13 @@ export default function B2BForecast() {
                           .sort((a, b) => a.mon - b.mon)
                           .map(({ mon, sum, cnt }) => ({ mon, val: sum / cnt }))
                           .slice(0, 5);
-                        // 컬럼 레이블: monthly_baseline이 있으면 "역대 동월 대비", 없으면 "현재 대비"
+                        // 컬럼 레이블: monthly_baseline이 있으면 "전년 동월 대비", 없으면 "현재 대비"
                         const hasBaseline = Object.keys(baseline).length > 0;
                         return (
                           <div className={s.mdTable}>
                             <div className={s.mdHeader}>
                               <span>월</span><span>추세</span>
-                              <span>{hasBaseline ? '역대 동월 대비' : '현재 대비'}</span>
+                              <span>{hasBaseline ? '전년 동월 대비' : '현재 대비'}</span>
                             </div>
                             {monthRows.map(({ mon, val }, i) => {
                               const prev  = i > 0 ? monthRows[i - 1].val : null;
@@ -586,7 +586,7 @@ export default function B2BForecast() {
 
                     {/* ⑤ 구매·판매 전략 (전체 너비) */}
                     <div className={`${s.scenarioCard} ${s.scenarioCardFull}`}>
-                      <p className={s.scenarioTitle}>⑤ 구매·판매 전략</p>
+                      <p className={s.scenarioTitle}>⑤ 예측 기반 실행 전략</p>
                       <ol className={s.strategyList}>
                         {(ri.strategy ?? []).length > 0
                           ? ri.strategy.map((item, i) => (

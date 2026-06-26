@@ -675,6 +675,96 @@
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0; margin-top: 1px;
 }
+.strategyBasis {
+  font-size: 11px; color: var(--b2b-muted); margin-bottom: 10px;
+  padding: 6px 10px; background: var(--b2b-bg); border-radius: 8px; line-height: 1.5;
+}
+.strategyBasisLabel {
+  font-weight: 700; color: var(--b2b-text2); margin-right: 4px;
+}
+
+/* ── Decision Score ── */
+.decisionScoreCard {
+  background: var(--b2b-card); border-radius: 20px; padding: 22px 20px;
+  box-shadow: var(--b2b-shadow); margin-top: 16px;
+}
+.dsHeader { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.dsTitle { font-size: 13px; font-weight: 800; color: var(--b2b-text); }
+.dsTotalPill {
+  font-size: 13px; font-weight: 800; padding: 6px 14px;
+  border-radius: 20px; border: 1.5px solid;
+}
+.dsScoreGrid { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+.dsItem { display: flex; align-items: center; gap: 10px; }
+.dsLabel { font-size: 12px; color: var(--b2b-text2); width: 80px; flex-shrink: 0; }
+.dsBarWrap { flex: 1; height: 7px; background: var(--b2b-line); border-radius: 4px; overflow: hidden; }
+.dsBarFill { height: 100%; border-radius: 4px; transition: width .4s; }
+.dsScore { font-size: 13px; font-weight: 800; width: 36px; text-align: right; flex-shrink: 0; }
+.dsCriteria { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid var(--b2b-line); }
+.dsCriteriaActive { font-size: 12px; font-weight: 700; color: var(--b2b-text); }
+.dsCriteriaInactive { font-size: 12px; color: var(--b2b-muted); }
+.dsCriteriaDot { font-size: 12px; color: var(--b2b-line); }
+
+/* ── 추천/반대 이유 ── */
+.proConRow {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px;
+}
+.proCard, .conCard {
+  background: var(--b2b-card); border-radius: 16px; padding: 18px;
+  box-shadow: var(--b2b-shadow);
+}
+.proConConclusion {
+  grid-column: 1 / -1; padding: 16px 20px;
+  border-radius: 16px; border: 1.5px solid; box-shadow: var(--b2b-shadow);
+}
+.proConTitle { font-size: 12px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; margin-bottom: 12px; }
+.proConItem { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 10px; }
+.proConItem:last-child { margin-bottom: 0; }
+.proConMark { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+.proConText { font-size: 12.5px; color: var(--b2b-text2); line-height: 1.55; margin: 0; }
+.proConConclusionLabel { font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--b2b-muted); margin-bottom: 6px; }
+.proConConclusionText { font-size: 13px; font-weight: 700; line-height: 1.6; margin: 0; }
+
+/* ── PASS/RISK 의사결정 과정 ── */
+.dcStep {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--b2b-line);
+}
+.dcStep:last-of-type { border-bottom: none; }
+.dcStepLeft { display: flex; align-items: flex-start; gap: 10px; flex: 1; min-width: 0; }
+.dcStepNum { font-size: 14px; font-weight: 900; flex-shrink: 0; margin-top: 1px; }
+.dcStepLabel { font-size: 12.5px; font-weight: 700; color: var(--b2b-text); display: block; }
+.dcStepDetail { font-size: 11.5px; color: var(--b2b-muted); margin: 3px 0 0; line-height: 1.45; }
+.dcBadge {
+  font-size: 11px; font-weight: 700; padding: 4px 10px;
+  border-radius: 20px; white-space: nowrap; flex-shrink: 0;
+}
+.dcFinal {
+  margin-top: 12px; padding: 10px 14px; border-radius: 10px; border: 1.5px solid;
+  font-size: 13px; font-weight: 800; text-align: center;
+}
+
+/* ── 사용 데이터 현황 ── */
+.dataStatusCard {
+  background: var(--b2b-card); border-radius: 16px; padding: 20px;
+  box-shadow: var(--b2b-shadow); display: flex; flex-direction: column; gap: 10px;
+}
+.dataStatusTitle {
+  font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--b2b-muted); margin-bottom: 4px;
+}
+.dataStatusItem { display: flex; align-items: flex-start; gap: 10px; }
+.dataStatusMark { font-size: 14px; font-weight: 700; flex-shrink: 0; line-height: 1.4; }
+.dataStatusLabel { font-size: 12.5px; font-weight: 600; color: var(--b2b-text2); display: block; }
+.dataStatusSource { font-size: 11px; color: var(--b2b-muted); }
+.dataStatusConf {
+  display: flex; flex-direction: column; gap: 3px;
+  margin-top: 6px; padding-top: 10px; border-top: 1px solid var(--b2b-line);
+}
+.dataStatusConfNote { font-size: 11px; color: var(--b2b-muted); }
+
+/* ── AI 최종 판단 한 줄 ── */
+.conclusionOneLine { font-size: 14px; font-weight: 700; line-height: 1.6; margin: 0; }
 
 /* ── Loading ── */
 .spinner {
