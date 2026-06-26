@@ -89,24 +89,31 @@ async def fetch_airkorea_history(days: int = 90) -> list[dict]:
     if not PUBLIC_DATA_KEY:
         return []
     url = "https://apis.data.go.kr/B552584/ArpltnInforInqireSvc/getMsrstnAcctoRltmMesureDnsty"
-    # dataTerm: DAILY(24h) / MONTH(1개월) / 3MONTH(3개월)
     term = "3MONTH" if days >= 60 else "MONTH"
-    params = _base_params({
+    params = {
+        "serviceKey":  PUBLIC_DATA_KEY,
+        "returnType":  "json",   # AirKorea는 dataType 아닌 returnType 사용
         "stationName": "종로구",
         "dataTerm":    term,
         "pageNo":      1,
         "numOfRows":   200,
         "ver":         "1.3",
-    })
+    }
     try:
         async with httpx.AsyncClient(timeout=15.0) as c:
             r = await c.get(url, params=params)
         items = r.json()["response"]["body"]["items"]
+        def _safe_float(v):
+            try:
+                return float(v) if v not in (None, "-", "", "None") else 0.0
+            except (ValueError, TypeError):
+                return 0.0
+
         return [
             {
-                "date":  item["dataTime"][:10].replace("-", ""),  # YYYYMMDD
-                "pm25":  float(item.get("pm25Value") or 0),
-                "pm10":  float(item.get("pm10Value") or 0),
+                "date":  item["dataTime"][:10].replace("-", ""),
+                "pm25":  _safe_float(item.get("pm25Value")),
+                "pm10":  _safe_float(item.get("pm10Value")),
             }
             for item in items
             if item.get("pm25Value") not in (None, "-", "")
