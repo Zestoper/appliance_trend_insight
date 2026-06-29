@@ -352,12 +352,13 @@ export default function Compare() {
 
     // 검색어: 브랜드 + 세부타입 + 제품 조합
     const query = [brand, subtype, product].filter(Boolean).join(' ') || '가전제품'
-    const sortKey = FILTER_GROUPS.find(g => g.key === 'sort')?.sortMap?.[sort] ?? 'sim'
+    // 가격순 정렬은 Naver API에 맡기면 렌탈(1원) 제품이 100개 채워지므로 sim으로 fetch 후 클라이언트 정렬
+    const apiSort = sort === '최신순' ? 'date' : 'sim'
 
     setCatLoading(true)
     setCatProducts([])
 
-    fetch(`${API_BASE}/api/naver/products?query=${encodeURIComponent(query)}&page=1&display=100&sort=${sortKey}`)
+    fetch(`${API_BASE}/api/naver/products?query=${encodeURIComponent(query)}&page=1&display=100&sort=${apiSort}`)
       .then(r => r.json())
       .then(data => {
         let items = (data.items ?? []).filter(p => !p.title.includes('렌탈') && p.price !== 1)
@@ -369,7 +370,8 @@ export default function Compare() {
             items = items.filter(p => p.price > 0 && p.price >= min && p.price < max)
           }
         }
-        // 정렬이 가격순이면 이미 API에서 정렬됨, 아니면 클라이언트 유지
+        if (sort === '가격 낮은순') items = [...items].sort((a, b) => a.price - b.price)
+        else if (sort === '가격 높은순') items = [...items].sort((a, b) => b.price - a.price)
         setCatProducts(items.slice(0, 30))
         setCatLoading(false)
       })
