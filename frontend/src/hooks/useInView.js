@@ -1,22 +1,22 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
-// 요소가 뷰포트에 들어오면 true를 반환하는 훅
-// threshold: 요소가 몇 % 보여야 트리거할지 (0.15 = 15%)
-// once: true면 한 번만 트리거 (스크롤 올려도 다시 안 사라짐)
 export function useInView(options = {}) {
   const { threshold = 0.15, once = false } = options
-  const ref = useRef(null)
+  const [node, setNode] = useState(null)
   const [inView, setInView] = useState(false)
+  const observerRef = useRef(null)
+
+  const ref = useCallback(el => setNode(el), [])
 
   useEffect(() => {
-    const el = ref.current
-    if (!el) return
+    if (observerRef.current) observerRef.current.disconnect()
+    if (!node) return
 
-    const observer = new IntersectionObserver(
+    observerRef.current = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
           setInView(true)
-          if (once) observer.disconnect()
+          if (once) observerRef.current?.disconnect()
         } else if (!once) {
           setInView(false)
         }
@@ -24,9 +24,9 @@ export function useInView(options = {}) {
       { threshold }
     )
 
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [threshold, once])
+    observerRef.current.observe(node)
+    return () => observerRef.current?.disconnect()
+  }, [node, threshold, once])
 
   return { ref, inView }
 }
