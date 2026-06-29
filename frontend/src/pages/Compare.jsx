@@ -360,7 +360,7 @@ export default function Compare() {
     fetch(`${API_BASE}/api/naver/products?query=${encodeURIComponent(query)}&page=1&display=100&sort=${sortKey}`)
       .then(r => r.json())
       .then(data => {
-        let items = data.items ?? []
+        let items = (data.items ?? []).filter(p => !p.title.includes('렌탈'))
         if (price) {
           const priceGroup = FILTER_GROUPS.find(g => g.key === 'price')
           const priceIdx = priceGroup.options.indexOf(price)
