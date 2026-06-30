@@ -420,7 +420,7 @@
   border-top: 1px solid var(--b2b-surface);
 }
 
-.kwQuoteCol { display: flex; flex-direction: column; gap: 10px; }
+.kwQuoteCol { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 
 .kwQuote {
   display: flex;
@@ -845,14 +845,14 @@
   .page              { height: auto; min-height: 100dvh; overflow-y: visible; }
   .container         { padding: 16px 16px 60px; }
   .layout            { flex-direction: column; gap: 16px; }
-  .twoCol            { grid-template-columns: 1fr !important; }
-  .marketNowGrid     { grid-template-columns: 1fr !important; }
-  .kwDetails         { grid-template-columns: 1fr !important; }
-  .kwComplaintDetail { grid-template-columns: 1fr !important; }
-  .contextGrid       { grid-template-columns: 1fr !important; }
+  .twoCol            { grid-template-columns: minmax(0, 1fr) !important; }
+  .marketNowGrid     { grid-template-columns: minmax(0, 1fr) !important; }
+  .kwDetails         { grid-template-columns: minmax(0, 1fr) !important; }
+  .kwComplaintDetail { grid-template-columns: minmax(0, 1fr) !important; }
+  .contextGrid       { grid-template-columns: minmax(0, 1fr) !important; }
   .reportHeaderTop   { flex-direction: column; gap: 10px; }
   .reportStatusBadge { align-self: flex-start; padding: 8px 14px; }
-  .reportKpiRow      { display: grid; grid-template-columns: repeat(3, 1fr); }
+  .reportKpiRow      { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .reportKpi         { padding: 10px 12px; border-right: none; border-bottom: 1px solid var(--b2b-line); }
   .reportKpi:nth-last-child(-n+2) { border-bottom: none; }
   .complaintBarRow   { flex-wrap: wrap; row-gap: 4px; }
@@ -860,7 +860,7 @@
 }
 @media (max-width: 480px) {
   .container    { padding: 12px 12px 48px; }
-  .reportKpiRow { grid-template-columns: repeat(2, 1fr); }
+  .reportKpiRow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .reportKpi:nth-last-child(-n+2) { border-bottom: 1px solid var(--b2b-line); }
   .reportKpi:nth-last-child(-n+1) { border-bottom: none; }
 }
