@@ -203,15 +203,13 @@ function DashboardSection({ data, priceData, sections, category }) {
               </table>
             </div>
           )}
-          {complaints.slice(0, 3).map((c, i) => (
+          {complaints.filter(c => c.complaint && c.complaint.length > 0).slice(0, 3).map((c, i) => (
             <div key={i} className={s.infoBox} style={{ marginBottom: 8 }}>
               <p className={s.infoTitle}>{c.brand}</p>
-              <p className={s.infoText}>{c.title ?? c.complaint?.[0] ?? '-'}</p>
-              {c.complaint && c.complaint.length > 0 && (
-                <div className={s.tagRow} style={{ marginTop: 6 }}>
-                  {c.complaint.slice(0, 5).map((t, j) => <span key={j} className={s.tag}>{t}</span>)}
-                </div>
-              )}
+              <p className={s.infoText}>{c.complaint[0]}</p>
+              <div className={s.tagRow} style={{ marginTop: 6 }}>
+                {c.complaint.slice(0, 5).map((t, j) => <span key={j} className={s.tag}>{t}</span>)}
+              </div>
             </div>
           ))}
         </div>
