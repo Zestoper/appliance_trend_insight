@@ -72,7 +72,8 @@ async def get_price_intelligence(category: str = Query(..., min_length=1), _: di
             label = f"{fmt_price_label(lo)}~{fmt_price_label(hi)}"
         else:
             label = f"{fmt_price_label(lo)}+"
-        distribution.append({"range": label, "count": cnt, "lo": lo})
+        pct = round(cnt / len(prices) * 100) if prices else 0
+        distribution.append({"range": label, "count": cnt, "lo": lo, "percentage": pct})
     distribution[-1]["hi"] = None
 
     b_json = _json.dumps(
