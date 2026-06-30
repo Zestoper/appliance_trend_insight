@@ -427,15 +427,15 @@
 }
 .dropdownServiceGrid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
 }
 
 .serviceCard {
   display: flex;
   align-items: flex-start;
-  gap: 14px;
-  padding: 18px 16px;
+  gap: 12px;
+  padding: 16px 14px;
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.06);
   cursor: pointer;
@@ -457,9 +457,9 @@
 }
 
 .serviceCardIcon {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
   background: rgba(99, 102, 241, 0.12);
   border: 1px solid rgba(99, 102, 241, 0.18);
   display: flex;
@@ -470,14 +470,14 @@
 }
 
 .serviceCardLabel {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--text);
-  margin-bottom: 5px;
+  margin-bottom: 4px;
 }
 
 .serviceCardDesc {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-muted);
   line-height: 1.5;
 }

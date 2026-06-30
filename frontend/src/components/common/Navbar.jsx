@@ -10,7 +10,7 @@ const SERVICE_ITEMS = [
     desc: '두 제품을 나란히 비교 분석',
     path: '/compare',
     icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <rect x="2" y="3" width="8" height="18" rx="2" />
         <rect x="14" y="3" width="8" height="18" rx="2" />
         <line x1="10" y1="8" x2="14" y2="8" />
@@ -24,7 +24,7 @@ const SERVICE_ITEMS = [
     desc: '가격 추이로 최적 구매 시점 분석',
     path: '/timing',
     icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <polyline points="3 17 7 11 11 14 15 8 21 14" />
         <line x1="3" y1="21" x2="21" y2="21" />
         <circle cx="21" cy="7" r="3" />
@@ -36,7 +36,7 @@ const SERVICE_ITEMS = [
     desc: '내 조건에 딱 맞는 제품을 AI 추천',
     path: '/recommend',
     icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z" />
       </svg>
     ),
@@ -46,7 +46,7 @@ const SERVICE_ITEMS = [
     desc: 'RAG 기반 가전 트렌드 리포트 생성',
     path: '/chat',
     icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
       </svg>
     ),
