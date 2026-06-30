@@ -38,10 +38,13 @@ async def search_products(
         raise HTTPException(status_code=500, detail="Naver API key not configured")
 
     rules = CATEGORY_RULES.get(category) if category else None
-    fetch_display = 100 if rules else display
+    client_sort = sort in ("asc", "dsc")
+    # 가격 오름/내림차순을 Naver API에 그대로 넘기면 무관한 1원짜리 상품이 채워지므로
+    # sim으로 받아온 뒤 가격 필터링 후 클라이언트에서 직접 정렬한다.
+    fetch_display = 100 if (rules or client_sort) else display
     start = (page - 1) * fetch_display + 1
 
-    naver_sort = "sim" if (rules and sort in ("asc", "dsc")) else sort
+    naver_sort = "sim" if client_sort else sort
     params = {"query": query, "display": fetch_display, "start": start, "sort": naver_sort}
 
     async with httpx.AsyncClient(timeout=8.0) as client:
@@ -85,19 +88,22 @@ async def search_products(
         ]
         must_ok = [it for it in safety if any(kw in it["title"] for kw in rules["must"])]
         items = (must_ok if must_ok else safety)
-
-        if sort == "asc":
-            items.sort(key=lambda x: x["price"] if x["price"] > 0 else 10**9)
-        elif sort == "dsc":
-            items.sort(key=lambda x: x["price"], reverse=True)
-
-        items = items[:display]
     else:
         # 카테고리 룰 없을 때: 제목에 가전 키워드가 하나도 없으면 제거
         items = [it for it in items if any(kw in it["title"] for kw in APPLIANCE_KEYWORDS)]
-        items = items[:display]
 
-    return {"items": items, "total": data.get("total", 0), "page": page, "display": display}
+    if sort == "asc":
+        items.sort(key=lambda x: x["price"] if x["price"] > 0 else 10**9)
+    elif sort == "dsc":
+        items.sort(key=lambda x: x["price"], reverse=True)
+
+    items = items[:display]
+
+    # Naver total은 카테고리 필터와 무관한 전체 검색결과 수라 실제 노출량과 큰 차이가 날 수 있어
+    # 프론트에서 실제로 페이지네이션 가능한 범위(최대 66페이지)로 제한해 표시한다.
+    capped_total = min(data.get("total", 0), display * 66)
+
+    return {"items": items, "total": capped_total, "page": page, "display": display}
 
 
 @router.get("/api/naver/news")
