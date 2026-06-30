@@ -52,7 +52,7 @@ def _calc_risk(growth: float) -> str:
 _GROQ_MODELS = (GROQ_PRIMARY_MODEL, GROQ_FALLBACK_MODEL, "llama-3.1-8b-instant")
 _GROQ_CACHE: dict = {}
 _GROQ_TTL   = GROQ_CACHE_TTL
-_CACHE_VER  = "v9"
+_CACHE_VER  = "v10"
 
 # 모델별 일일 한도 소진 시각 (epoch) — 2시간 뒤 자동 재시도
 _GROQ_MODEL_EXHAUSTED: dict[str, float] = {}

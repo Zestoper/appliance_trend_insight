@@ -218,8 +218,19 @@ async def get_ai_report(category: str = Query(..., min_length=1), period: str = 
     related_str  = " / ".join(f"{x['label']} {x['pct']}%" for x in ctx.get("related", [])[:3])
     purpose_str  = " / ".join(f"{x['label']} {x['pct']}%" for x in ctx.get("purpose", [])[:3])
 
-    # 트렌드 방향성 (관심도 최근 절반 vs 전반 비교)
-    trend_dir_str = "상승세" if growth > 5 else "하락세" if growth < -5 else "보합세"
+    # 트렌드 방향성 — /demand-forecast가 같은 카테고리로 이미 계산해둔 예측 기반 추세가 있으면
+    # 그걸 그대로 따라서 '미래예측' 페이지와 '종합 리포트 AI 최종 판단' 문구가 어긋나지 않게 한다.
+    # 캐시가 없으면(아직 forecast를 조회한 적 없는 카테고리) 과거 관심도 증감(growth)으로 대체 판단한다.
+    _fc_dir = None
+    for _p in (period, "3m", "1m", "6m", "1y"):
+        _fc = _GROQ_CACHE.get(f"forecast:{_CACHE_VER}:{category}:{_p}")
+        if _fc and _time.time() < _fc[0]:
+            _fc_dir = _fc[1].get("trend_dir")
+            break
+    if _fc_dir:
+        trend_dir_str = "상승세" if _fc_dir == "상승" else "하락세" if _fc_dir == "하락" else "보합세"
+    else:
+        trend_dir_str = "상승세" if growth > 5 else "하락세" if growth < -5 else "보합세"
 
     # ── 키워드/불만 데이터 — 대시보드 캐시 우선, 없으면 경량 fetch ──
     async def _fetch_top_keywords() -> list[dict]:
@@ -1197,6 +1208,11 @@ async def get_demand_forecast(category: str = Query(..., min_length=1), period: 
             "peak_period":  peak_period[:10],
             "message":      f"수요가 안정적인 흐름을 보이고 있습니다.\n현재 매입 수준을 유지하되, 예상 성수기({peak_period[:7]}) 진입 전 수요 변화에 대비해 재고 계획을 점검하는 것이 유리합니다.",
         }
+
+    # /ai-report 등 다른 엔드포인트가 같은 추세 판단을 재사용할 수 있도록 캐시
+    _GROQ_CACHE[f"forecast:{_CACHE_VER}:{category}:{period}"] = (
+        _time.time() + _GROQ_TTL, {"trend_dir": trend_dir, "near_term_pct": near_term_pct}
+    )
 
     return {
         "category":        category,

@@ -20,11 +20,33 @@ function toStr(v) {
   try { return JSON.stringify(v); } catch { return '-'; }
 }
 
+/** market_report.summary 전용 — Groq가 구조화 JSON(conclusion_lines 등)으로 반환해도 읽을 수 있는 문장으로 변환 */
+function mrSummaryText(summary) {
+  if (!summary) return '';
+  if (typeof summary === 'string') return summary;
+  if (typeof summary === 'object') {
+    if (Array.isArray(summary.conclusion_lines) && summary.conclusion_lines.length) {
+      return summary.conclusion_lines.join(' ');
+    }
+    if (summary.conclusion) return toStr(summary.conclusion);
+  }
+  return toStr(summary);
+}
+
 /** 배열로 변환 — 배열이면 문자열 항목만, 객체면 값들을 펼침, 문자열이면 단일 배열 */
 function toArr(v) {
   if (!v) return [];
   if (Array.isArray(v)) return v.filter(x => x != null && x !== '').map(x => (typeof x === 'object' ? toStr(x) : x));
-  if (typeof v === 'string' && v !== '-') return [v];
+  if (typeof v === 'string' && v !== '-') {
+    // Groq가 배열 대신 JSON 문자열(예: "[{...}, {...}]")을 통째로 반환하는 경우 한 번 더 풀어준다
+    if (v.trim().startsWith('[')) {
+      try {
+        const parsed = JSON.parse(v);
+        if (Array.isArray(parsed)) return toArr(parsed);
+      } catch { /* not JSON, fall through */ }
+    }
+    return [v];
+  }
   if (typeof v === 'object') return Object.values(v).filter(x => x != null).map(toStr);
   return [];
 }
@@ -201,7 +223,7 @@ function DashboardSection({ data, priceData, sections, category }) {
           {mr.summary && (
             <div className={s.infoBox}>
               <p className={s.infoTitle}>시장 분석 요약</p>
-              <p className={s.infoText}>{toStr(mr.summary)}</p>
+              <p className={s.infoText}>{mrSummaryText(mr.summary)}</p>
             </div>
           )}
           {brands.length > 0 && (
@@ -231,7 +253,12 @@ function DashboardSection({ data, priceData, sections, category }) {
           <SubHead num="06" title="AI 종합 분석" />
           <div className={s.infoBox}>
             <p className={s.infoTitle}>종합 판단</p>
-            <p className={s.infoText}>{toStr(mr.summary)}</p>
+            <p className={s.infoText}>{mrSummaryText(mr.summary)}</p>
+            {typeof mr.summary === 'object' && mr.summary.risk_factors?.length > 0 && (
+              <ul className={s.infoList} style={{ marginTop: 8 }}>
+                {mr.summary.risk_factors.map((f, i) => <li key={i}>{toStr(f)}</li>)}
+              </ul>
+            )}
           </div>
           <div className={s.kpiRow} style={{ marginTop: 12 }}>
             {[
