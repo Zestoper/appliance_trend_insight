@@ -218,19 +218,31 @@ async def get_ai_report(category: str = Query(..., min_length=1), period: str = 
     related_str  = " / ".join(f"{x['label']} {x['pct']}%" for x in ctx.get("related", [])[:3])
     purpose_str  = " / ".join(f"{x['label']} {x['pct']}%" for x in ctx.get("purpose", [])[:3])
 
-    # 트렌드 방향성 — /demand-forecast가 같은 카테고리로 이미 계산해둔 예측 기반 추세가 있으면
-    # 그걸 그대로 따라서 '미래예측' 페이지와 '종합 리포트 AI 최종 판단' 문구가 어긋나지 않게 한다.
-    # 캐시가 없으면(아직 forecast를 조회한 적 없는 카테고리) 과거 관심도 증감(growth)으로 대체 판단한다.
-    _fc_dir = None
-    for _p in (period, "3m", "1m", "6m", "1y"):
-        _fc = _GROQ_CACHE.get(f"forecast:{_CACHE_VER}:{category}:{_p}")
-        if _fc and _time.time() < _fc[0]:
-            _fc_dir = _fc[1].get("trend_dir")
-            break
+    # 트렌드 방향성 — '미래예측' 페이지(/demand-forecast)와 동일한 예측 기반 추세를 그대로 가져와서
+    # '종합 리포트 AI 최종 판단' 문구가 서로 어긋나지 않게 한다 (Prophet/XGBoost 결과는 내부적으로
+    # forecast-full 캐시를 타므로, 같은 카테고리·기간을 이미 조회했다면 재계산 비용이 들지 않는다).
+    try:
+        _fc_result = await get_demand_forecast(category=category, period=period, _={})
+        _fc_dir = _fc_result.get("trend_direction")
+    except Exception:
+        _fc_dir = None
     if _fc_dir:
         trend_dir_str = "상승세" if _fc_dir == "상승" else "하락세" if _fc_dir == "하락" else "보합세"
     else:
         trend_dir_str = "상승세" if growth > 5 else "하락세" if growth < -5 else "보합세"
+
+    # 프롬프트 예시 문구가 trend_dir_str과 모순되지 않도록(예: 하락세인데 "수요 확대 예상" 식 예시를
+    # 그대로 따라 쓰는 것 방지) 방향에 맞는 결론 문구를 미리 만들어 예시 안에 끼워 넣는다.
+    _dir_outlook = {
+        "상승세": "성수기 진입을 앞두고 수요 확대가 예상됩니다",
+        "하락세": "단기적으로 수요 조정 가능성이 있어 성수기 진입 시점에 맞춘 단계적 재고 운영이 필요합니다",
+        "보합세": "안정적인 흐름 속에서 성수기 진입에 대비한 점진적 재고 준비가 적절합니다",
+    }[trend_dir_str]
+    _dir_outlook_short = {
+        "상승세": "관심도 상승 기대",
+        "하락세": "관심도 조정 국면, 단기 수요 둔화 가능성",
+        "보합세": "관심도 보합 국면",
+    }[trend_dir_str]
 
     # ── 키워드/불만 데이터 — 대시보드 캐시 우선, 없으면 경량 fetch ──
     async def _fetch_top_keywords() -> list[dict]:
@@ -394,7 +406,7 @@ async def get_ai_report(category: str = Query(..., min_length=1), period: str = 
             f"위 실측 데이터를 근거로 아래 JSON을 작성하세요. 일반론 금지 — 반드시 위 데이터의 구체적 수치·키워드·불만을 인용해 작성:\n"
             f'{{\n'
             f'  "action": "매입 확대 또는 매입 유지 또는 재고 축소 또는 관망 중 하나",\n'
-            f'  "action_reason": "행동 권고 이유를 구체적 수치와 시장 근거를 포함해 2~3문장으로 작성 (예: 검색 관심도 {current}으로 기간 평균 {avg_val} 대비 {trend_dir_str}이며, 성수기({peak_months}) 진입을 앞두고 수요 확대가 예상됩니다. {top_brand} 중심 시장 집중도가 높아 {top_purpose} 소비층 공략 시 효과적입니다.)",\n'
+            f'  "action_reason": "행동 권고 이유를 구체적 수치와 시장 근거를 포함해 2~3문장으로 작성 (예: 검색 관심도 {current}으로 기간 평균 {avg_val} 대비 {trend_dir_str}이며, {_dir_outlook}. {top_brand} 중심 시장 집중도가 높아 {top_purpose} 소비층 공략 시 효과적입니다.)",\n'
             f'  "timing": "권장 매입 시기와 이유 (예: 성수기 {peak_months} 2~4주 전 선매입 권장)",\n'
             f'  "inventory_advice": "구체적 재고 조정 방향 (예: 현재 수준 대비 10~15% 확대, {top_brand} 비중 우선)",\n'
             f'  "action_basis": [\n'
@@ -418,7 +430,7 @@ async def get_ai_report(category: str = Query(..., min_length=1), period: str = 
             f'  "key_keywords": ["{category} 트렌드 키워드1", "키워드2", "키워드3", "키워드4"],\n'
             f'  "recommended_products": "구체적 추천 제품군 (예: {top_purpose}형 {category} 프리미엄 라인)",\n'
             f'  "risk_factor": "핵심 위험 요소 명사형 (20자 이내)",\n'
-            f'  "summary": "4문장. 1문장: 검색 관심도 수치({current})와 {trend_dir_str} 흐름 기반 성수기({peak_months}) 수요 확대 가능성 해석. 2문장: {top_brand} 중심 시장에서 프리미엄 제품 전략과 경쟁 구도 분석. 3문장: 연관 가전 패키지 판매를 통한 객단가 상승 기회 서술. 4문장: 브랜드 경쟁 심화와 비수기 재고 부담 리스크 관리 방향 제언. 각 문장은 완결된 분석 문장으로 자연스럽게.",\n'
+            f'  "summary": "4문장. 1문장: 검색 관심도 수치({current})와 {trend_dir_str} 흐름을 근거로 \'{_dir_outlook}\'는 취지를 자연스럽게 풀어 서술 (성수기 {peak_months} 언급). 2문장: {top_brand} 중심 시장에서 프리미엄 제품 전략과 경쟁 구도 분석. 3문장: 연관 가전 패키지 판매를 통한 객단가 상승 기회 서술. 4문장: 브랜드 경쟁 심화와 비수기 재고 부담 리스크 관리 방향 제언. 각 문장은 완결된 분석 문장으로 자연스럽게.",\n'
             f'  "product_strategy": [\n'
             f'    "{top_purpose} 중심 프리미엄 라인 비중 확대로 고마진 구조 구축",\n'
             f'    "{sec_purpose} 특화 기능 강화 모델 선별 매입으로 차별화 포지셔닝",\n'
@@ -458,7 +470,7 @@ async def get_ai_report(category: str = Query(..., min_length=1), period: str = 
             f'    "[기능명]: {top_brand} 대비 차별화 포인트 — 경쟁 포지셔닝 근거"\n'
             f'  ],\n'
             f'  "needs_basis": "2문장. 1문장: 쇼핑 키워드 상위({_first_kw or category} 등)와 불만({_first_comp or "소비자 주요 불만"} 등) 데이터를 교차하면 현재 시장에 [이런 제품 유형]이 부재하며 이것이 기획 기회다 — 구체적 키워드·수치 인용 필수. 2문장: 위 기능 4가지를 탑재한 제품이 {top_brand} 중심 경쟁에서 차별화되는 이유와 예상 시장 효과.",\n'
-            f'  "expected_sales_growth": "{category} 수요 방향성 서술 (구체적 % 수치 없이, 방향+근거만. 예: 성수기({peak_months}) 진입 및 {trend_dir_str} 흐름으로 관심도 상승 기대, {top_brand} 중심 프리미엄 수요 확대 가능성 높음)",\n'
+            f'  "expected_sales_growth": "{category} 수요 방향성 서술 (구체적 % 수치 없이, 방향+근거만. 예: 성수기({peak_months}) 진입 및 {_dir_outlook_short}, {top_brand} 중심 프리미엄 수요 확보 전략 유효)",\n'
             f'  "expected_effects": [\n'
             f'    "성수기 집중 매출 확대 (20자 이내, 예: {peak_months} 집중 매출 확대)",\n'
             f'    "프리미엄 제품 중심 객단가 상승 (20자 이내, 예: {top_purpose} 프리미엄 객단가 상승)",\n'
@@ -493,7 +505,9 @@ async def get_ai_report(category: str = Query(..., min_length=1), period: str = 
             f'각 데이터 항목 자체의 품질·신뢰도(%)이므로 항목별로 독립적으로 평가하고 합이 100일 필요 없음 '
             f'(예: 리뷰 데이터처럼 수집량이 적은 항목은 낮게, 검색·가격처럼 실시간 수집되는 항목은 높게). '
             f'7.action_list 5개: {category}에 실제로 맞는 구체적 행동 제목(예: "성수기 전 재고 OO% 확대", "{top_brand} 대비 가격 재점검"), '
-            f'"{category} 시급 실행항목"처럼 카테고리명만 붙인 추상적 제목 금지. action 20자이내, dept=상품기획/마케팅/구매/영업 중 택1, budget 현실적 금액.'
+            f'"{category} 시급 실행항목"처럼 카테고리명만 붙인 추상적 제목 금지. action 20자이내, dept=상품기획/마케팅/구매/영업 중 택1, budget 현실적 금액. '
+            f'8.현재 추세는 "{trend_dir_str}"입니다 — action_reason·summary·expected_sales_growth·projection_summary 등 모든 전망 문구는 반드시 이 추세와 같은 방향으로 서술하세요. '
+            f'추세가 "하락세"나 "보합세"인데 "수요 확대", "관심도 상승" 같은 상승 단정 표현을 쓰는 것 금지 — 이 경우 "단기 조정", "보수적 운영", "재고 관리" 등 추세에 맞는 표현을 사용하세요.'
         )
 
         res = await _groq_create(
@@ -565,6 +579,13 @@ async def get_ai_report(category: str = Query(..., min_length=1), period: str = 
 
 @router.get("/demand-forecast")
 async def get_demand_forecast(category: str = Query(..., min_length=1), period: str = "3m", _: dict = Depends(require_b2b)):
+    # /ai-report가 동일 카테고리·기간으로 동시에 이 함수를 직접 호출해 추세를 맞추는 경우가 있어,
+    # 무거운 Prophet/XGBoost 재계산 없이 결과를 재사용할 수 있도록 전체 응답을 캐시한다.
+    _fc_full_ck = f"forecast-full:{_CACHE_VER}:{category}:{period}"
+    _fc_full_cached = _GROQ_CACHE.get(_fc_full_ck)
+    if _fc_full_cached and _time.time() < _fc_full_cached[0]:
+        return _fc_full_cached[1]
+
     import logging
     import numpy as np
     try:
@@ -1209,18 +1230,14 @@ async def get_demand_forecast(category: str = Query(..., min_length=1), period: 
             "message":      f"수요가 안정적인 흐름을 보이고 있습니다.\n현재 매입 수준을 유지하되, 예상 성수기({peak_period[:7]}) 진입 전 수요 변화에 대비해 재고 계획을 점검하는 것이 유리합니다.",
         }
 
-    # /ai-report 등 다른 엔드포인트가 같은 추세 판단을 재사용할 수 있도록 캐시
-    _GROQ_CACHE[f"forecast:{_CACHE_VER}:{category}:{period}"] = (
-        _time.time() + _GROQ_TTL, {"trend_dir": trend_dir, "near_term_pct": near_term_pct}
-    )
-
-    return {
+    _fc_result = {
         "category":        category,
         "period":          period,
         "time_unit":       time_unit,
         "history":         [{"period": d["period"], "ratio": d["ratio"]} for d in trend_data],
         "forecast":        forecast,
         "trend_direction": trend_dir,
+        "near_term_pct":   near_term_pct,
         "slope":           round(slope, 3),
         "peak_period":     peak_period,
         "confidence":      confidence,
@@ -1246,6 +1263,9 @@ async def get_demand_forecast(category: str = Query(..., min_length=1), period: 
             if col in _EXT_SOURCE_META
         ],
     }
+    # /ai-report가 직접 호출해 같은 추세 판단을 재사용할 때 Prophet/XGBoost 재계산을 피하도록 캐시
+    _GROQ_CACHE[_fc_full_ck] = (_time.time() + _GROQ_TTL, _fc_result)
+    return _fc_result
 
 
 # ── 공공데이터 환경 신호 헬퍼 ────────────────────────────────────────────────

@@ -443,11 +443,11 @@ export default function B2BReport() {
                           <tbody>
                             {brands.slice(0, 3).map((b, i) => (
                               <tr key={i}>
-                                <td>
+                                <td style={{ color: 'var(--b2b-text)', fontWeight: 700 }}>
                                   <span className={s.brandDot2} style={{ background: BRAND_COLORS[i] }} />
                                   {b.brand}
                                 </td>
-                                <td className={s.numCell}><strong>{b.pct}%</strong></td>
+                                <td className={s.numCell} style={{ color: 'var(--b2b-text)' }}><strong>{b.pct}%</strong></td>
                               </tr>
                             ))}
                           </tbody>
@@ -625,8 +625,8 @@ export default function B2BReport() {
                               const range = hasCI ? Math.round((f.ci_high - f.ci_low) / 2 * 10) / 10 : null;
                               return (
                                 <tr key={i}>
-                                  <td>{f.period?.slice(0, 7)}</td>
-                                  <td className={s.numCell}><strong>{f.predicted}</strong></td>
+                                  <td style={{ color: 'var(--b2b-text)', fontWeight: 700 }}>{f.period?.slice(0, 7)}</td>
+                                  <td className={s.numCell} style={{ color: 'var(--b2b-text)' }}><strong>{f.predicted}</strong></td>
                                   <td className={s.numCell} style={{ color: hasCI ? '#ef4444' : 'var(--b2b-muted)' }}>
                                     {hasCI ? f.ci_low : '-'}
                                   </td>
