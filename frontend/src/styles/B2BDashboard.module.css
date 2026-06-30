@@ -855,6 +855,8 @@
   .reportKpiRow      { display: grid; grid-template-columns: repeat(3, 1fr); }
   .reportKpi         { padding: 10px 12px; border-right: none; border-bottom: 1px solid var(--b2b-line); }
   .reportKpi:nth-last-child(-n+2) { border-bottom: none; }
+  .complaintBarRow   { flex-wrap: wrap; row-gap: 4px; }
+  .complaintBrands   { flex-basis: 100%; flex-shrink: 1; flex-wrap: wrap; justify-content: flex-end; margin-left: 24px; }
 }
 @media (max-width: 480px) {
   .container    { padding: 12px 12px 48px; }
