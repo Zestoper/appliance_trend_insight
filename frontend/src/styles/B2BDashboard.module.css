@@ -84,7 +84,7 @@
 .envLevel_low  { background: #6b728012; color: #6b7280; border: 1px solid #6b728030; }
 .envSignalIcon { font-size: 14px; }
 .envSignalLabel { font-size: 12px; }
-.envSignalMeta { font-size: 11px; color: var(--b2b-muted); margin-left: auto; }
+.envSignalMeta { font-size: 11px; color: var(--b2b-muted); margin-left: auto; flex-basis: 100%; }
 .envSignalSource { color: #4f8ef7; font-weight: 600; }
 
 .reportHeader { background: var(--b2b-card); border-radius: 20px; border: 1px solid var(--b2b-line); padding: 28px 32px 0; margin-bottom: 28px; box-shadow: var(--b2b-shadow); overflow: hidden; }
