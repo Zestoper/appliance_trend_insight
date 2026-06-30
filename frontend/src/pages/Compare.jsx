@@ -358,7 +358,8 @@ export default function Compare() {
     setCatLoading(true)
     setCatProducts([])
 
-    fetch(`${API_BASE}/api/naver/products?query=${encodeURIComponent(query)}&page=1&display=100&sort=${apiSort}`)
+    const categoryParam = product ? `&category=${encodeURIComponent(product)}` : ''
+    fetch(`${API_BASE}/api/naver/products?query=${encodeURIComponent(query)}&page=1&display=100&sort=${apiSort}${categoryParam}`)
       .then(r => r.json())
       .then(data => {
         let items = (data.items ?? []).filter(p => !p.title.includes('렌탈') && p.price !== 1)
