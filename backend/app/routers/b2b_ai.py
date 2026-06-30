@@ -463,23 +463,26 @@ async def get_ai_report(category: str = Query(..., min_length=1), period: str = 
             f'  ],\n'
             f'  "ai_confidence": 75,\n'
             f'  "confidence_breakdown": [\n'
-            f'    {{"factor": "검색 트렌드", "pct": 35}},\n'
-            f'    {{"factor": "가격 신호", "pct": 20}},\n'
-            f'    {{"factor": "계절성", "pct": 25}},\n'
-            f'    {{"factor": "소비자 반응", "pct": 20}}\n'
+            f'    {{"factor": "검색 데이터 최신성", "pct": 95}},\n'
+            f'    {{"factor": "가격 데이터 품질", "pct": 91}},\n'
+            f'    {{"factor": "리뷰 데이터", "pct": 36}},\n'
+            f'    {{"factor": "예측 신뢰도", "pct": 75}}\n'
             f'  ],\n'
             f'  "action_list": [\n'
-            f'    {{"stars":5,"action":"{category} 시급 실행항목","dept":"구매","timing":"이번 주","budget":"500만원"}},\n'
-            f'    {{"stars":5,"action":"두번째 실행항목","dept":"마케팅","timing":"7일 이내","budget":"300만원"}},\n'
-            f'    {{"stars":4,"action":"세번째 실행항목","dept":"상품기획","timing":"2주 이내","budget":"별도 없음"}},\n'
-            f'    {{"stars":3,"action":"네번째 실행항목","dept":"영업","timing":"이번 달","budget":"별도 없음"}},\n'
-            f'    {{"stars":2,"action":"다섯번째 실행항목","dept":"기획","timing":"다음 달","budget":"별도 없음"}}\n'
+            f'    {{"stars":5,"action":"실제 행동 중심 제목 (예: 성수기 전 재고 20% 확대)","dept":"구매","timing":"이번 주","budget":"500만원"}},\n'
+            f'    {{"stars":5,"action":"실제 행동 중심 제목 (예: {top_brand} 경쟁 모델 가격 비교 점검)","dept":"마케팅","timing":"7일 이내","budget":"300만원"}},\n'
+            f'    {{"stars":4,"action":"실제 행동 중심 제목 (예: {top_purpose} 타겟 프로모션 기획)","dept":"상품기획","timing":"2주 이내","budget":"별도 없음"}},\n'
+            f'    {{"stars":3,"action":"실제 행동 중심 제목","dept":"영업","timing":"이번 달","budget":"별도 없음"}},\n'
+            f'    {{"stars":2,"action":"실제 행동 중심 제목","dept":"기획","timing":"다음 달","budget":"별도 없음"}}\n'
             f'  ]\n'
             f'}}\n\n'
             f'[규칙] 1.consumer_needs·complaints·features는 위 실제 키워드 직접 인용. 2.features는 "[기능명]:근거" 형식. '
             f'3.action_basis 수치({current},{_growth_pct}) 인용. 4.% 수치는 근거 있을 때만. '
-            f'5.일반론("보통","대체로") 금지. 6.ai_confidence 0~100 정수, breakdown 합=100. '
-            f'7.action_list 5개: {category} 맞는 구체적 항목, action 20자이내, dept=상품기획/마케팅/구매/영업 중 택1, budget 현실적 금액.'
+            f'5.일반론("보통","대체로") 금지. 6.ai_confidence 0~100 정수. confidence_breakdown의 pct는 "참고 비중"이 아니라 '
+            f'각 데이터 항목 자체의 품질·신뢰도(%)이므로 항목별로 독립적으로 평가하고 합이 100일 필요 없음 '
+            f'(예: 리뷰 데이터처럼 수집량이 적은 항목은 낮게, 검색·가격처럼 실시간 수집되는 항목은 높게). '
+            f'7.action_list 5개: {category}에 실제로 맞는 구체적 행동 제목(예: "성수기 전 재고 OO% 확대", "{top_brand} 대비 가격 재점검"), '
+            f'"{category} 시급 실행항목"처럼 카테고리명만 붙인 추상적 제목 금지. action 20자이내, dept=상품기획/마케팅/구매/영업 중 택1, budget 현실적 금액.'
         )
 
         res = await _groq_create(
@@ -1009,7 +1012,30 @@ async def get_demand_forecast(category: str = Query(..., min_length=1), period: 
     else:
         res_std = res_std_fb
     slope_threshold = max(0.15, res_std * 0.3)
-    if slope > slope_threshold:
+
+    # 프론트엔드 KPI("예상 변화율")와 동일한 기준(직전 실측값 대비 향후 3개월 평균)으로
+    # 추세를 판정해 AI 전망 문구가 화면에 표시되는 % 수치와 어긋나지 않도록 한다.
+    _ref_ratio = train_last_ratio if train_last_ratio else (
+        float(trend_data[-1]["ratio"]) if trend_data else None
+    )
+    _next3 = forecast[:3]
+    _next3_avg = (
+        sum(f["predicted"] for f in _next3) / len(_next3) if _next3 else None
+    )
+    near_term_pct = (
+        round((_next3_avg - _ref_ratio) / _ref_ratio * 100, 1)
+        if _ref_ratio and _next3_avg is not None and _ref_ratio > 0
+        else None
+    )
+
+    if near_term_pct is not None:
+        if near_term_pct > 5:
+            trend_dir = "상승"
+        elif near_term_pct < -5:
+            trend_dir = "하락"
+        else:
+            trend_dir = "안정"
+    elif slope > slope_threshold:
         trend_dir = "상승"
     elif slope < -slope_threshold:
         trend_dir = "하락"
@@ -1024,7 +1050,7 @@ async def get_demand_forecast(category: str = Query(..., min_length=1), period: 
         if trend_dir == "상승"
         else f"수요 하락세가 예측됩니다. 재고를 보수적으로 운영하시고 프로모션 전략 검토를 권장합니다."
         if trend_dir == "하락"
-        else "수요가 안정적으로 유지될 것으로 예측됩니다. 현재 재고 수준 유지를 추천합니다."
+        else "수요가 안정적인 흐름을 보이고 있습니다. 현재 재고 수준을 유지하며 시장 변화를 모니터링하세요."
     )
 
     # ── 시장 키워드 추출 (쇼핑 상품 타이틀 기반) ─────────────────────────────
@@ -1060,7 +1086,6 @@ async def get_demand_forecast(category: str = Query(..., min_length=1), period: 
     else:
       try:
         import json as _json_fc
-        peak_month = peak_period[5:7]
 
         # 병렬: RAG + 키워드 추출
         rag_chunks_raw, market_kws = await asyncio.gather(
@@ -1091,7 +1116,8 @@ async def get_demand_forecast(category: str = Query(..., min_length=1), period: 
                     f'}}\n'
                     f'opportunity: 위 키워드 중 상승 요인을 활용해 "{category} X 수요 증가" 또는 "X 관심 확대" 형태로 작성\n'
                     f'risk: 주요 위험 요인 2~3가지 (명사형)\n'
-                    f'strategy: {peak_month}월 전후 구매·판매 전략 2~3가지 (구체적 행동 지침)\n'
+                    f'strategy: 구매·판매 전략 2~3가지 (구체적 행동 지침). 특정 월을 직접 언급하지 말고 '
+                    f'"성수기 전", "피크 시즌 전", "비수기" 등 상대적 시점 표현을 사용할 것\n'
                     f'순수 JSON만 출력하세요.'
                 )},
             ],
@@ -1169,7 +1195,7 @@ async def get_demand_forecast(category: str = Query(..., min_length=1), period: 
             "days_to_peak": days_to_peak,
             "days_to_buy":  0,
             "peak_period":  peak_period[:10],
-            "message":      "수요는 당분간 안정적으로 유지될 것으로 예상됩니다.\n현재 매입 수준을 유지하되, 성수기(6~8월) 진입 전 수요 증가에 대비해 단계적 재고 확대를 검토하는 것이 유리합니다.",
+            "message":      f"수요가 안정적인 흐름을 보이고 있습니다.\n현재 매입 수준을 유지하되, 예상 성수기({peak_period[:7]}) 진입 전 수요 변화에 대비해 재고 계획을 점검하는 것이 유리합니다.",
         }
 
     return {
@@ -1243,20 +1269,20 @@ async def _load_env_signal(category: str) -> dict:
             # 카테고리별 신호 해석
             if category in ("에어컨", "선풍기"):
                 if avg_temp >= 27:
-                    result["signals"].append({"icon": "🔥", "label": f"기온 {avg_temp}°C — 수요 상승 신호", "level": "high"})
+                    result["signals"].append({"icon": "🔥", "label": f"기온 {avg_temp}℃ · 습도 {avg_hum}% → 냉방 수요 상승 구간", "level": "high"})
                 elif avg_temp >= 20:
-                    result["signals"].append({"icon": "🌤", "label": f"기온 {avg_temp}°C — 수요 준비 구간", "level": "mid"})
+                    result["signals"].append({"icon": "🌤", "label": f"기온 {avg_temp}℃ · 습도 {avg_hum}% → 냉방 수요 준비 구간", "level": "mid"})
                 else:
-                    result["signals"].append({"icon": "❄️", "label": f"기온 {avg_temp}°C — 비수기", "level": "low"})
+                    result["signals"].append({"icon": "❄️", "label": f"기온 {avg_temp}℃ → 비수기", "level": "low"})
             elif category == "냉장고":
                 if avg_temp >= 25:
-                    result["signals"].append({"icon": "🌡", "label": f"기온 {avg_temp}°C — 식품 보관 수요 증가", "level": "mid"})
+                    result["signals"].append({"icon": "🌡", "label": f"기온 {avg_temp}℃ → 식품 보관 수요 증가", "level": "mid"})
             elif category in ("제습기",):
                 if avg_temp >= 23 and avg_hum >= 65:
-                    result["signals"].append({"icon": "💧", "label": f"기온 {avg_temp}°C · 습도 {avg_hum}% — 제습기 수요 상승", "level": "high"})
+                    result["signals"].append({"icon": "💧", "label": f"기온 {avg_temp}℃ · 습도 {avg_hum}% → 제습기 수요 상승", "level": "high"})
             elif category == "가습기":
                 if avg_hum <= 40:
-                    result["signals"].append({"icon": "🌵", "label": f"습도 {avg_hum}% — 건조함, 가습기 수요 상승", "level": "high"})
+                    result["signals"].append({"icon": "🌵", "label": f"습도 {avg_hum}% → 건조함, 가습기 수요 상승", "level": "high"})
 
     # 에어코리아 최근 PM2.5/PM10
     if any(v.startswith("air_") for v in vars_needed):
@@ -1270,7 +1296,7 @@ async def _load_env_signal(category: str) -> dict:
             result["sources"].append("에어코리아")
             grade = "매우나쁨" if avg_pm25 >= 76 else "나쁨" if avg_pm25 >= 36 else "보통" if avg_pm25 >= 16 else "좋음"
             level = "high" if avg_pm25 >= 36 else "mid" if avg_pm25 >= 16 else "low"
-            result["signals"].append({"icon": "🌫", "label": f"PM2.5 {avg_pm25}㎍/㎥ ({grade}) — 공기청정기 수요 {'상승' if avg_pm25 >= 36 else '보통'}", "level": level})
+            result["signals"].append({"icon": "🌫", "label": f"PM2.5 {avg_pm25}㎍/㎥ ({grade}) → 공기청정기 수요 {'상승' if avg_pm25 >= 36 else '보통'}", "level": level})
 
     # KCA 불만 건수
     kca = await _gc(f"ext:kca:{category}")
@@ -1287,11 +1313,11 @@ async def _load_env_signal(category: str) -> dict:
         result["vars"]["kemco_total"]   = total
         result["sources"].append("에너지공단")
         if ratio >= 50:
-            result["signals"].append({"icon": "", "label": f"에너지 1등급 비율 {ratio}% — 고효율 프리미엄 제품 선호 뚜렷", "level": "high"})
+            result["signals"].append({"icon": "", "label": f"에너지 1등급 비율 {ratio}% → 고효율 프리미엄 제품 선호 뚜렷", "level": "high"})
         elif ratio >= 25:
-            result["signals"].append({"icon": "", "label": f"에너지 1등급 비율 {ratio}% — 효율등급 경쟁 확대 중", "level": "mid"})
+            result["signals"].append({"icon": "", "label": f"에너지 1등급 비율 {ratio}% → 효율등급 경쟁 확대 중", "level": "mid"})
         else:
-            result["signals"].append({"icon": "", "label": f"에너지 1등급 비율 {ratio}% — 보급형 중심 시장", "level": "low"})
+            result["signals"].append({"icon": "", "label": f"에너지 1등급 비율 {ratio}% → 보급형 중심 시장", "level": "low"})
 
     return result
 

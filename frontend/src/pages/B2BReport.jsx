@@ -633,7 +633,7 @@ export default function B2BReport() {
                                   <td className={s.numCell} style={{ color: hasCI ? '#10b981' : 'var(--b2b-muted)' }}>
                                     {hasCI ? f.ci_high : '-'}
                                   </td>
-                                  <td className={s.numCell} style={{ color: '#6b7280', fontSize: 11 }}>
+                                  <td className={s.numCell} style={{ color: 'var(--b2b-text2)', fontSize: 11 }}>
                                     {range != null ? `±${range}` : '데이터 부족'}
                                   </td>
                                 </tr>

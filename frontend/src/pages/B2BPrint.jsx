@@ -41,13 +41,21 @@ function SubHead({ num, title }) {
 /* ══════════════════════════════════════════
    DASHBOARD SECTIONS
 ══════════════════════════════════════════ */
-function DashboardSection({ data, sections, category }) {
+function DashboardSection({ data, priceData, sections, category }) {
   if (!data) return null;
   const show = (n) => sections.includes(n);
 
   const trend    = data.trend ?? [];
   const brands   = data.brands ?? [];
   const ageDist  = data.age_distribution ?? [];
+  const topAge   = ageDist.length > 0
+    ? ageDist.reduce((a, b) => (b.ratio ?? b.pct ?? 0) > (a.ratio ?? a.pct ?? 0) ? b : a, ageDist[0])
+    : null;
+  const topAgeLabel = topAge?.label ?? topAge?.group ?? null;
+  const priceSum  = priceData?.summary ?? priceData;
+  const repPriceBand = priceSum?.median_price != null
+    ? fmtWon(priceSum.median_price)
+    : (priceSum?.avg_price != null ? fmtWon(priceSum.avg_price) : null);
   const keywords = data.keywords ?? [];
   const complaints = data.complaints ?? [];
   const complaint_summary = data.complaint_summary ?? [];
@@ -204,9 +212,14 @@ function DashboardSection({ data, sections, category }) {
                 <p className={s.kpiSub}>점유율 1위</p>
               </div>
               <div className={s.kpi}>
-                <p className={s.kpiLabel}>분석 브랜드 수</p>
-                <p className={s.kpiVal}>{brands.length}</p>
-                <p className={s.kpiSub}>경쟁 현황</p>
+                <p className={s.kpiLabel}>주요 소비층</p>
+                <p className={s.kpiVal}>{topAgeLabel ?? '-'}</p>
+                <p className={s.kpiSub}>관심도 최상위 연령대</p>
+              </div>
+              <div className={s.kpi}>
+                <p className={s.kpiLabel}>대표 가격대</p>
+                <p className={s.kpiVal}>{repPriceBand ?? '-'}</p>
+                <p className={s.kpiSub}>{repPriceBand ? '중간가 기준' : '가격 분석 미포함'}</p>
               </div>
             </div>
           )}
@@ -531,25 +544,30 @@ function ReportSection({ data, sections, category }) {
         </div>
       )}
 
-      {show('06') && (
-        <div className={s.secBlock}>
-          <SubHead num="06" title="AI Summary 3줄 축약" />
-          <div className={s.infoBox} style={{ '--box-accent': actionColor }}>
-            {[
-              { num: '①', text: oppList[0] ? (typeof oppList[0] === 'object' ? `${oppList[0].title}: ${oppList[0].meaning ?? oppList[0].evidence ?? ''}` : toStr(oppList[0])) : '시장 수요 증가 추세 확인' },
-              { num: '②', text: report.price_range && report.price_range !== '-' ? `가격 ${report.price_range} 안정 구간` : '현재 가격 안정 구간 유지' },
-              { num: '③', text: riskList[0] ? (typeof riskList[0] === 'object' ? `${riskList[0].title}: ${riskList[0].meaning ?? riskList[0].evidence ?? ''}` : toStr(riskList[0])) : '브랜드 경쟁 리스크 존재' },
-            ].map(({ num, text }) => (
-              <p key={num} className={s.infoText} style={{ marginTop: num === '①' ? 0 : 6 }}>
-                <strong style={{ color: actionColor }}>{num}</strong> {text}
+      {show('06') && (() => {
+        let opp0; try { opp0 = typeof oppList[0] === 'string' ? JSON.parse(oppList[0]) : oppList[0]; } catch { opp0 = oppList[0]; }
+        let risk0; try { risk0 = typeof riskList[0] === 'string' ? JSON.parse(riskList[0]) : riskList[0]; } catch { risk0 = riskList[0]; }
+        const summaryItems = [
+          opp0 ? (typeof opp0 === 'object' ? `${opp0.title}: ${opp0.meaning ?? opp0.evidence ?? ''}` : toStr(opp0)) : '시장 수요 증가 추세 확인',
+          report.price_range && report.price_range !== '-' ? `가격 ${report.price_range} 안정 구간` : '현재 가격 안정 구간 유지',
+          risk0 ? (typeof risk0 === 'object' ? `${risk0.title}: ${risk0.meaning ?? risk0.evidence ?? ''}` : toStr(risk0)) : '브랜드 경쟁 리스크 존재',
+        ];
+        return (
+          <div className={s.secBlock}>
+            <SubHead num="06" title="AI Summary 3줄 축약" />
+            <div className={s.infoBox} style={{ '--box-accent': actionColor }}>
+              {summaryItems.map((text, i) => (
+                <p key={i} className={s.infoText} style={{ marginTop: i === 0 ? 0 : 6 }}>
+                  <strong style={{ color: actionColor }}>✓</strong> {text}
+                </p>
+              ))}
+              <p className={s.infoText} style={{ marginTop: 10, fontWeight: 700, color: actionColor }}>
+                → {action} 권장
               </p>
-            ))}
-            <p className={s.infoText} style={{ marginTop: 10, fontWeight: 700, color: actionColor }}>
-              → {action} 권장
-            </p>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {show('07') && (
         <div className={s.secBlock}>
@@ -929,12 +947,23 @@ export default function B2BPrint() {
                       {toStr(r.action_reason).split(/(?<=[.。])\s+/)[0] ?? toStr(r.action_reason)}
                     </p>
                   )}
+                  {(() => {
+                    const topAction = (r.action_list ?? [])
+                      .slice()
+                      .sort((a, b) => (b.stars ?? 0) - (a.stars ?? 0))[0]
+                    if (!topAction?.action) return null
+                    return (
+                      <p className={s.execReason} style={{ marginTop: 6, fontWeight: 700, color: aclr }}>
+                        핵심 실행 전략: {topAction.action}
+                      </p>
+                    )
+                  })()}
                 </div>
               )
             })()}
 
             {activePages.includes('dashboard') && (
-              <DashboardSection data={dataMap.dashboard} sections={pageSections.dashboard ?? []} category={category} />
+              <DashboardSection data={dataMap.dashboard} priceData={dataMap.price} sections={pageSections.dashboard ?? []} category={category} />
             )}
             {activePages.includes('price') && (
               <PriceSection data={dataMap.price} sections={pageSections.price ?? []} category={category} />

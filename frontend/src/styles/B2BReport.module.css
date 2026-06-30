@@ -74,7 +74,7 @@
 /* ── 데이터 테이블 ── */
 .dataTable {
   width: 100%; border-collapse: collapse;
-  font-size: 13px; color: var(--b2b-text2);
+  font-size: 13px; color: var(--b2b-text);
 }
 .dataTable thead th {
   text-align: left; font-size: 10px; font-weight: 800;
