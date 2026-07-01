@@ -144,7 +144,8 @@ async def get_datalab(query: str = Query(..., min_length=1)):
         "startDate": start_date.strftime("%Y-%m-%d"),
         "endDate":   end_date.strftime("%Y-%m-%d"),
         "timeUnit":  "date",
-        "keywordGroups": [{"groupName": query, "keywords": [query]}],
+        # 단어별로 분리해 OR 집계 (단일 문자열 그대로 넘기면 정확한 문구 검색만 집계됨)
+        "keywordGroups": [{"groupName": query, "keywords": query.split()[:5]}],
     }
     cache_key = f"{query}_{start_date}"
     cached = _DL_CACHE.get(cache_key)

@@ -603,8 +603,8 @@ async def get_report(query: str = Query(..., min_length=1)):
             seen.append(w)
     short_query = " ".join(seen[:3]) if seen else " ".join(query.split()[:2])
     dl_alt = " ".join(seen[2:4]) if len(seen) >= 4 else short_query
-    # 최후 폴백: 첫 번째 단어만 (보통 브랜드명 또는 제품 카테고리)
-    dl_simple = seen[0] if seen else short_query
+    # 최후 폴백: 마지막 단어만 (보통 제품 카테고리명 — 브랜드명보다 검색량 많음)
+    dl_simple = seen[-1] if seen else short_query
 
     results = await asyncio.gather(
         get_news(short_query, display=5),
