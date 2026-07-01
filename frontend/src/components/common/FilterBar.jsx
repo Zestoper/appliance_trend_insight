@@ -1,6 +1,34 @@
 import { useState, useEffect, useRef } from 'react'
 import styles from '../../styles/FilterBar.module.css'
 
+// "LG전자" → "LG" 등 표기 통일
+const BRAND_NORMALIZE = {
+  'LG전자': 'LG', '삼성전자': '삼성', '대우전자': '대우',
+  '위니아딤채': '위니아', '위니아만도': '위니아',
+  'Dyson': '다이슨', 'DYSON': '다이슨',
+  'Philips': '필립스', 'PHILIPS': '필립스',
+  'Sony': '소니', 'SONY': '소니',
+  'Bosch': '보쉬', 'BOSCH': '보쉬',
+  'Tefal': '테팔', 'TEFAL': '테팔',
+  'Panasonic': '파나소닉', 'PANASONIC': '파나소닉',
+  'Xiaomi': '샤오미',
+  'Roborock': '로보락', 'ROBOROCK': '로보락',
+  'Ecovacs': '에코백스', 'ECOVACS': '에코백스',
+  'Coway': '코웨이', 'COWAY': '코웨이',
+  'Winix': '위닉스', 'WINIX': '위닉스',
+}
+
+// 드롭다운에 표시할 대표 브랜드 허용 목록
+const MAJOR_BRANDS = new Set([
+  '삼성', 'LG', '위닉스', '캐리어', '다이슨', '코웨이',
+  '쿠쿠', '쿠첸', '위니아', '린나이', '로보락', '에코백스',
+  '필립스', '소니', '보쉬', '테팔', '파나소닉', '샤오미', '대우',
+])
+
+function normalizeBrand(raw) {
+  return BRAND_NORMALIZE[raw] ?? raw
+}
+
 const PRICE_OPTIONS = [
   { label: '전체',          min: 0,       max: Infinity },
   { label: '10만원 이하',   min: 0,       max: 100000 },
@@ -29,7 +57,9 @@ export default function FilterBar({ products, onSearchChange, onFilterChange, on
   const barRef = useRef(null)
   const searchInputRef = useRef(null)
 
-  const brands = [...new Set(products.map(p => p.brand).filter(Boolean))].sort()
+  const brands = [...new Set(
+    products.map(p => normalizeBrand(p.brand)).filter(b => b && MAJOR_BRANDS.has(b))
+  )].sort()
 
   // 검색어 debounce: 타이핑 멈춘 뒤 400ms 후 부모에 전달
   useEffect(() => {

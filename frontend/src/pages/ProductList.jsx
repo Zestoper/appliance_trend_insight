@@ -8,6 +8,23 @@ import { API_BASE } from '../config'
 
 const PAGE_SIZE = 15
 
+const BRAND_NORMALIZE = {
+  'LG전자': 'LG', '삼성전자': '삼성', '대우전자': '대우',
+  '위니아딤채': '위니아', '위니아만도': '위니아',
+  'Dyson': '다이슨', 'DYSON': '다이슨',
+  'Philips': '필립스', 'PHILIPS': '필립스',
+  'Sony': '소니', 'SONY': '소니',
+  'Bosch': '보쉬', 'BOSCH': '보쉬',
+  'Tefal': '테팔', 'TEFAL': '테팔',
+  'Panasonic': '파나소닉', 'PANASONIC': '파나소닉',
+  'Xiaomi': '샤오미',
+  'Roborock': '로보락', 'ROBOROCK': '로보락',
+  'Ecovacs': '에코백스', 'ECOVACS': '에코백스',
+  'Coway': '코웨이', 'COWAY': '코웨이',
+  'Winix': '위닉스', 'WINIX': '위닉스',
+}
+function normalizeBrand(raw) { return BRAND_NORMALIZE[raw] ?? raw }
+
 const VALID_APPLIANCE_TERMS = [
   '에어컨', '냉장고', '세탁기', '건조기', '공기청정기', '로봇청소기', '식기세척기',
   'TV', '텔레비전', '에어프라이어', '전기밥솥', '밥솥', '전자레인지', '커피머신',
@@ -55,7 +72,7 @@ export default function ProductList() {
   const filteredProducts = products
     .filter(p => {
       const { selectedBrands } = filterState
-      return selectedBrands.length === 0 || selectedBrands.includes(p.brand)
+      return selectedBrands.length === 0 || selectedBrands.includes(normalizeBrand(p.brand))
     })
     .filter(p => {
       const pr = filterState.priceRange
