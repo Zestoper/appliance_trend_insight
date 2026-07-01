@@ -298,16 +298,37 @@ function ProductCard({ product, report, loading, onRemove, isWinner }) {
 // ── 메인 ─────────────────────────────────────────────────
 const MAX_SLOTS = 3
 
+// 제품 카테고리별 관련 브랜드 (제품 선택 시 이 목록으로 교체)
+const PRODUCT_BRANDS = {
+  '에어컨':       ['삼성', 'LG', '캐리어', '위니아', '파세코'],
+  '냉장고':       ['삼성', 'LG', '위니아', '대우'],
+  '세탁기':       ['삼성', 'LG', '캐리어'],
+  '건조기':       ['삼성', 'LG', '린나이', '캐리어'],
+  'TV':           ['삼성', 'LG', '필립스', '소니'],
+  '선풍기':       ['삼성', 'LG', '신일', '보국', '다이슨'],
+  '공기청정기':   ['삼성', 'LG', '위닉스', '코웨이', '다이슨', '블루에어'],
+  '제습기':       ['삼성', 'LG', '위닉스', '신일'],
+  '가습기':       ['삼성', 'LG', '위닉스', '다이슨', '필립스'],
+  '로봇청소기':   ['삼성', 'LG', '로보락', '에코백스', '샤오미'],
+  '식기세척기':   ['삼성', 'LG', '까사미아'],
+  '에어프라이어':  ['필립스', '쿠쿠', '쿠첸', '삼성', 'LG', '테팔'],
+  '전자레인지':   ['삼성', 'LG', '대우'],
+  '전기밥솥':     ['쿠쿠', '쿠첸', '삼성', 'LG'],
+  '헤어드라이어': ['다이슨', '삼성', 'LG', '필립스', '파나소닉'],
+}
+
+const DEFAULT_BRANDS = ['삼성', 'LG', '위닉스', '캐리어', '다이슨', '코웨이', '쿠쿠', '쿠첸', '위니아', '린나이', '로보락', '필립스']
+
 const FILTER_GROUPS = [
   {
     key: 'product',
     label: '제품',
-    options: ['에어컨', '냉장고', '세탁기', '건조기', '공기청정기', '로봇청소기', '식기세척기', 'TV', '전자레인지', '에어프라이어', '선풍기', '가습기', '제습기'],
+    options: ['에어컨', '냉장고', '세탁기', '건조기', '공기청정기', '로봇청소기', '식기세척기', 'TV', '전자레인지', '에어프라이어', '선풍기', '가습기', '제습기', '전기밥솥', '헤어드라이어'],
   },
   {
     key: 'brand',
     label: '브랜드',
-    options: ['삼성', 'LG', '위닉스', '캐리어', '다이슨', '코웨이', '쿠쿠', '쿠첸', '위니아', '린나이', '로보락', '필립스'],
+    options: DEFAULT_BRANDS,
   },
   {
     key: 'price',
@@ -337,6 +358,8 @@ const PRODUCT_SUBTYPES = {
   '선풍기':    ['일반형', '탑 팬', '스탠드형', '서큘레이터'],
   '가습기':    ['초음파식', '가열식', '기화식', '복합형'],
   '제습기':    ['소형', '중형', '대형'],
+  '전기밥솥':  ['미니/1~3인용', '일반(4~6인용)', '대형(10인+)', '압력식', '직화식'],
+  '헤어드라이어': ['일반형', '무선형', '전문가용', '대풍량'],
 }
 
 export default function Compare() {
@@ -505,17 +528,21 @@ export default function Compare() {
             {/* 순서: 제품 → 브랜드 → 타입(동적) → 가격 → 정렬 */}
             {['product', 'brand'].map(key => {
               const group = FILTER_GROUPS.find(g => g.key === key)
+              // 브랜드: 제품 선택 시 해당 카테고리 브랜드로 동적 교체
+              const options = key === 'brand' && filters.product && PRODUCT_BRANDS[filters.product]
+                ? PRODUCT_BRANDS[filters.product]
+                : group.options
               return (
                 <div key={key} className={styles.filterRow}>
                   <span className={styles.filterLabel}>{group.label}</span>
                   <div className={styles.filterChips}>
-                    {group.options.map(opt => (
+                    {options.map(opt => (
                       <button
                         key={opt}
                         className={`${styles.catTab} ${filters[key] === opt ? styles.catTabActive : ''}`}
                         onClick={() => setFilters(prev => {
                           const next = { ...prev, [key]: prev[key] === opt ? null : opt }
-                          if (key === 'product') next.subtype = null
+                          if (key === 'product') { next.subtype = null; next.brand = null }
                           return next
                         })}
                       >
