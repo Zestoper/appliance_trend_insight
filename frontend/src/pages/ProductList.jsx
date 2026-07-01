@@ -140,6 +140,7 @@ export default function ProductList() {
 
         <FilterBar
           products={products}
+          category={category}
           onSearchChange={setSearchTerm}
           onFilterChange={setFilterState}
           onSortChange={setSort}

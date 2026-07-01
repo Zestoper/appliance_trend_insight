@@ -29,6 +29,27 @@ function normalizeBrand(raw) {
   return BRAND_NORMALIZE[raw] ?? raw
 }
 
+// 카테고리별 고정 대표 브랜드 목록 (제품 결과와 무관하게 항상 표시)
+const CATEGORY_BRANDS = {
+  '에어컨':       ['삼성', 'LG', '캐리어', '위니아'],
+  '냉장고':       ['삼성', 'LG', '위니아'],
+  '세탁기':       ['삼성', 'LG'],
+  '건조기':       ['삼성', 'LG', '린나이'],
+  'TV':           ['삼성', 'LG', '소니'],
+  '선풍기':       ['삼성', 'LG', '다이슨'],
+  '공기청정기':   ['삼성', 'LG', '위닉스', '코웨이', '다이슨'],
+  '제습기':       ['삼성', 'LG', '위닉스'],
+  '가습기':       ['삼성', 'LG', '위닉스', '다이슨', '필립스'],
+  '로봇청소기':   ['삼성', 'LG', '로보락', '에코백스', '샤오미'],
+  '식기세척기':   ['삼성', 'LG', '보쉬'],
+  '에어프라이어': ['필립스', '테팔', '쿠쿠', '삼성', 'LG'],
+  '전자레인지':   ['삼성', 'LG'],
+  '전기밥솥':     ['쿠쿠', '쿠첸', '삼성', 'LG'],
+  '헤어드라이어': ['다이슨', '필립스', '파나소닉', '샤오미', 'LG', '삼성'],
+  '청소기':       ['다이슨', '삼성', 'LG', '로보락', '필립스'],
+  '정수기':       ['코웨이', '청호나이스', '쿠쿠', '삼성', 'LG'],
+}
+
 const PRICE_OPTIONS = [
   { label: '전체',          min: 0,       max: Infinity },
   { label: '10만원 이하',   min: 0,       max: 100000 },
@@ -46,7 +67,7 @@ const SORT_OPTIONS = [
   { label: '별점순',      api: 'sim',  client: 'score' },
 ]
 
-export default function FilterBar({ products, onSearchChange, onFilterChange, onSortChange }) {
+export default function FilterBar({ products, category, onSearchChange, onFilterChange, onSortChange }) {
   const [search, setSearch] = useState('')
   // css-skill #1: 평소엔 아이콘만(40px 원), 클릭하면 너비 확장
   const [searchExpanded, setSearchExpanded] = useState(false)
@@ -57,9 +78,11 @@ export default function FilterBar({ products, onSearchChange, onFilterChange, on
   const barRef = useRef(null)
   const searchInputRef = useRef(null)
 
-  const brands = [...new Set(
-    products.map(p => normalizeBrand(p.brand)).filter(b => b && MAJOR_BRANDS.has(b))
-  )].sort()
+  // 카테고리별 고정 목록 우선, 없으면 제품 결과에서 대표 브랜드만 추출
+  const brands = CATEGORY_BRANDS[category]
+    ?? [...new Set(
+      products.map(p => normalizeBrand(p.brand)).filter(b => b && MAJOR_BRANDS.has(b))
+    )].sort()
 
   // 검색어 debounce: 타이핑 멈춘 뒤 400ms 후 부모에 전달
   useEffect(() => {
