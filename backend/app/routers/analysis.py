@@ -594,34 +594,42 @@ async def get_recommend(query: str = Query(..., min_length=1)):
 @router.get("/api/report")
 async def get_report(query: str = Query(..., min_length=1)):
     STOPWORDS = {"이하", "이상", "포함", "이내", "기준", "용", "형"}
-    raw = [w for w in query.split() if re.search(r"[가-힣]", w) and w not in STOPWORDS]
+    # 단어 분리 후 후행 구두점 제거 (예: "일반배관," → "일반배관")
+    raw = [re.sub(r'[^\w가-힣A-Za-z0-9]+$', '', w) for w in query.split()]
+    raw = [w for w in raw if re.search(r"[가-힣]", w) and w not in STOPWORDS and w]
     seen = []
     for w in raw:
         if not any(w in s or s in w for s in seen):
             seen.append(w)
     short_query = " ".join(seen[:3]) if seen else " ".join(query.split()[:2])
     dl_alt = " ".join(seen[2:4]) if len(seen) >= 4 else short_query
+    # 최후 폴백: 첫 번째 단어만 (보통 브랜드명 또는 제품 카테고리)
+    dl_simple = seen[0] if seen else short_query
 
     results = await asyncio.gather(
         get_news(short_query, display=5),
         get_datalab(dl_alt),
         get_datalab(short_query),
+        get_datalab(dl_simple),
         youtube_search(query, max_results=4),
         get_ppomppu(short_query),
         return_exceptions=True,
     )
 
-    fallbacks = [{"items": []}, {"data": []}, {"data": []}, {"items": []}, {"items": []}]
-    news, dl_alt_r, dl_main_r, youtube, ppomppu = [
+    fallbacks = [{"items": []}, {"data": []}, {"data": []}, {"data": []}, {"items": []}, {"items": []}]
+    news, dl_alt_r, dl_main_r, dl_simple_r, youtube, ppomppu = [
         r if not isinstance(r, Exception) else fb
         for r, fb in zip(results, fallbacks)
     ]
+    # 데이터 포인트가 가장 많은 쿼리 결과 선택 (최소 2개 이상이어야 차트 렌더 가능)
     if len(dl_alt_r.get("data", [])) >= 10:
-        datalab = dl_alt_r
-        datalab_query = dl_alt
+        datalab, datalab_query = dl_alt_r, dl_alt
+    elif len(dl_main_r.get("data", [])) >= 2:
+        datalab, datalab_query = dl_main_r, short_query
+    elif len(dl_simple_r.get("data", [])) >= 2:
+        datalab, datalab_query = dl_simple_r, dl_simple
     else:
-        datalab = dl_main_r
-        datalab_query = short_query
+        datalab, datalab_query = dl_main_r, short_query
 
     return {"news": news, "datalab": datalab, "youtube": youtube, "ppomppu": ppomppu, "datalab_query": datalab_query}
 

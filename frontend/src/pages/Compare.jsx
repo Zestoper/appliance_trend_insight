@@ -6,7 +6,17 @@ import { useAuth } from '../context/AuthContext'
 import { API_BASE } from '../config'
 
 function MiniChart({ data, uid }) {
-  if (!data || data.length < 2) return <p className={styles.noData}>데이터 없음</p>
+  if (!data || data.length === 0) return <p className={styles.noData}>데이터 없음</p>
+  if (data.length === 1) return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 0' }}>
+      <svg width="36" height="36" viewBox="0 0 36 36">
+        <circle cx="18" cy="18" r="7" fill="#6366f1" opacity="0.85" />
+      </svg>
+      <span style={{ fontSize: 12, color: 'var(--text-muted, #8a93b2)' }}>
+        데이터 1건 ({data[0].period?.slice(5, 10)})
+      </span>
+    </div>
+  )
 
   const W = 300, H = 80, padX = 8, padTop = 18, padBot = 6
   const max = Math.max(...data.map(d => d.ratio), 1)
