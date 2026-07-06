@@ -107,7 +107,6 @@ const B2B_ITEMS = [
     label: '요금제',
     desc: '실버·골드·플래티넘 등급 안내 및 결제',
     path: '/b2b/pricing',
-    badge: 'NEW',
     icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <rect x="2" y="5" width="20" height="14" rx="2" />
