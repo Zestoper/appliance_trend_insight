@@ -103,17 +103,6 @@ const B2B_ITEMS = [
       </svg>
     ),
   },
-  {
-    label: '요금제',
-    desc: '실버·골드·플래티넘 등급 안내 및 결제',
-    path: '/b2b/pricing',
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="2" y="5" width="20" height="14" rx="2" />
-        <line x1="2" y1="10" x2="22" y2="10" />
-      </svg>
-    ),
-  },
 ]
 
 const _ALL_APPLIANCE_TERMS = [
@@ -339,6 +328,14 @@ export default function Navbar() {
                 <span className={`${styles.navCaret} ${openDropdown === 'b2b' ? styles.navCaretOpen : ''}`}>▾</span>
               </li>
             )}
+            {mode === 'b2b' && (
+              <li
+                className={styles.navItem}
+                onClick={() => { setOpenDropdown(null); navigate('/b2b/pricing') }}
+              >
+                요금제
+              </li>
+            )}
           </ul>
 
           <div className={styles.navRight}>
@@ -553,6 +550,16 @@ export default function Navbar() {
                       ))}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* 요금제 (b2b 모드일 때) */}
+              {mode === 'b2b' && (
+                <div className={styles.mobileSection}>
+                  <button className={styles.mobileSectionHead}
+                    onClick={() => { setMenuOpen(false); navigate('/b2b/pricing') }}>
+                    요금제
+                  </button>
                 </div>
               )}
 
