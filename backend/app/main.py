@@ -22,6 +22,7 @@ from app.routers.admin import router as admin_router
 from app.routers.user import router as user_router
 from app.routers.analysis import router as analysis_router
 from app.routers.b2b import router as b2b_router
+from app.routers.payments import router as payments_router
 
 if TYPE_CHECKING:
     from app.rag_service import RAGService
@@ -91,6 +92,7 @@ app.include_router(admin_router)
 app.include_router(user_router)
 app.include_router(analysis_router)
 app.include_router(b2b_router)
+app.include_router(payments_router)
 
 
 @app.get("/")

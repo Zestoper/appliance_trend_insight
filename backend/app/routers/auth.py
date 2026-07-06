@@ -125,6 +125,9 @@ async def login(body: LoginRequest):
     else:
         profile = await fetchone("SELECT company_name FROM user_b2b_profiles WHERE user_id = %s", (user["user_id"],))
         extra["company_name"] = profile["company_name"] if profile else ""
+        from app.database import get_user_tier
+        extra["tier"] = await get_user_tier(user["user_id"])
+        extra["tier_expires_at"] = user["tier_expires_at"].isoformat() if user.get("tier_expires_at") else None
 
     return {
         "token":     make_token(user["user_id"], user["user_type"], role=user.get("role", "user")),

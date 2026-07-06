@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { API_BASE } from '../config';
+import { API_BASE, hasTier } from '../config';
 import s from '../styles/B2BPrint.module.css';
 
 /* ── 공통 유틸 ── */
@@ -839,6 +839,7 @@ export default function B2BPrint() {
   const didPrint = useRef(false);
 
   const isB2BActive = (user?.user_type === 'b2b' && user?.status === 'active') || user?.role === 'admin';
+  const hasPlatinum = hasTier(user?.tier ?? 'free', 'platinum') || user?.role === 'admin';
 
   /* body overflow를 auto로 바꿔 print 시 전체 콘텐츠가 출력되게 함 */
   useEffect(() => {
@@ -848,7 +849,7 @@ export default function B2BPrint() {
   }, []);
 
   useEffect(() => {
-    if (!isB2BActive || !token || activePages.length === 0) { setLoading(false); return; }
+    if (!isB2BActive || !hasPlatinum || !token || activePages.length === 0) { setLoading(false); return; }
     const headers = { Authorization: `Bearer ${token}` };
     const enc = encodeURIComponent(category);
 
@@ -867,7 +868,7 @@ export default function B2BPrint() {
         setLoading(false);
       })
       .catch(() => { setError('데이터를 불러오지 못했습니다'); setLoading(false); });
-  }, [isB2BActive, token, category, period, sectionsParam]);
+  }, [isB2BActive, hasPlatinum, token, category, period, sectionsParam]);
 
   useEffect(() => {
     if (!loading && !error && !didPrint.current && Object.keys(dataMap).length > 0) {
@@ -888,6 +889,15 @@ export default function B2BPrint() {
       <div className={s.center}>
         <p>B2B 계정으로 로그인이 필요합니다</p>
         <button onClick={() => navigate('/login')}>로그인</button>
+      </div>
+    );
+  }
+
+  if (!hasPlatinum) {
+    return (
+      <div className={s.center}>
+        <p>플래티넘 등급부터 인쇄를 이용할 수 있어요</p>
+        <button onClick={() => navigate('/b2b/pricing')}>플래티넘 구독하기</button>
       </div>
     );
   }

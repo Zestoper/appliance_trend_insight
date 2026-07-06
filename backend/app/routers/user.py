@@ -19,11 +19,14 @@ async def get_my_profile(payload: dict = Depends(get_current_user)):
     from app.database import fetchone
     user_id = int(payload["sub"])
     user = await fetchone(
-        "SELECT user_id, email, user_type, role, status, created_at FROM users WHERE user_id = %s",
+        "SELECT user_id, email, user_type, role, status, created_at, tier, tier_expires_at FROM users WHERE user_id = %s",
         (user_id,),
     )
     if not user:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
+
+    from app.database import get_user_tier
+    effective_tier = await get_user_tier(user_id)
 
     profile = {}
     if user["user_type"] == "b2c":
@@ -42,12 +45,14 @@ async def get_my_profile(payload: dict = Depends(get_current_user)):
             }
 
     return {
-        "user_id":    user["user_id"],
-        "email":      user["email"],
-        "user_type":  user["user_type"],
-        "role":       user.get("role", "user"),
-        "status":     user.get("status", "active"),
-        "created_at": str(user["created_at"]) if user.get("created_at") else None,
+        "user_id":         user["user_id"],
+        "email":           user["email"],
+        "user_type":       user["user_type"],
+        "role":            user.get("role", "user"),
+        "status":          user.get("status", "active"),
+        "created_at":      str(user["created_at"]) if user.get("created_at") else None,
+        "tier":            effective_tier,
+        "tier_expires_at": user["tier_expires_at"].isoformat() if user.get("tier_expires_at") else None,
         **profile,
     }
 

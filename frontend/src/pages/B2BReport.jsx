@@ -4,8 +4,9 @@ import Navbar from '../components/common/Navbar';
 import B2BSidebar from '../components/common/B2BSidebar';
 import B2BPrintModal from '../components/common/B2BPrintModal';
 import { useAuth } from '../context/AuthContext';
+import TierPaywall from '../components/common/TierPaywall';
 import s from '../styles/B2BReport.module.css';
-import { API_BASE } from '../config';
+import { API_BASE, hasTier } from '../config';
 
 const PERIODS = [
   { label: '1개월', value: '1m' },
@@ -87,10 +88,12 @@ export default function B2BReport() {
   const [marketModal, setMarketModal]   = useState(false);
 
   const isB2BActive = (user?.user_type === 'b2b' && user?.status === 'active') || user?.role === 'admin';
+  const hasGold = hasTier(user?.tier ?? 'free', 'gold') || user?.role === 'admin';
+  const hasPlatinum = hasTier(user?.tier ?? 'free', 'platinum') || user?.role === 'admin';
   const loadData = () => setRefreshTick(t => t + 1);
 
   useEffect(() => {
-    if (!isB2BActive) return;
+    if (!isB2BActive || !hasGold) return;
     setLoading(true); setError(null); setData(null); setPriceData(null); setForecastData(null);
     const headers = { Authorization: `Bearer ${token}` };
     Promise.all([
@@ -103,15 +106,19 @@ export default function B2BReport() {
         setFetchedAt(new Date()); setLoading(false);
       })
       .catch(() => { setError('서버에 연결할 수 없습니다'); setLoading(false); });
-  }, [category, period, isB2BActive, refreshTick]);
+  }, [category, period, isB2BActive, hasGold, refreshTick]);
 
   useEffect(() => {
-    if (!isB2BActive) return;
+    if (!isB2BActive || !hasGold) return;
     fetch(`${API_BASE}/api/b2b/prediction-accuracy?days=90`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json()).then(setAccuracy).catch(() => {});
-  }, [isB2BActive, token]);
+  }, [isB2BActive, hasGold, token]);
 
   if (!isB2BActive) return <AccessDenied user={user} navigate={navigate} />;
+  if (!hasGold) return (
+    <TierPaywall required="gold" title="골드 등급부터 AI 전략 리포트를 열람할 수 있어요"
+      desc="매입 확대·재고 전략·판매 시점을 직접 지시하는 AI 의사결정 리포트입니다." />
+  );
 
   const report  = data?.report;
   const metrics = data?.metrics;
@@ -983,7 +990,7 @@ export default function B2BReport() {
             periods={PERIODS} period={period} setPeriod={setPeriod}
             dataSources={['네이버 DataLab', 'Groq LLM', 'RAG (구매 패턴)', '기상청 ASOS (공공데이터)']}
             onRefresh={loadData} loading={loading} fetchedAt={fetchedAt}
-            onDownload={() => setPrintModal(true)}
+            onDownload={() => hasPlatinum ? setPrintModal(true) : navigate('/b2b/pricing')}
           />
         </div>
       </div>

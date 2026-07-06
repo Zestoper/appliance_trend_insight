@@ -70,6 +70,8 @@ export default function Login() {
                 email,
                 role: data.role || 'user',
                 status: data.status || 'active',
+                tier: data.tier || 'free',
+                tier_expires_at: data.tier_expires_at || null,
             });
             navigate(data.role === 'admin' ? '/admin' : '/');
         } catch {

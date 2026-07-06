@@ -19,6 +19,9 @@ import B2BPrice from './pages/B2BPrice'
 import B2BReport from './pages/B2BReport'
 import B2BForecast from './pages/B2BForecast'
 import B2BPrint from './pages/B2BPrint'
+import B2BPricing from './pages/B2BPricing'
+import PaymentSuccess from './pages/PaymentSuccess'
+import PaymentFail from './pages/PaymentFail'
 import Chat from './pages/Chat'
 
 export default function App() {
@@ -46,6 +49,9 @@ export default function App() {
             <Route path="/b2b/report"        element={<B2BReport />} />
             <Route path="/b2b/forecast"      element={<B2BForecast />} />
             <Route path="/b2b/print"         element={<B2BPrint />} />
+            <Route path="/b2b/pricing"       element={<B2BPricing />} />
+            <Route path="/b2b/payments/success" element={<PaymentSuccess />} />
+            <Route path="/b2b/payments/fail"     element={<PaymentFail />} />
             <Route path="/chat"              element={<Chat />} />
           </Routes>
         </BrowserRouter>

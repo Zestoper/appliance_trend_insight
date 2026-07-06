@@ -5,6 +5,39 @@
 
 ---
 
+## 배포
+
+| 구분 | URL | 플랫폼 |
+|------|-----|--------|
+| **서비스 (Frontend)** | https://appliance-trend-insight-henna.vercel.app | Vercel |
+| **API (Backend)** | https://appliance-trend-insight-yn71.onrender.com | Render (Docker) |
+| **DB** | Supabase (PostgreSQL + pgvector) | Supabase |
+
+> Render 무료 플랜은 15분 비활동 시 서버가 슬립되며, 첫 요청 시 30~50초 대기가 발생할 수 있습니다.
+
+### Docker로 배포하기 (Backend)
+
+`backend/Dockerfile`을 기준으로 Render 등 컨테이너 기반 플랫폼에 배포합니다.
+
+```bash
+cd backend
+docker build -t appliance-trend-insight-backend .
+docker run -p 8000:8000 --env-file .env appliance-trend-insight-backend
+```
+
+Render에서 새 Web Service 생성 시 Root Directory를 `backend`로, Runtime을 `Docker`로 지정하면 `backend/Dockerfile`이 자동으로 사용됩니다. `.env`에 정의된 환경 변수는 Render 대시보드의 Environment 설정에 동일하게 등록해야 합니다.
+
+### Frontend 배포 (Vercel)
+
+`frontend/vercel.json`의 SPA 라우팅 설정을 사용하며, 빌드된 백엔드 URL을 `VITE_API_BASE` 환경 변수로 주입합니다.
+
+```env
+# frontend/.env.production
+VITE_API_BASE=https://your-backend-name.onrender.com
+```
+
+---
+
 ## 주요 기능
 
 ### B2B 분석 대시보드

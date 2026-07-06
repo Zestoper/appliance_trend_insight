@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/common/Navbar'
 import B2BSidebar from '../components/common/B2BSidebar'
 import B2BPrintModal from '../components/common/B2BPrintModal'
+import BlurGate from '../components/common/BlurGate'
 import { useAuth } from '../context/AuthContext'
 import s from '../styles/B2BDashboard.module.css'
-import { API_BASE } from '../config'
+import { API_BASE, hasTier } from '../config'
 
 const PERIODS = [
   { label: '1개월', value: '1m' },
@@ -231,7 +232,7 @@ function ComplaintSourceModal({ tag, product, sources, onClose }) {
 }
 
 /* ── Keyword section (관심 / 불만) ── */
-function KeywordSection({ title, items, isComplaint, token, category }) {
+function KeywordSection({ title, items, isComplaint, token, category, tier }) {
   const [selected, setSelected] = useState(0)
   const [modal, setModal] = useState(null)
   const [reviewData, setReviewData] = useState(null)
@@ -410,6 +411,7 @@ function KeywordSection({ title, items, isComplaint, token, category }) {
 
       {/* ── 불만 키워드 상세 ── */}
       {isComp && tags[sel] && (
+        <BlurGate tier={tier} required="silver">
         <div className={s.kwComplaintDetail}>
           <div className={s.kwQuoteCol}>
             {selBrands.length > 0 && (
@@ -480,6 +482,7 @@ function KeywordSection({ title, items, isComplaint, token, category }) {
             </div>
           </div>
         </div>
+        </BlurGate>
       )}
 
       {/* ── 관심 키워드 상세 ── */}
@@ -576,6 +579,8 @@ export default function B2BDashboard() {
   const [printModal, setPrintModal] = useState(false)
 
   const isB2BActive = (user?.user_type === 'b2b' && user?.status === 'active') || user?.role === 'admin'
+  const hasPlatinum = hasTier(user?.tier ?? 'free', 'platinum') || user?.role === 'admin'
+  const effectiveTier = user?.role === 'admin' ? 'platinum' : (user?.tier ?? 'free')
   const [refreshTick, setRefreshTick] = useState(0)
 
   const loadData = () => setRefreshTick(t => t + 1)
@@ -787,7 +792,7 @@ export default function B2BDashboard() {
             {complaints.length > 0 && (
               <div className={s.section}>
                 <SectionHead num="04" title="트렌드 분석 · 소비자 불만 요인" />
-                <KeywordSection title="불만 키워드" items={complaints} isComplaint={true} />
+                <KeywordSection title="불만 키워드" items={complaints} isComplaint={true} tier={effectiveTier} />
 
                 {/* 불만 빈도 분석 */}
                 {complaintSummary.length > 0 && (
@@ -851,6 +856,7 @@ export default function B2BDashboard() {
             {report?.summary && (
               <div className={s.section}>
                 <SectionHead num="06" title="AI 종합 분석" />
+                <BlurGate tier={effectiveTier} required="silver">
                 <div className={s.card}>
                   {typeof report.summary === 'object' ? (
                     <div className={s.aiReport}>
@@ -916,6 +922,7 @@ export default function B2BDashboard() {
                     </div>
                   )}
                 </div>
+                </BlurGate>
               </div>
             )}
             <div className={s.reportFooter}>
@@ -931,7 +938,7 @@ export default function B2BDashboard() {
             periods={PERIODS} period={period} setPeriod={setPeriod}
             dataSources={['네이버 DataLab', 'Groq LLM', 'RAG (구매 패턴)', '소비자 불만 데이터']}
             onRefresh={loadData} loading={loading} fetchedAt={fetchedAt}
-            onDownload={() => setPrintModal(true)}
+            onDownload={() => hasPlatinum ? setPrintModal(true) : navigate('/b2b/pricing')}
           />
         </div>
       </div>

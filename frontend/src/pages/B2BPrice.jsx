@@ -4,8 +4,9 @@ import Navbar from '../components/common/Navbar';
 import B2BSidebar from '../components/common/B2BSidebar';
 import B2BPrintModal from '../components/common/B2BPrintModal';
 import { useAuth } from '../context/AuthContext';
+import TierPaywall from '../components/common/TierPaywall';
 import s from '../styles/B2BPrice.module.css';
-import { API_BASE } from '../config';
+import { API_BASE, hasTier } from '../config';
 
 const BRAND_COLORS = ['#6366f1', '#a855f7', '#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
@@ -149,9 +150,11 @@ export default function B2BPrice() {
   const [alertSaving, setAlertSaving] = useState(false);
 
   const isB2BActive = (user?.user_type === 'b2b' && user?.status === 'active') || user?.role === 'admin';
+  const hasGold = hasTier(user?.tier ?? 'free', 'gold') || user?.role === 'admin';
+  const hasPlatinum = hasTier(user?.tier ?? 'free', 'platinum') || user?.role === 'admin';
 
   const loadData = () => {
-    if (!isB2BActive) return;
+    if (!isB2BActive || !hasGold) return;
     setLoading(true);
     setError(null);
     setData(null);
@@ -163,7 +166,7 @@ export default function B2BPrice() {
       .catch(() => { setError('서버에 연결할 수 없습니다'); setLoading(false); });
   };
 
-  useEffect(() => { loadData(); }, [category, isB2BActive]);
+  useEffect(() => { loadData(); }, [category, isB2BActive, hasGold]);
 
   const loadAlerts = async () => {
     try {
@@ -196,6 +199,10 @@ export default function B2BPrice() {
   };
 
   if (!isB2BActive) return <AccessDenied user={user} navigate={navigate} />;
+  if (!hasGold) return (
+    <TierPaywall required="gold" title="골드 등급부터 가격 분석을 열람할 수 있어요"
+      desc="카테고리·브랜드별 실시간 가격 분포와 AI 가격 인사이트를 제공합니다." />
+  );
 
   // Normalize data fields — API may return summary or flat fields
   const sum = data?.summary ?? data;
@@ -521,7 +528,7 @@ export default function B2BPrice() {
             category={category} setCategory={setCategory}
             dataSources={['네이버 쇼핑 API', 'Danawa', 'Groq LLM']}
             onRefresh={loadData} loading={loading} fetchedAt={fetchedAt}
-            onDownload={() => setPrintModal(true)}
+            onDownload={() => hasPlatinum ? setPrintModal(true) : navigate('/b2b/pricing')}
           />
         </div>
       </div>

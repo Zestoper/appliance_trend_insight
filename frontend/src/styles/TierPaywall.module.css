@@ -1,0 +1,59 @@
+.page {
+  min-height: 100vh;
+  background: var(--b2b-page);
+}
+
+.box {
+  max-width: 440px;
+  margin: 0 auto;
+  padding: 120px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+}
+
+.icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--b2b-card);
+  color: var(--b2b-text);
+  box-shadow: var(--b2b-shadow);
+  margin-bottom: 6px;
+}
+
+.badge {
+  font-size: 12px;
+  font-weight: 700;
+  color: #6366f1;
+  margin: 0;
+}
+
+.title {
+  font-size: 19px;
+  font-weight: 800;
+  color: var(--b2b-text);
+  margin: 0;
+}
+
+.desc {
+  font-size: 13px;
+  color: var(--b2b-text3);
+  margin: 0 0 8px;
+}
+
+.btn {
+  padding: 12px 22px;
+  border-radius: 12px;
+  border: none;
+  background: #6366f1;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}

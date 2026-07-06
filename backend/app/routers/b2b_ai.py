@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 from app.routers.b2b_utils import *
+from app.auth import require_tier
 
 router = APIRouter()
 
@@ -71,7 +72,7 @@ _GENERIC_FALLBACK = {
 
 
 @router.get("/ai-report")
-async def get_ai_report(category: str = Query(..., min_length=1), period: str = "3m", _: dict = Depends(require_b2b)):
+async def get_ai_report(category: str = Query(..., min_length=1), period: str = "3m", _: dict = Depends(require_tier("gold"))):
     import json as _json
     from app.dependencies import get_rag_optional
 
@@ -578,7 +579,7 @@ async def get_ai_report(category: str = Query(..., min_length=1), period: str = 
 
 
 @router.get("/demand-forecast")
-async def get_demand_forecast(category: str = Query(..., min_length=1), period: str = "3m", _: dict = Depends(require_b2b)):
+async def get_demand_forecast(category: str = Query(..., min_length=1), period: str = "3m", _: dict = Depends(require_tier("gold"))):
     # /ai-report가 동일 카테고리·기간으로 동시에 이 함수를 직접 호출해 추세를 맞추는 경우가 있어,
     # 무거운 Prophet/XGBoost 재계산 없이 결과를 재사용할 수 있도록 전체 응답을 캐시한다.
     _fc_full_ck = f"forecast-full:{_CACHE_VER}:{category}:{period}"

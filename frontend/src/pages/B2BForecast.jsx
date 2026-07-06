@@ -4,8 +4,9 @@ import Navbar from '../components/common/Navbar';
 import B2BSidebar from '../components/common/B2BSidebar';
 import B2BPrintModal from '../components/common/B2BPrintModal';
 import { useAuth } from '../context/AuthContext';
+import TierPaywall from '../components/common/TierPaywall';
 import s from '../styles/B2BForecast.module.css';
-import { API_BASE } from '../config';
+import { API_BASE, hasTier } from '../config';
 
 const PERIODS = [
   { label: '1개월', value: '1m' },
@@ -198,10 +199,12 @@ export default function B2BForecast() {
   const [printModal, setPrintModal] = useState(false);
 
   const isB2BActive = (user?.user_type === 'b2b' && user?.status === 'active') || user?.role === 'admin';
+  const hasGold = hasTier(user?.tier ?? 'free', 'gold') || user?.role === 'admin';
+  const hasPlatinum = hasTier(user?.tier ?? 'free', 'platinum') || user?.role === 'admin';
   const loadData = () => setRefreshTick(t => t + 1);
 
   useEffect(() => {
-    if (!isB2BActive) return;
+    if (!isB2BActive || !hasGold) return;
     setLoading(true); setError(null); setData(null);
     fetch(`${API_BASE}/api/b2b/demand-forecast?category=${encodeURIComponent(category)}&period=${period}`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -212,9 +215,13 @@ export default function B2BForecast() {
         setData(d); setFetchedAt(new Date()); setLoading(false);
       })
       .catch(() => { setError('서버에 연결할 수 없습니다'); setLoading(false); });
-  }, [category, period, isB2BActive, refreshTick]);
+  }, [category, period, isB2BActive, hasGold, refreshTick]);
 
   if (!isB2BActive) return <AccessDenied user={user} navigate={navigate} />;
+  if (!hasGold) return (
+    <TierPaywall required="gold" title="골드 등급부터 미래 예측을 열람할 수 있어요"
+      desc="Prophet + XGBoost 앙상블 모델로 향후 수요 피크를 예측합니다." />
+  );
 
   const history  = data?.history  ?? [];
   const forecast = data?.forecast ?? [];
@@ -629,7 +636,7 @@ export default function B2BForecast() {
               ...[...new Set((data?.data_sources ?? []).map(ds => ds.name))].map(n => `${n} (공공데이터)`),
             ]}
             onRefresh={loadData} loading={loading} fetchedAt={fetchedAt}
-            onDownload={() => setPrintModal(true)}
+            onDownload={() => hasPlatinum ? setPrintModal(true) : navigate('/b2b/pricing')}
           />
         </div>
       </div>

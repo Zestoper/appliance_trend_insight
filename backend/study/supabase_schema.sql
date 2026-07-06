@@ -9,8 +9,14 @@ CREATE TABLE IF NOT EXISTS users (
   status        VARCHAR(20)  NOT NULL DEFAULT 'active' CHECK (status IN ('pending', 'active', 'rejected')),
   is_active     BOOLEAN      DEFAULT TRUE,
   created_at    TIMESTAMPTZ  DEFAULT NOW(),
-  role          VARCHAR(20)  NOT NULL DEFAULT 'user'
+  role          VARCHAR(20)  NOT NULL DEFAULT 'user',
+  tier             VARCHAR(10) NOT NULL DEFAULT 'free' CHECK (tier IN ('free','silver','gold','platinum')),
+  tier_expires_at  TIMESTAMPTZ
 );
+-- 기존에 생성된 테이블에 새 컬럼을 추가할 때 (Supabase SQL Editor에서 실행):
+ALTER TABLE users ADD COLUMN IF NOT EXISTS tier VARCHAR(10) NOT NULL DEFAULT 'free'
+  CHECK (tier IN ('free','silver','gold','platinum'));
+ALTER TABLE users ADD COLUMN IF NOT EXISTS tier_expires_at TIMESTAMPTZ;
 
 CREATE TABLE IF NOT EXISTS user_b2c_profiles (
   profile_id BIGSERIAL PRIMARY KEY,
@@ -105,6 +111,19 @@ CREATE TABLE IF NOT EXISTS product_price_history (
   created_at    TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE (product_key, snapshot_date, snapshot_hour)
 );
+
+CREATE TABLE IF NOT EXISTS payments (
+  payment_id   BIGSERIAL PRIMARY KEY,
+  user_id      BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+  order_id     VARCHAR(64) NOT NULL UNIQUE,
+  payment_key  VARCHAR(200),
+  tier         VARCHAR(10) NOT NULL CHECK (tier IN ('silver','gold','platinum')),
+  amount       INT NOT NULL,
+  status       VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'failed', 'canceled')),
+  created_at   TIMESTAMPTZ DEFAULT NOW(),
+  approved_at  TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_payments_user ON payments(user_id);
 
 CREATE TABLE IF NOT EXISTS b2b_prediction_log (
   id               SERIAL PRIMARY KEY,

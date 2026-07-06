@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from app.routers.b2b_utils import *
+from app.auth import require_tier
 
 router = APIRouter()
 
@@ -11,7 +12,7 @@ _WATCH_CATEGORIES = [
 
 
 @router.get("/price")
-async def get_price_intelligence(category: str = Query(..., min_length=1), _: dict = Depends(require_b2b)):
+async def get_price_intelligence(category: str = Query(..., min_length=1), _: dict = Depends(require_tier("gold"))):
     import json as _json
     from app.database import fetchall, execute as db_exec
 
@@ -217,7 +218,7 @@ async def get_price_intelligence(category: str = Query(..., min_length=1), _: di
 async def export_report(
     category: str = Query(..., min_length=1),
     period: str = "3m",
-    _: dict = Depends(require_b2b),
+    _: dict = Depends(require_tier("platinum")),
 ):
     """AI 전략 리포트 데이터를 엑셀(.xlsx)로 다운로드"""
     import io

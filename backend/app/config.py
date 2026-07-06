@@ -26,6 +26,17 @@ KEPCO_API_KEY       = os.getenv("KEPCO_API_KEY", "")        # 한전 bigdata.kep
 GROQ_PRIMARY_MODEL   = os.getenv("GROQ_PRIMARY_MODEL",   "llama-3.3-70b-versatile")
 GROQ_FALLBACK_MODEL  = os.getenv("GROQ_FALLBACK_MODEL",  "llama-3.1-8b-instant")
 GROQ_CACHE_TTL       = int(os.getenv("GROQ_CACHE_TTL",   "14400"))  # 4시간
+
+# 토스페이먼츠 (결제창 방식 — 단건 결제, 자동 정기결제 아님)
+TOSS_CLIENT_KEY = os.getenv("TOSS_CLIENT_KEY", "")
+TOSS_SECRET_KEY = os.getenv("TOSS_SECRET_KEY", "")
+# 개발용 우회: true면 토스 결제창/승인 API를 거치지 않고 바로 등급을 지급한다 (SKIP_EMAIL_VERIFICATION과 동일한 패턴)
+SKIP_PAYMENT_VERIFICATION = os.getenv("SKIP_PAYMENT_VERIFICATION", "false").strip().lower() == "true"
+
+# B2B 유료 등급 (월 단위 단건 결제, 수동 갱신)
+TIER_PRICES = {"silver": 2900, "gold": 5900, "platinum": 9900}
+TIER_NAMES  = {"silver": "실버", "gold": "골드", "platinum": "플래티넘"}
+
 NAVER_HEADERS = {
     "X-Naver-Client-Id": NAVER_CLIENT_ID,
     "X-Naver-Client-Secret": NAVER_CLIENT_SECRET,

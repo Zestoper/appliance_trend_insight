@@ -599,7 +599,8 @@ async def get_b2b_dashboard(category: str = Query(..., min_length=1), period: st
         _GROQ_CACHE[_ck] = (_time.time() + _GROQ_TTL, result_no_complaints)
 
     # Supabase DB에 전체 결과 저장 (로컬 실행 시 Render용 캐시 자동 생성)
-    if trend_data:
+    # groq_err가 있으면 실패한 market_report가 7일짜리 캐시로 굳어버리므로 저장하지 않음
+    if trend_data and not groq_err:
         try:
             await _set_db_cache(_db_key, result)
         except Exception as _dce:

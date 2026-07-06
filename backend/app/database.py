@@ -1,6 +1,6 @@
 import os
 import re
-from datetime import date as _date
+from datetime import date as _date, datetime, timedelta, timezone
 import asyncpg
 from dotenv import load_dotenv
 
@@ -152,3 +152,49 @@ async def save_ai_report(data_id: int, report_type: str, content: str, model_use
         "VALUES (%s, %s, %s, %s) RETURNING report_id",
         (data_id, report_type, content, model_used),
     )
+
+
+async def get_user_tier(user_id: int) -> str:
+    """만료된 등급은 free로 취급 (배치 강등 없이 조회 시점에 지연 계산)."""
+    row = await fetchone("SELECT tier, tier_expires_at FROM users WHERE user_id = %s", (user_id,))
+    if not row or not row["tier"]:
+        return "free"
+    if row["tier"] != "free" and row["tier_expires_at"]:
+        expires = row["tier_expires_at"]
+        if expires.tzinfo is None:
+            expires = expires.replace(tzinfo=timezone.utc)
+        if expires < datetime.now(timezone.utc):
+            return "free"
+    return row["tier"]
+
+
+async def create_payment_order(user_id: int, order_id: str, tier: str, amount: int) -> int:
+    return await _execute_returning(
+        "INSERT INTO payments (user_id, order_id, tier, amount, status) "
+        "VALUES (%s, %s, %s, %s, 'pending') RETURNING payment_id",
+        (user_id, order_id, tier, amount),
+    )
+
+
+async def get_payment_by_order(order_id: str) -> dict | None:
+    return await fetchone("SELECT * FROM payments WHERE order_id = %s", (order_id,))
+
+
+async def mark_payment_paid(order_id: str, payment_key: str) -> dict:
+    """결제 확정: payments 상태 갱신 + users.tier/tier_expires_at 30일 연장."""
+    payment = await get_payment_by_order(order_id)
+    if not payment:
+        raise ValueError("주문을 찾을 수 없습니다")
+    expires_at = datetime.now(timezone.utc) + timedelta(days=30)
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            await conn.execute(
+                _to_pg("UPDATE payments SET status='paid', payment_key=%s, approved_at=NOW() WHERE order_id=%s"),
+                *_fix_args((payment_key, order_id)),
+            )
+            await conn.execute(
+                _to_pg("UPDATE users SET tier=%s, tier_expires_at=%s WHERE user_id=%s"),
+                *_fix_args((payment["tier"], expires_at, payment["user_id"])),
+            )
+    return {"tier": payment["tier"], "tier_expires_at": expires_at.isoformat()}

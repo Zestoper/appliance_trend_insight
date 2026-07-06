@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Navbar from '../components/common/Navbar'
 import s from '../styles/MyPage.module.css'
-import { API_BASE } from '../config'
+import { API_BASE, TIER_LABEL } from '../config'
 
 const API = API_BASE
 
@@ -138,6 +138,25 @@ export default function MyPage() {
                 <span className={s.infoKey}>가입일</span>
                 <span className={s.infoVal}>{fmtDate(profile?.created_at)}</span>
               </div>
+            </div>
+          )}
+
+          {/* 구독 등급 (B2B 전용) */}
+          {isB2B && (user?.status === 'active' || isAdmin) && (
+            <div className={s.section}>
+              <p className={s.sectionTitle}>구독 등급</p>
+              <div className={s.infoRow}>
+                <span className={s.infoKey}>현재 등급</span>
+                <span className={s.infoVal}>
+                  {TIER_LABEL[profile?.tier ?? user?.tier ?? 'free']}
+                  {profile?.tier_expires_at && (profile?.tier ?? user?.tier) !== 'free' && (
+                    <> · {fmtDate(profile.tier_expires_at)}까지</>
+                  )}
+                </span>
+              </div>
+              <button className={s.homeBtn} style={{ marginTop: 12 }} onClick={() => navigate('/b2b/pricing')}>
+                구독 관리 / 업그레이드 →
+              </button>
             </div>
           )}
 

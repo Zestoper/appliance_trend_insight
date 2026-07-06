@@ -48,3 +48,20 @@ async def require_b2b(payload: dict = Depends(get_current_user)) -> dict:
     if payload.get("role") == "admin" or payload.get("type") == "b2b":
         return payload
     raise HTTPException(status_code=403, detail="B2B 회원만 접근할 수 있습니다")
+
+
+_TIER_RANK = {"free": 0, "silver": 1, "gold": 2, "platinum": 3}
+
+
+def require_tier(min_tier: str):
+    """등급 검증 의존성 팩토리. JWT에 등급을 넣지 않고 매 요청 DB에서 조회하므로
+    결제 직후 재로그인 없이 즉시 반영된다. admin은 모든 등급을 통과한다."""
+    async def _dep(payload: dict = Depends(require_b2b)) -> dict:
+        if payload.get("role") == "admin":
+            return payload
+        from app.database import get_user_tier
+        tier = await get_user_tier(int(payload["sub"]))
+        if _TIER_RANK.get(tier, 0) < _TIER_RANK[min_tier]:
+            raise HTTPException(status_code=402, detail=f"{min_tier} 등급 이상 구독이 필요합니다")
+        return payload
+    return _dep

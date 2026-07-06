@@ -1,0 +1,59 @@
+.wrap {
+  position: relative;
+  overflow: hidden;
+  border-radius: 14px;
+}
+
+.blurred {
+  filter: blur(7px);
+  user-select: none;
+  pointer-events: none;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: rgba(13, 13, 24, 0.35);
+  backdrop-filter: blur(1px);
+  text-align: center;
+  padding: 24px;
+}
+
+:root[data-theme='light'] .overlay {
+  background: rgba(240, 240, 245, 0.45);
+}
+
+.lockIcon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--b2b-card);
+  color: var(--b2b-text);
+  box-shadow: var(--b2b-shadow);
+}
+
+.overlayTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--b2b-text);
+  margin: 0;
+}
+
+.overlayBtn {
+  padding: 9px 20px;
+  border-radius: 10px;
+  border: none;
+  background: #6366f1;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
