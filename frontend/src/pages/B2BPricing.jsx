@@ -5,6 +5,18 @@ import { useAuth } from '../context/AuthContext'
 import { API_BASE, TOSS_CLIENT_KEY, TIER_LABEL, SKIP_PAYMENT_VERIFICATION } from '../config'
 import s from '../styles/B2BPricing.module.css'
 
+const FREE_PLAN = {
+  tier: 'free',
+  name: '무료',
+  price: 0,
+  tagline: '가입만 하면 바로 이용',
+  features: [
+    '시장 트렌드 대시보드 열람 (일부 블러 처리)',
+    '카테고리·기간별 검색 관심도 조회',
+    '브랜드 점유율 · 연령대 데이터 기본 열람',
+  ],
+}
+
 const PLANS = [
   {
     tier: 'silver',
@@ -133,6 +145,26 @@ export default function B2BPricing() {
         {error && <div className={s.errorBox}>{error}</div>}
 
         <div className={s.grid}>
+          <div className={s.card}>
+            <p className={s.planName}>{FREE_PLAN.name}</p>
+            <p className={s.planTagline}>{FREE_PLAN.tagline}</p>
+            <p className={s.planPrice}>
+              {FREE_PLAN.price.toLocaleString()}<span className={s.planPriceUnit}>원 / 월</span>
+            </p>
+            <ul className={s.featureList}>
+              {FREE_PLAN.features.map(f => (
+                <li key={f} className={s.featureItem}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  {f}
+                </li>
+              ))}
+            </ul>
+            <button className={`${s.subscribeBtn} ${s.subscribeBtnCurrent}`} disabled>
+              {currentTier === 'free' ? '이용 중' : '기본 제공'}
+            </button>
+          </div>
           {PLANS.map(plan => {
             const isCurrent = currentTier === plan.tier
             return (
