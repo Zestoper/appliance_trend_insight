@@ -454,54 +454,54 @@ async def get_search_analysis(
             and not any(k in strip_html(it.get("title", "")) for k in _RENTAL_KW)
         ]
 
-    async def _fetch_trend():
-        if not detected_category:
+    async def _fetch_search_trend(keyword: str, days: int):
+        """네이버 데이터랩 검색 관심도 — keyword를 파라미터로 받아 카테고리든 브랜드+제품명이든
+        재사용 가능하게 만든 공용 버전 (예전엔 카테고리명 하나만 하드코딩돼 있어서 같은
+        카테고리의 모든 제품이 완전히 똑같은 검색량·수요예측 수치를 보였다)."""
+        if not keyword:
             return []
         try:
             end_d   = today
-            start_d = today - timedelta(days=90)
+            start_d = today - timedelta(days=days)
             body = {
                 "startDate": start_d.strftime("%Y-%m-%d"),
                 "endDate":   end_d.strftime("%Y-%m-%d"),
                 "timeUnit":  "week",
-                "keywordGroups": [{"groupName": detected_category, "keywords": [detected_category]}],
+                "keywordGroups": [{"groupName": keyword, "keywords": [keyword]}],
             }
             headers = {**NAVER_HEADERS, "Content-Type": "application/json"}
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            async with httpx.AsyncClient(timeout=(15.0 if days > 90 else 10.0)) as client:
                 resp = await client.post("https://openapi.naver.com/v1/datalab/search", json=body, headers=headers)
             results = resp.json().get("results", [])
             data = results[0]["data"] if results else []
         except Exception as e:
-            logger.warning("[search-analysis] 트렌드 조회 실패: %s", e)
+            logger.warning("[search-analysis] 검색 트렌드 조회 실패(%s): %s", keyword, e)
             data = []
         if len(data) > 6:
             data = data[:-1]
         return data
 
-    async def _fetch_trend_training():
-        """Prophet 학습용 2년치 주간 데이터 — 짧은 90일 표시용 데이터와 별도로 계절성 학습에 필요."""
-        if not detected_category or not _PROPHET_AVAILABLE:
-            return []
-        try:
-            end_d   = today
-            start_d = today - timedelta(days=730)
-            body = {
-                "startDate": start_d.strftime("%Y-%m-%d"),
-                "endDate":   end_d.strftime("%Y-%m-%d"),
-                "timeUnit":  "week",
-                "keywordGroups": [{"groupName": detected_category, "keywords": [detected_category]}],
-            }
-            headers = {**NAVER_HEADERS, "Content-Type": "application/json"}
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                resp = await client.post("https://openapi.naver.com/v1/datalab/search", json=body, headers=headers)
-            results = resp.json().get("results", [])
-            data = results[0]["data"] if results else []
-        except Exception as e:
-            logger.warning("[search-analysis] Prophet 학습 데이터 조회 실패: %s", e)
-            data = []
-        if len(data) > 6:
-            data = data[:-1]
-        return data
+    def _trend_keyword_candidates(query: str, category: str) -> list[str]:
+        """검색량 추이를 카테고리 전체가 아니라 이 제품(브랜드+제품라인)에 최대한 가깝게
+        잡기 위한 후보들 — 완전한 모델명까지 쓰면 데이터랩에 검색량 자체가 없어서(0건
+        확인됨), 브랜드+제품명 앞 2~3단어 정도로만 좁히고 그마저 데이터가 부족하면
+        카테고리로 폴백한다. "LG전자"처럼 제품명에 붙는 정식 법인명은 실제 검색어("LG")와
+        달라 데이터랩에 검색량이 거의 안 잡히므로(확인: "LG전자 디오스 냉장고" 2건 vs
+        "LG 디오스 냉장고" 14건), 첫 단어의 "전자" 접미사를 뗀 버전도 후보에 같이 넣는다."""
+        words = query.split()
+        if words and words[0].endswith("전자") and len(words[0]) > 2:
+            words = [words[0][:-2]] + words[1:]
+        seen: set[str] = set()
+        candidates = []
+        for n in (3, 2):
+            if len(words) >= n:
+                kw = " ".join(words[:n])
+                if kw not in seen and kw != category:
+                    seen.add(kw)
+                    candidates.append(kw)
+        if category and category not in seen:
+            candidates.append(category)
+        return candidates or ([category] if category else [])
 
     async def _fetch_shopping_trend(days: int):
         """네이버 쇼핑인사이트(실제 쇼핑 클릭 동향, 월 단위) — 검색 관심도와 별개로 '판매량' 근사치로 사용."""
@@ -562,13 +562,26 @@ async def get_search_analysis(
             logger.warning("[search-analysis] 출시 정보 조회 실패: %s", e)
             return []
 
-    (product_items, category_items, trend_data, train_data,
+    # 검색량 추이를 카테고리 전체("냉장고")가 아니라 이 제품(브랜드+제품라인, 예: "삼성
+    # 비스포크")에 최대한 가깝게 잡는다 — 후보들을 병렬로 90일치만 먼저 떠보고, 가장
+    # 구체적이면서 데이터가 충분한(6건 이상) 키워드를 채택한다. 다 부족하면 카테고리로
+    # 자연스럽게 폴백된다(후보 목록 맨 끝에 카테고리 자체가 항상 들어있음).
+    trend_keyword = detected_category
+    trend_data = []
+    if detected_category:
+        _trend_candidates = _trend_keyword_candidates(q, detected_category)
+        _trend_probes = await asyncio.gather(*[_fetch_search_trend(c, 90) for c in _trend_candidates])
+        for _cand, _probe_data in zip(_trend_candidates, _trend_probes):
+            if len(_probe_data) >= 6:
+                trend_keyword, trend_data = _cand, _probe_data
+                break
+
+    (product_items, category_items, train_data,
      sales_trend_data, sales_train_data,
      product_reviews, category_reviews, release_snippets, danawa_result) = await asyncio.gather(
         _fetch_product_items(),
         _fetch_category_items(),
-        _fetch_trend(),
-        _fetch_trend_training(),
+        _fetch_search_trend(trend_keyword, 730) if _PROPHET_AVAILABLE else asyncio.sleep(0, result=[]),
         _fetch_shopping_trend(365),
         _fetch_shopping_trend(730),
         # sort="sim"(정확도순)으로 바꿔야 "단점" 키워드와 실제로 관련된 글이 우선 잡힌다 —
@@ -936,8 +949,6 @@ async def get_search_analysis(
             f'"conclusion_reason":"왜 \'{verdict_label or "관망 권장"}\' 결론인지 가격·수요 근거로 든 1~2문장",'
             '"price_change_reason":"가격 변동 이력이 있다면 그 증감 이유 추정 1문장, 없으면 null",'
             '"price_fairness_reason":"가격 적정성 판단 이유 1~2문장",'
-            '"demand_reason":"수요 전망의 근거 1~2문장. 향후 예측 관심도 변화 수치 기준으로 "'
-            '"말하고, 최근 4주 변화 수치와 헷갈리지 마세요",'
             '"selected_pros":["선택한 제품의 장점 2~3개. 가격/가격 적정성은 시스템이 별도로 채우니 "'
             '"절대 언급하지 말고 리뷰·기능·디자인 등 가격 이외의 내용만 쓰세요. 리뷰 스니펫 문장을 그대로 "'
             '"베끼지 말고 핵심만 짧게 새로 쓰세요 — 스니펫이 문장 중간에 잘려 있으면 그 리뷰는 무시하세요. "'
@@ -1063,25 +1074,36 @@ async def get_search_analysis(
     price_fairness_reason = _clean_ai_text(ai_result.get("price_fairness_reason")) or (
         f"현재가가 이력 평균 대비 {price_block['vs_hist_pct']}%로 {price_block['fairness_label']}입니다." if price_block else None
     )
-    # 수요 전망 헤드라인은 반드시 '향후 예측' 수치(forecast_change_pct)로만 말해야 한다 —
-    # AI에게 맡기면 '최근 4주 변화'(change_pct)와 혼동해서 "수요 전망은 4.4% 증가"처럼
-    # 헤드라인과 배지(-77.7%)가 서로 다른 수치를 말하는 모순이 생겨서, 시스템이 실제
-    # 예측 수치로 직접 문장을 만든다.
-    if forecast_change_pct is not None:
-        _fc_dir = "상승" if forecast_change_pct > 0 else ("하락" if forecast_change_pct < 0 else "보합")
+    # "AI 수요 예측"은 검색 관심도(브랜드/제품라인 단위까지만 실재하는 데이터 — 완전한
+    # 모델명으로는 데이터랩 검색량이 0건인 걸 직접 확인함) 대신, 이 정확한 단일 제품(SKU)
+    # 자체의 실제 가격 이력(다나와+DB로 이 제품만 추적)을 기준으로 삼는다. 검색량 기반으로는
+    # 같은 브랜드/라인의 다른 제품이 전부 같은 수치를 보일 수밖에 없었지만, 가격 이력은
+    # 제품마다 실제로 다른 진짜 시계열이라 SKU별로 다른 값이 나온다.
+    price_trend_pct = None
+    demand_headline = None
+    demand_reason = None
+    if price_block and len(price_block["price_history"]) >= 2:
+        _price_pts = [{"period": r["date"], "ratio": r["avg_price"]} for r in price_block["price_history"]]
+        _, _price_slope = _linear_trend_fit(_price_pts)
+        _p_dir = "하락" if _price_slope < 0 else ("상승" if _price_slope > 0 else "보합")
+        price_trend_pct = price_block["price_change_pct"]
         demand_headline = (
-            f"수요(관심도)는 향후 {_fc_dir}세로, 예측 구간 기준 "
-            f"{'+' if forecast_change_pct >= 0 else ''}{forecast_change_pct}% 변화할 것으로 예측됩니다."
+            f"이 제품의 실제 가격은 최근 {_p_dir}세이며, 이력 기간 순변동은 "
+            f"{'+' if price_trend_pct >= 0 else ''}{price_trend_pct}%입니다."
         )
-    elif trend_data:
-        demand_headline = f"관심도가 향후 {'상승' if slope > 0 else '하락'} 추세로 예측됩니다."
-    else:
-        demand_headline = None
-    demand_reason = _clean_ai_text(ai_result.get("demand_reason")) or (
-        f"최근 관심도 변화는 {change_pct if change_pct is not None else '데이터 부족'}%, "
-        f"향후 예측 관심도 변화는 {forecast_change_pct}%로 예상됩니다."
-        if forecast_change_pct is not None else None
-    )
+        # demand_reason은 AI에 맡기지 않고 항상 규칙 기반으로 만든다 — AI가 여기서도
+        # (프롬프트 지시에도 불구하고) 낡은 "관심도" 언어를 섞어 headline의 실제 가격
+        # 수치와 모순되는 문장을 만드는 경우가 있어(예: "가격은 안정적" vs 실제 +16.9%),
+        # 이 필드는 실제 숫자로만 채운다.
+        demand_reason = (
+            f"최저 {price_block['hist_min_price']:,}원~최고 {price_block['hist_max_price']:,}원 사이에서 "
+            f"등락(변동폭 {price_block['price_range_pct']}%)했고, "
+            + (
+                "가격이 계속 낮아지는 추세라 매수 심리에 유리한 국면입니다." if _p_dir == "하락"
+                else "가격이 오르는 추세라 매입을 서두르는 편이 유리할 수 있습니다." if _p_dir == "상승"
+                else "가격이 안정적인 편입니다."
+            )
+        )
 
     selected_pros = _drop_raw_echo_items(_drop_fairness_leak(_clean_list(ai_result.get("selected_pros"))), pos_reviews + neg_reviews)
     selected_cons = _drop_raw_echo_items(_drop_fairness_leak(_clean_list(ai_result.get("selected_cons"))), pos_reviews + neg_reviews)
@@ -1131,6 +1153,7 @@ async def get_search_analysis(
     result = {
         "query": q,
         "category": detected_category,
+        "trend_keyword": trend_keyword,
         "model_number": model,
 
         # 1. 제품 기본 정보
@@ -1185,11 +1208,11 @@ async def get_search_analysis(
             "reason": price_fairness_reason,
         },
 
-        # 6. AI 수요 예측
+        # 6. AI 수요 예측 (이 제품 고유의 실제 가격 이력 기준)
         "demand_forecast": {
             "headline": demand_headline,
             "reason": demand_reason,
-            "forecast_change_pct": forecast_change_pct,
+            "price_trend_pct": price_trend_pct,
         },
 
         # 7. 경쟁 제품 비교

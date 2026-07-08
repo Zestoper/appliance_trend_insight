@@ -512,7 +512,7 @@ export default function B2BAnalysis() {
                     <div>
                       <h2 className={s.cardTitle}>검색량 추이 · 예측</h2>
                       <p className={s.cardSub}>
-                        {data.category || '카테고리'} · week 단위 · DataLab 검색 관심도 + Prophet
+                        &apos;{data.trend_keyword || data.category || '카테고리'}&apos; 검색 관심도 · week 단위 · DataLab + Prophet
                       </p>
                     </div>
                     {data.interest_forecast?.rag_enhanced && (
@@ -602,20 +602,16 @@ export default function B2BAnalysis() {
                     <div>
                       <h2 className={s.cardTitle}>AI 수요 예측</h2>
                       <p className={s.cardSub}>
-                        {demand?.forecast_change_pct != null
-                          ? `예측 구간 관심도 ${demand.forecast_change_pct > 0 ? '+' : ''}${demand.forecast_change_pct}%`
-                          : 'Prophet 예측 기반'}
+                        {demand?.price_trend_pct != null
+                          ? `이 제품 가격 이력 순변동 ${demand.price_trend_pct > 0 ? '+' : ''}${demand.price_trend_pct}%`
+                          : '이 제품의 실제 가격 이력 기반'}
                       </p>
                     </div>
                   </div>
                   {demand?.headline ? (
                     <div className={s.demandRow}>
                       <p className={s.demandHeadline}>{demand.headline}</p>
-                      <Sparkline data={
-                        data.sales_forecast?.prophet_forecast?.length > 0
-                          ? data.sales_forecast.prophet_forecast
-                          : data.interest_forecast?.prophet_forecast
-                      } />
+                      <Sparkline data={priceChg?.history?.map(h => ({ ratio: h.avg_price }))} />
                     </div>
                   ) : (
                     <div className={s.noData}>예측에 필요한 데이터가 부족합니다</div>
