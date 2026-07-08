@@ -11,6 +11,7 @@
 import os
 import asyncio
 import logging
+import math
 from datetime import date, timedelta, datetime
 
 import httpx
@@ -220,21 +221,111 @@ async def fetch_kepco_rate() -> list[dict]:
         return []
 
 
+# EEP_XX 경로 매핑 (실제 서비스 EndPoint: https://apis.data.go.kr/B553530/eep)
+_KEMCO_CAT_PATH_MAP = {
+    "에어컨":     "EEP_24_LIST",  # 전기냉방기
+    "냉장고":     "EEP_20_LIST",  # 전기냉장고
+    "TV":         "EEP_17_LIST",  # 텔레비전수상기
+    "선풍기":     "EEP_07_LIST",
+    "공기청정기": "EEP_08_LIST",
+    "제습기":     "EEP_19_LIST",
+    "세탁기":     "EEP_01_LIST",  # 전기세탁기
+}
+
+
+async def fetch_kemco_model_grades(category: str, max_rows: int = 1500) -> dict[str, int]:
+    """에너지공단 효율등급 원자료에서 '모델명 → 등급' 매핑을 만든다 (개별 제품 조회용).
+    24h 이상 캐시(naver_cache) — 데이터가 자주 바뀌지 않고 정부 API가 느려서 매 요청마다 부르면 안 된다."""
+    if not PUBLIC_DATA_KEY:
+        return {}
+    path = _KEMCO_CAT_PATH_MAP.get(category)
+    if not path:
+        return {}
+
+    from app.services.naver_cache import get_db_cache, set_db_cache
+    cache_key = f"kemco_model_grades:{category}"
+    cached = await get_db_cache(cache_key)
+    if cached is not None:
+        return cached.get("map", {})
+
+    url = f"https://apis.data.go.kr/B553530/eep/{path}"
+    from xml.etree import ElementTree as ET
+
+    def _parse(xml_text: str) -> tuple[int, dict[str, int]]:
+        root = ET.fromstring(xml_text)
+        total = int(root.findtext(".//totalCount") or 0)
+        m: dict[str, int] = {}
+        for item in root.findall(".//item"):
+            grade_raw = (item.findtext("GRADE") or "").strip()
+            if not grade_raw or not grade_raw.isdigit():
+                continue
+            grade = int(grade_raw)
+            for field in ("MODEL_TERM", "OLDX_MODEL_TERM"):
+                model = (item.findtext(field) or "").strip().upper()
+                if model and model != "NULL":
+                    m[model] = grade
+        return total, m
+
+    grade_map: dict[str, int] = {}
+    try:
+        page_size = 100  # 이 API는 numOfRows를 요청해도 서버가 100개로 강제 제한한다
+        sem = asyncio.Semaphore(5)  # 정부 API가 대량 동시요청 시 조용히 실패하므로 동시성 제한
+
+        async def _fetch_page(c: httpx.AsyncClient, page: int):
+            async with sem:
+                for attempt in range(3):
+                    try:
+                        r = await c.get(url, params={"serviceKey": PUBLIC_DATA_KEY, "numOfRows": page_size, "pageNo": page})
+                        return _parse(r.text)
+                    except Exception:
+                        if attempt == 2:
+                            raise
+                        await asyncio.sleep(1.0 * (attempt + 1))
+
+        async with httpx.AsyncClient(timeout=45.0) as c:
+            # 1차: totalCount 확인 (등록 순서가 오래된 것부터라 최신 모델은 뒤쪽 페이지에 있다)
+            total, first_map = await _fetch_page(c, 1)
+            grade_map.update(first_map)
+
+            total_pages = max(1, math.ceil(total / page_size))
+            # 뒤쪽(최신 등록) 페이지 위주로 최대 max_rows/page_size 페이지만큼 조회
+            n_pages = min(total_pages, max(1, max_rows // page_size))
+            last_pages = list(range(max(1, total_pages - n_pages + 1), total_pages + 1))
+            last_pages = [p for p in last_pages if p != 1]  # 1페이지는 이미 조회함
+
+            results = await asyncio.gather(*[_fetch_page(c, p) for p in last_pages], return_exceptions=True)
+            ok = sum(1 for r in results if not isinstance(r, Exception))
+            logger.info("[KEMCO] %s 모델 등급 페이지 조회: %d/%d 성공", category, ok + 1, len(last_pages) + 1)
+            for res in results:
+                if isinstance(res, Exception):
+                    continue
+                _, m = res
+                grade_map.update(m)
+
+        await set_db_cache(cache_key, {"map": grade_map}, ttl_hours=168)
+    except Exception as e:
+        logger.warning("[KEMCO] %s 모델별 등급 조회 실패: %s", category, e)
+    return grade_map
+
+
+async def get_kemco_model_grades_cached(category: str) -> dict[str, int]:
+    """전체 페이지네이션(수십~수백 초)을 기다릴 수 없는 실시간 요청용 — 캐시에 있으면 즉시 반환하고,
+    없으면 빈 맵을 반환하면서 백그라운드로 채워서 다음 요청부터는 실제 데이터가 나오게 한다."""
+    if not PUBLIC_DATA_KEY or category not in _KEMCO_CAT_PATH_MAP:
+        return {}
+    from app.services.naver_cache import get_db_cache
+    cached = await get_db_cache(f"kemco_model_grades:{category}")
+    if cached is not None:
+        return cached.get("map", {})
+    asyncio.create_task(fetch_kemco_model_grades(category, max_rows=8000))
+    return {}
+
+
 async def fetch_kemco_efficiency(category: str) -> dict:
     """에너지공단: 카테고리별 에너지효율 1등급 비율 (B553530/eep)"""
     if not PUBLIC_DATA_KEY:
         return {}
-    # EEP_XX 경로 매핑 (실제 서비스 EndPoint: https://apis.data.go.kr/B553530/eep)
-    cat_path_map = {
-        "에어컨":     "EEP_24_LIST",  # 전기냉방기
-        "냉장고":     "EEP_20_LIST",  # 전기냉장고
-        "TV":         "EEP_17_LIST",  # 텔레비전수상기
-        "선풍기":     "EEP_07_LIST",
-        "공기청정기": "EEP_08_LIST",
-        "제습기":     "EEP_19_LIST",
-        "세탁기":     "EEP_01_LIST",  # 전기세탁기
-    }
-    path = cat_path_map.get(category)
+    path = _KEMCO_CAT_PATH_MAP.get(category)
     if not path:
         return {}
     url = f"https://apis.data.go.kr/B553530/eep/{path}"

@@ -48,60 +48,6 @@ const FEATURES = [
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
         strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
-      </svg>
-    ),
-    title: 'AI 전략 리포트',
-    desc: 'RAG 강화 AI가 "매입 확대·재고 전략·판매 시점"을 직접 지시하는 의사결정 리포트',
-    path: '/b2b/report',
-    cta: '리포트 열기',
-    color: '#6366f1',
-  },
-  {
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-        strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
-        <polyline points="17 6 23 6 23 12" />
-      </svg>
-    ),
-    title: '미래 예측',
-    desc: 'Prophet + XGBoost 앙상블 모델로 향후 수요 피크를 예측하고 재고 전략을 제시',
-    path: '/b2b/forecast',
-    cta: '예측 보기',
-    color: '#10b981',
-  },
-  {
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-        strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-      </svg>
-    ),
-    title: '시장 트렌드 분석',
-    desc: '카테고리별 검색량·브랜드 점유율·연령대 관심도를 한 화면에서 파악',
-    path: '/b2b/dashboard',
-    cta: '대시보드 열기',
-    color: '#a855f7',
-  },
-  {
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-        strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <line x1="12" y1="1" x2="12" y2="23" />
-        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-      </svg>
-    ),
-    title: '가격 인텔리전스',
-    desc: '카테고리·브랜드별 실시간 가격 분포와 이력을 추적해 최적 매입가를 파악',
-    path: '/b2b/price',
-    cta: '가격 분석',
-    color: '#f59e0b',
-  },
-  {
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-        strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="11" cy="11" r="8" />
         <line x1="21" y1="21" x2="16.65" y2="16.65" />
         <line x1="11" y1="8" x2="11" y2="14" />
@@ -263,11 +209,11 @@ export default function B2BHome() {
             </p>
             {isB2BActive && (
               <div className={s.heroBtns}>
-                <button className={s.btnPrimary} onClick={() => navigate('/b2b/report')}>
-                  AI 전략 리포트 →
+                <button className={s.btnPrimary} onClick={() => navigate('/products/냉장고')}>
+                  제품 심층 분석 →
                 </button>
-                <button className={s.btnSecondary} onClick={() => navigate('/b2b/forecast')}>
-                  미래 예측 보기
+                <button className={s.btnSecondary} onClick={() => navigate('/timing')}>
+                  구매 타이밍 확인
                 </button>
               </div>
             )}

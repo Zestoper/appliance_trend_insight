@@ -27,9 +27,10 @@ async def _danawa_search_pcode(query: str) -> str | None:
         return None
 
 
-async def _danawa_fetch_msrp(pcode: str) -> int | None:
-    """Danawa 제품 페이지에서 출시가(권장소비자가) 스크래핑 시도"""
+async def _danawa_fetch_product_meta(pcode: str) -> dict:
+    """Danawa 제품 페이지에서 출시가(권장소비자가)와 등록월(출시일 근사치)을 스크래핑."""
     url = f"https://prod.danawa.com/info/?pcode={pcode}"
+    meta = {"launch_price": None, "release_date": None}
     try:
         async with httpx.AsyncClient(timeout=6.0) as client:
             resp = await client.get(url, headers={
@@ -47,10 +48,16 @@ async def _danawa_fetch_msrp(pcode: str) -> int | None:
             if m:
                 price = int(m.group(1).replace(',', ''))
                 if price > 10000:
-                    return price
+                    meta["launch_price"] = price
+                    break
+        # 등록월 — 다나와가 신제품을 카탈로그에 등록한 시점으로, 대다수 가전제품의
+        # 실제 출시 시점과 근접해 '출시일' 근사치로 신뢰할 만하다.
+        m = re.search(r'등록월[^\d<]{0,10}(\d{4})\.(\d{2})', html)
+        if m:
+            meta["release_date"] = f"{m.group(1)}-{m.group(2)}"
     except Exception:
         pass
-    return None
+    return meta
 
 
 async def get_danawa_price_history(query: str, product_name: str) -> dict:
@@ -112,7 +119,7 @@ async def get_danawa_price_history(query: str, product_name: str) -> dict:
                 continue
 
     if not best_pcode:
-        return {"history": [], "launch_price": None}
+        return {"history": [], "launch_price": None, "release_date": None}
     pcode = best_pcode
 
     # 가장 긴 이력 기간 선택: 날짜가 파싱 가능한 항목 수 기준 (24개월 데이터는 날짜 없는 경우 있음)
@@ -149,7 +156,9 @@ async def get_danawa_price_history(query: str, product_name: str) -> dict:
     history = [r for item in items if (r := _parse_item(item))]
 
     # 출시가: 1) 다나와 제품 페이지 스크래핑  2) 24·12·6개월 최고가로 대체
-    launch_price = await _danawa_fetch_msrp(pcode)
+    # 출시일: 다나와 등록월 (없으면 None — 지어내지 않음)
+    meta = await _danawa_fetch_product_meta(pcode)
+    launch_price = meta["launch_price"]
     if not launch_price:
         for period_key in ["24", "12", "6"]:
             period_items = data.get(period_key, {}).get("result", [])
@@ -159,7 +168,7 @@ async def get_danawa_price_history(query: str, product_name: str) -> dict:
                     launch_price = max(prices)
                     break
 
-    return {"history": history, "launch_price": launch_price}
+    return {"history": history, "launch_price": launch_price, "release_date": meta["release_date"]}
 
 
 async def _init_tables():

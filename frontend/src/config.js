@@ -10,3 +10,12 @@ export const TIER_PRICES = { silver: 2900, gold: 5900, platinum: 9900 }
 export function hasTier(userTier, required) {
   return (TIER_RANK[userTier] ?? 0) >= (TIER_RANK[required] ?? 0)
 }
+
+// B2B 최종 권고(action) 표시 스타일 — 시장분석/가격분석/미래예측/AI전략리포트 4개 페이지가
+// 전부 이 값(ai-report의 report.action)을 그대로 가져다 써서 페이지마다 결론이 어긋나지 않게 한다.
+export const ACTION_CONFIG = {
+  '매입 확대': { color: '#10b981', bg: 'rgba(16,185,129,0.06)', border: 'rgba(16,185,129,0.2)', icon: '↑' },
+  '매입 유지': { color: '#6366f1', bg: 'rgba(99,102,241,0.06)', border: 'rgba(99,102,241,0.2)', icon: '→' },
+  '재고 축소': { color: '#f59e0b', bg: 'rgba(245,158,11,0.06)',  border: 'rgba(245,158,11,0.2)',  icon: '↓' },
+  '관망':      { color: '#8b5cf6', bg: 'rgba(139,92,246,0.06)',  border: 'rgba(139,92,246,0.2)',  icon: '◎' },
+}

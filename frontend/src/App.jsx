@@ -14,11 +14,7 @@ import Trend from './pages/Trend'
 import Admin from './pages/Admin'
 import MyPage from './pages/MyPage'
 import B2BHome from './pages/B2BHome'
-import B2BDashboard from './pages/B2BDashboard'
-import B2BPrice from './pages/B2BPrice'
-import B2BReport from './pages/B2BReport'
-import B2BForecast from './pages/B2BForecast'
-import B2BPrint from './pages/B2BPrint'
+import B2BAnalysis from './pages/B2BAnalysis'
 import B2BPricing from './pages/B2BPricing'
 import PaymentSuccess from './pages/PaymentSuccess'
 import PaymentFail from './pages/PaymentFail'
@@ -44,11 +40,7 @@ export default function App() {
             <Route path="/admin"             element={<Admin />} />
             <Route path="/mypage"            element={<MyPage />} />
             <Route path="/b2b"               element={<B2BHome />} />
-            <Route path="/b2b/dashboard"     element={<B2BDashboard />} />
-            <Route path="/b2b/price"         element={<B2BPrice />} />
-            <Route path="/b2b/report"        element={<B2BReport />} />
-            <Route path="/b2b/forecast"      element={<B2BForecast />} />
-            <Route path="/b2b/print"         element={<B2BPrint />} />
+            <Route path="/b2b/analysis"      element={<B2BAnalysis />} />
             <Route path="/b2b/pricing"       element={<B2BPricing />} />
             <Route path="/b2b/payments/success" element={<PaymentSuccess />} />
             <Route path="/b2b/payments/fail"     element={<PaymentFail />} />

@@ -107,7 +107,7 @@ export default function B2BPricing() {
         if (!confirmRes.ok) throw new Error(confirmData.detail || '결제 승인에 실패했습니다')
         updateUser({ tier: confirmData.tier, tier_expires_at: confirmData.tier_expires_at })
         setLoadingTier(null)
-        navigate('/b2b/dashboard')
+        navigate('/b2b')
         return
       }
 

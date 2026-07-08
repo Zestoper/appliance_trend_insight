@@ -54,57 +54,6 @@ const SERVICE_ITEMS = [
 ]
 
 
-const B2B_ITEMS = [
-  {
-    label: '시장 분석',
-    desc: '카테고리별 검색 관심도·트렌드',
-    path: '/b2b/dashboard',
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="3" width="7" height="7" rx="1" />
-        <rect x="14" y="3" width="7" height="7" rx="1" />
-        <rect x="3" y="14" width="7" height="7" rx="1" />
-        <rect x="14" y="14" width="7" height="7" rx="1" />
-      </svg>
-    ),
-  },
-  {
-    label: '가격 분석',
-    desc: '브랜드·구간별 가격 현황 분석',
-    path: '/b2b/price',
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <line x1="12" y1="1" x2="12" y2="23" />
-        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-      </svg>
-    ),
-  },
-  {
-    label: '미래 예측',
-    desc: '선형 회귀 기반 수요 트렌드 예측',
-    path: '/b2b/forecast',
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="3 17 7 11 11 14 15 8 21 14" />
-        <polyline points="17 8 21 8 21 12" />
-      </svg>
-    ),
-  },
-  {
-    label: 'AI 전략 리포트',
-    desc: 'AI가 생성하는 시장 분석 리포트',
-    path: '/b2b/report',
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-        <polyline points="14 2 14 8 20 8" />
-        <line x1="16" y1="13" x2="8" y2="13" />
-        <line x1="16" y1="17" x2="8" y2="17" />
-      </svg>
-    ),
-  },
-]
-
 const _ALL_APPLIANCE_TERMS = [
   '에어컨', '냉장고', '세탁기', '건조기', '공기청정기', '로봇청소기', '식기세척기',
   'TV', '텔레비전', '에어프라이어', '전기밥솥', '밥솥', '전자레인지', '커피머신',
@@ -140,9 +89,8 @@ export default function Navbar() {
   const navigate = useNavigate()
   const location = useLocation()
   const [mode, setMode] = useState(() => localStorage.getItem('navMode') ?? 'b2c')
-  const B2B_ONLY_PATHS = ['/b2b', '/b2b/dashboard', '/b2b/price', '/b2b/report', '/b2b/forecast']
-  const B2B_DASH_PATHS = ['/b2b/dashboard', '/b2b/price', '/b2b/report', '/b2b/forecast']
-  const isB2BDash = B2B_DASH_PATHS.includes(location.pathname)
+  const B2B_ONLY_PATHS = ['/b2b']
+  const isB2BDash = false
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [scrollProgress, setScrollProgress] = useState(0)
   const [isHidden, setIsHidden] = useState(false)
@@ -321,11 +269,10 @@ export default function Navbar() {
             </li>
             {mode === 'b2b' && (
               <li
-                className={`${styles.navItem} ${openDropdown === 'b2b' ? styles.navItemActive : ''}`}
-                onClick={() => toggleDropdown('b2b')}
+                className={styles.navItem}
+                onClick={() => { setOpenDropdown(null); navigate('/b2b/analysis') }}
               >
                 B2B 분석
-                <span className={`${styles.navCaret} ${openDropdown === 'b2b' ? styles.navCaretOpen : ''}`}>▾</span>
               </li>
             )}
             {mode === 'b2b' && (
@@ -529,27 +476,10 @@ export default function Navbar() {
               {/* B2B (b2b 모드일 때) */}
               {mode === 'b2b' && (
                 <div className={styles.mobileSection}>
-                  <button
-                    className={styles.mobileSectionHead}
-                    onClick={() => setMobileAccordion(a => a === 'b2b' ? null : 'b2b')}
-                  >
+                  <button className={styles.mobileSectionHead}
+                    onClick={() => { setMenuOpen(false); navigate('/b2b/analysis') }}>
                     B2B 분석
-                    <span className={mobileAccordion === 'b2b' ? styles.mobileCaretOpen : styles.mobileCaret}>▾</span>
                   </button>
-                  {mobileAccordion === 'b2b' && (
-                    <div className={styles.mobileAccordionBody}>
-                      {B2B_ITEMS.map(item => (
-                        <button key={item.path} className={styles.mobileServiceItem}
-                          onClick={() => { setMenuOpen(false); navigate(item.path) }}>
-                          <span className={styles.mobileServiceIcon}>{item.icon}</span>
-                          <span>
-                            <span className={styles.mobileServiceLabel}>{item.label}</span>
-                            <span className={styles.mobileServiceDesc}>{item.desc}</span>
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
                 </div>
               )}
 
@@ -625,27 +555,6 @@ export default function Navbar() {
                 <div>
                   <p className={styles.serviceCardLabel}>{item.label}</p>
                   <p className={styles.serviceCardDesc}>{item.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className={`${styles.dropdown} ${openDropdown === 'b2b' ? styles.dropdownOpen : ''}`}>
-          <div className={styles.dropdownB2bGrid}>
-            {B2B_ITEMS.map(item => (
-              <div
-                key={item.path}
-                className={styles.b2bCard}
-                onClick={() => { setOpenDropdown(null); navigate(item.path) }}
-              >
-                <div className={styles.b2bCardIcon}>{item.icon}</div>
-                <div>
-                  <p className={styles.b2bCardLabel}>
-                    {item.label}
-                    {item.badge && <span className={styles.b2bCardBadge}>{item.badge}</span>}
-                  </p>
-                  <p className={styles.b2bCardDesc}>{item.desc}</p>
                 </div>
               </div>
             ))}

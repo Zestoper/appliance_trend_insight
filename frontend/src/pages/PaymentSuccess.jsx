@@ -60,7 +60,7 @@ export default function PaymentSuccess() {
             <div className={s.iconOk}>✓</div>
             <p className={s.title}>{TIER_LABEL[tier]} 등급 구독이 완료됐습니다</p>
             <p className={s.sub}>이제 해당 등급의 모든 기능을 이용할 수 있어요</p>
-            <button className={s.btn} onClick={() => navigate('/b2b/dashboard')}>대시보드로 이동</button>
+            <button className={s.btn} onClick={() => navigate('/b2b')}>B2B 홈으로 이동</button>
           </>
         )}
         {status === 'error' && (
