@@ -701,6 +701,33 @@ export default function B2BDashboard() {
               )
             })()}
 
+            {/* ── 매입 판단 신호 배너 ── */}
+            {report && (() => {
+              const growth = report.growth_rate ?? 0
+              const verdict = growth >= 5
+                ? { label: '매입 확대 검토', icon: '▼', color: '#10b981',
+                    msg: `관심도 ${growth >= 0 ? '+' : ''}${growth}% 상승 — 성수기 진입 전 선매입을 검토하세요.` }
+                : growth <= -5
+                ? { label: '매입 보류 권장', icon: '⏸', color: '#ef4444',
+                    msg: `관심도 ${growth}% 하락 — 신규 매입보다 기존 재고 소진에 집중하세요.` }
+                : { label: '관망 — 현 재고 유지', icon: '─', color: '#6366f1',
+                    msg: `관심도 보합(${growth >= 0 ? '+' : ''}${growth}%) — 현재 재고 수준을 유지하며 다음 신호를 지켜보세요.` }
+              return (
+                <div className={s.timingBanner} style={{ borderLeftColor: verdict.color, background: `${verdict.color}0d` }}>
+                  <div className={s.timingBannerLeft}>
+                    <span className={s.timingBannerIcon} style={{ color: verdict.color }}>{verdict.icon}</span>
+                    <div>
+                      <span className={s.timingBannerLabel} style={{ color: verdict.color }}>{verdict.label}</span>
+                      <p className={s.timingBannerMsg}>{verdict.msg}</p>
+                    </div>
+                  </div>
+                  <a className={s.timingBannerCta} href="/b2b/report" style={{ background: verdict.color }}>
+                    AI 전략 리포트 →
+                  </a>
+                </div>
+              )
+            })()}
+
             {/* ── 외부 환경 신호 카드 ── */}
             {envSignal && envSignal.signals?.length > 0 && (
               <div className={s.envSignalCard}>

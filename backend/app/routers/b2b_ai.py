@@ -493,11 +493,11 @@ async def get_ai_report(category: str = Query(..., min_length=1), period: str = 
             f'    {{"factor": "예측 신뢰도", "pct": 75}}\n'
             f'  ],\n'
             f'  "action_list": [\n'
-            f'    {{"stars":5,"action":"실제 행동 중심 제목 (예: 성수기 전 재고 20% 확대)","dept":"구매","timing":"이번 주","budget":"500만원"}},\n'
-            f'    {{"stars":5,"action":"실제 행동 중심 제목 (예: {top_brand} 경쟁 모델 가격 비교 점검)","dept":"마케팅","timing":"7일 이내","budget":"300만원"}},\n'
-            f'    {{"stars":4,"action":"실제 행동 중심 제목 (예: {top_purpose} 타겟 프로모션 기획)","dept":"상품기획","timing":"2주 이내","budget":"별도 없음"}},\n'
-            f'    {{"stars":3,"action":"실제 행동 중심 제목","dept":"영업","timing":"이번 달","budget":"별도 없음"}},\n'
-            f'    {{"stars":2,"action":"실제 행동 중심 제목","dept":"기획","timing":"다음 달","budget":"별도 없음"}}\n'
+            f'    {{"stars":5,"action":"실제 행동 중심 제목 (예: 성수기 전 재고 20% 확대)","dept":"구매","timing":"이번 주"}},\n'
+            f'    {{"stars":5,"action":"실제 행동 중심 제목 (예: {top_brand} 경쟁 모델 가격 비교 점검)","dept":"마케팅","timing":"7일 이내"}},\n'
+            f'    {{"stars":4,"action":"실제 행동 중심 제목 (예: {top_purpose} 타겟 프로모션 기획)","dept":"상품기획","timing":"2주 이내"}},\n'
+            f'    {{"stars":3,"action":"실제 행동 중심 제목","dept":"영업","timing":"이번 달"}},\n'
+            f'    {{"stars":2,"action":"실제 행동 중심 제목","dept":"기획","timing":"다음 달"}}\n'
             f'  ]\n'
             f'}}\n\n'
             f'[규칙] 1.consumer_needs·complaints·features는 위 실제 키워드 직접 인용. 2.features는 "[기능명]:근거" 형식. '
@@ -506,7 +506,7 @@ async def get_ai_report(category: str = Query(..., min_length=1), period: str = 
             f'각 데이터 항목 자체의 품질·신뢰도(%)이므로 항목별로 독립적으로 평가하고 합이 100일 필요 없음 '
             f'(예: 리뷰 데이터처럼 수집량이 적은 항목은 낮게, 검색·가격처럼 실시간 수집되는 항목은 높게). '
             f'7.action_list 5개: {category}에 실제로 맞는 구체적 행동 제목(예: "성수기 전 재고 OO% 확대", "{top_brand} 대비 가격 재점검"), '
-            f'"{category} 시급 실행항목"처럼 카테고리명만 붙인 추상적 제목 금지. action 20자이내, dept=상품기획/마케팅/구매/영업 중 택1, budget 현실적 금액. '
+            f'"{category} 시급 실행항목"처럼 카테고리명만 붙인 추상적 제목 금지. action 20자이내, dept=상품기획/마케팅/구매/영업 중 택1. '
             f'8.현재 추세는 "{trend_dir_str}"입니다 — action_reason·summary·expected_sales_growth·projection_summary 등 모든 전망 문구는 반드시 이 추세와 같은 방향으로 서술하세요. '
             f'추세가 "하락세"나 "보합세"인데 "수요 확대", "관심도 상승" 같은 상승 단정 표현을 쓰는 것 금지 — 이 경우 "단기 조정", "보수적 운영", "재고 관리" 등 추세에 맞는 표현을 사용하세요.'
         )
@@ -526,6 +526,14 @@ async def get_ai_report(category: str = Query(..., min_length=1), period: str = 
             parsed = _json.loads(raw[_start:_end + 1])
         else:
             parsed = _json.loads(raw)
+        # 모델이 프롬프트 지시문(플레이스홀더)을 그대로 되뱉는 경우 방어 — action은 반드시 정해진 4개 값 중 하나,
+        # action_reason에 "중 하나"·"자 이내"·"어조" 같은 지시문 잔재가 섞여 있으면 파싱 실패로 간주한다.
+        _VALID_ACTIONS = ("매입 확대", "매입 유지", "재고 축소", "관망")
+        if parsed.get("action") not in _VALID_ACTIONS:
+            raise ValueError(f"invalid action from model: {parsed.get('action')!r}")
+        _leak_check = str(parsed.get("action_reason", ""))
+        if any(m in _leak_check for m in ("중 하나", "자 이내", "어조")):
+            raise ValueError(f"prompt leakage detected in action_reason: {_leak_check!r}")
         report.update({k: v for k, v in parsed.items() if k in report})
 
         # summary → summary_lines: 숫자.숫자는 분리하지 않는 문장 분리

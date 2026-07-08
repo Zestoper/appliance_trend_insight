@@ -260,33 +260,41 @@ export default function B2BReport() {
                     )}
                   </div>
 
-                  {/* Decision Score */}
+                  {/* Decision Score — 전부 실제 수집 데이터에서 선형으로 계산 (임의 가산점 없음) */}
                   {(() => {
                     const g = metrics?.growth_rate ?? 0
+                    const top1Share = brands[0]?.pct ?? null
+                    const priceChangePct = psum?.price_change_pct
+                    const reviewConf = report?.confidence_breakdown?.find(c => c.factor === '리뷰 데이터')?.pct ?? null
+                    const monthlyEffects = forecastData?.influence?.monthly_effects
+                    const seasonalAmp = Array.isArray(monthlyEffects) && monthlyEffects.length > 0
+                      ? Math.max(...monthlyEffects.map(m => m.effect)) - Math.min(...monthlyEffects.map(m => m.effect))
+                      : null
+
                     const scoreItems = [
-                      { label: '검색 트렌드',  score: Math.max(-15, Math.min(22, Math.round(g * 0.8 + (g >= 0 ? 12 : 8)))) },
-                      { label: '계절성',       score: ctx?.peak_months ? 18 : 8 },
-                      { label: '가격 안정성',  score: ins?.signal?.includes('매입') ? 12 : ins?.signal?.includes('적정') ? 8 : 4 },
-                      { label: '소비자 니즈',  score: Math.min((report?.consumer_needs?.length ?? 0) * 4 + 6, 14) },
-                      { label: '브랜드 경쟁',  score: -(brands.length > 5 ? 10 : brands.length > 3 ? 7 : 4) },
-                      { label: '재고 리스크',  score: -(metrics?.risk === '높음' ? 10 : metrics?.risk === '중간' ? 6 : 3) },
+                      { label: '검색 트렌드',       score: Math.max(-20, Math.min(20, Math.round(g))), detail: `검색 관심도 성장률 ${g >= 0 ? '+' : ''}${g}%` },
+                      { label: '계절 진폭',         score: seasonalAmp != null ? Math.round(Math.min(seasonalAmp, 20)) : 0, detail: seasonalAmp != null ? `월별 수요 영향도 편차 ${seasonalAmp.toFixed(1)}` : '계절 영향도 데이터 부족' },
+                      { label: '가격 변동성',       score: priceChangePct != null ? Math.round(Math.max(-10, Math.min(10, 10 - Math.abs(priceChangePct)))) : 0, detail: priceChangePct != null ? `전일 대비 가격 변동 ${priceChangePct >= 0 ? '+' : ''}${priceChangePct}%` : '가격 변동 데이터 부족' },
+                      { label: '리뷰 데이터 신뢰도', score: reviewConf != null ? Math.round(reviewConf / 10) : 0, detail: reviewConf != null ? `AI 분석 근거 중 리뷰 데이터 비중 ${reviewConf}%` : '리뷰 데이터 부족' },
+                      { label: '브랜드 집중도',      score: top1Share != null ? -Math.round((100 - top1Share) / 10) : 0, detail: top1Share != null ? `1위 브랜드 점유율 ${top1Share}% · 총 ${brands.length}개 브랜드 경쟁` : '브랜드 데이터 부족' },
+                      { label: '재고 리스크',        score: -(metrics?.risk === '높음' ? 10 : metrics?.risk === '중간' ? 6 : 3), detail: `검색 성장률 기반 위험도: ${metrics?.risk ?? '-'}` },
                     ]
                     const totalScore = scoreItems.reduce((s, item) => s + item.score, 0)
                     return (
                       <div className={s.decisionScoreCard}>
                         <div className={s.dsHeader}>
-                          <p className={s.dsTitle}>Decision Score</p>
+                          <p className={s.dsTitle}>Decision Score <span className={s.dsSubtitle}>— 실제 데이터 기반 참고 지표</span></p>
                           <div className={s.dsTotalPill} style={{ background: acfg.bg, color: acfg.color, borderColor: acfg.border }}>
-                            총 {totalScore}점 &nbsp;·&nbsp; {action}
+                            총 {totalScore}점 &nbsp;·&nbsp; 최종 권고는 위 AI 권고({action}) 기준
                           </div>
                         </div>
                         <div className={s.dsScoreGrid}>
-                          {scoreItems.map(({ label, score }) => (
-                            <div key={label} className={s.dsItem}>
+                          {scoreItems.map(({ label, score, detail }) => (
+                            <div key={label} className={s.dsItem} title={detail}>
                               <span className={s.dsLabel}>{label}</span>
                               <div className={s.dsBarWrap}>
                                 <div className={s.dsBarFill} style={{
-                                  width: `${Math.round(Math.abs(score) / 22 * 100)}%`,
+                                  width: `${Math.round(Math.abs(score) / 20 * 100)}%`,
                                   background: score >= 0 ? '#10b981' : '#ef4444',
                                   float: score >= 0 ? 'left' : 'right',
                                 }} />
@@ -294,15 +302,9 @@ export default function B2BReport() {
                               <span className={s.dsScore} style={{ color: score >= 0 ? '#10b981' : '#ef4444' }}>
                                 {score >= 0 ? `+${score}` : score}
                               </span>
+                              <span className={s.dsDetail}>{detail}</span>
                             </div>
                           ))}
-                        </div>
-                        <div className={s.dsCriteria}>
-                          <span className={totalScore >= 40 ? s.dsCriteriaActive : s.dsCriteriaInactive}>40점 이상 → 매입 확대</span>
-                          <span className={s.dsCriteriaDot}>·</span>
-                          <span className={totalScore >= 20 && totalScore < 40 ? s.dsCriteriaActive : s.dsCriteriaInactive}>20~39점 → 관망</span>
-                          <span className={s.dsCriteriaDot}>·</span>
-                          <span className={totalScore < 20 ? s.dsCriteriaActive : s.dsCriteriaInactive}>20점 미만 → 매입 축소</span>
                         </div>
                       </div>
                     )
@@ -942,9 +944,6 @@ export default function B2BReport() {
                             <p className={s.actionText}>{item.action}</p>
                           </div>
                           <div className={s.actionListRight}>
-                            {item.budget && item.budget !== '별도 예산 없음' && (
-                              <span className={s.actionBudget}>{item.budget}</span>
-                            )}
                             <span className={s.actionDept}>{item.dept}</span>
                             <span className={s.actionTiming} style={{ color: i < 2 ? acfg.color : '#6b7280' }}>{item.timing}</span>
                           </div>

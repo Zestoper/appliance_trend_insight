@@ -296,6 +296,41 @@ export default function B2BPrice() {
               );
             })()}
 
+            {/* ── 가격 판단 신호 배너 ── */}
+            {data.price_insight && (() => {
+              const pi = data.price_insight;
+              const SIGNAL_COLOR = { '매입 적기': '#10b981', '관망 권장': '#ef4444', '적정가': '#6366f1' };
+              const SIGNAL_ICON  = { '매입 적기': '▼', '관망 권장': '⏸', '적정가': '─' };
+              const c = SIGNAL_COLOR[pi.signal] ?? '#6366f1';
+              return (
+                <div className={s.timingBanner} style={{ borderLeftColor: c, background: `${c}0d` }}>
+                  <div className={s.timingBannerLeft}>
+                    <span className={s.timingBannerIcon} style={{ color: c }}>{SIGNAL_ICON[pi.signal] ?? '─'}</span>
+                    <div>
+                      <span className={s.timingBannerLabel} style={{ color: c }}>{pi.signal}</span>
+                      <p className={s.timingBannerMsg}>{pi.reason} {pi.strategy}</p>
+                    </div>
+                  </div>
+                  {(pi.brand_pick && pi.brand_pick !== '-') || (pi.brand_avoid && pi.brand_avoid !== '-') ? (
+                    <div className={s.timingBannerBrandRow}>
+                      {pi.brand_pick && pi.brand_pick !== '-' && (
+                        <div className={s.timingBannerBrandChip} style={{ borderColor: '#10b98155', background: '#10b98111' }}>
+                          <span style={{ color: '#10b981' }}>▲ 추천 {pi.brand_pick}</span>
+                          {pi.brand_pick_reason && <p>{pi.brand_pick_reason}</p>}
+                        </div>
+                      )}
+                      {pi.brand_avoid && pi.brand_avoid !== '-' && (
+                        <div className={s.timingBannerBrandChip} style={{ borderColor: '#ef444455', background: '#ef444411' }}>
+                          <span style={{ color: '#ef4444' }}>▽ 비추 {pi.brand_avoid}</span>
+                          {pi.brand_avoid_reason && <p>{pi.brand_avoid_reason}</p>}
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })()}
+
             {/* ── Section 1: Key Price Metrics ── */}
             <div className={s.section}>
               <div className={s.sectionLabelRow}>
@@ -493,8 +528,13 @@ export default function B2BPrice() {
                     <div className={s.insightCard} style={{ background: scfg.bg, borderColor: scfg.border }}>
                       <div className={s.insightHeader}>
                         <span className={s.insightSignalBig} style={{ color: scfg.color }}>{pi.signal}</span>
-                        {pi.brand_pick && (
+                        {pi.brand_pick && pi.brand_pick !== '-' && (
                           <span className={s.insightBrandBadge}>{pi.brand_pick} 납품 추천</span>
+                        )}
+                        {pi.brand_avoid && pi.brand_avoid !== '-' && (
+                          <span className={s.insightBrandBadge} style={{ color: '#ef4444', borderColor: '#ef444455', background: '#ef444411' }}>
+                            {pi.brand_avoid} 비추천
+                          </span>
                         )}
                       </div>
                       <div className={s.insightTriGrid}>

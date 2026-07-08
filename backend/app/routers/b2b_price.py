@@ -18,6 +18,20 @@ async def get_price_intelligence(category: str = Query(..., min_length=1), _: di
 
     today = date.today()
 
+    # ── 하루 단위 스냅샷 캐시 — 캐시가 없으면 새로고침마다 네이버 sort=sim 순서가 흔들려
+    # 평균가/브랜드 구성이 매번 달라지는 문제가 있어, 같은 날엔 항상 같은 결과를 반환한다.
+    _ck     = f"{_CACHE_VER}:price:{category}"
+    _db_key = f"naver_price:{category}:{today}"
+    from app.services.naver_cache import get_db_cache as _get_price_cache, set_db_cache as _set_price_cache
+
+    _cached = _GROQ_CACHE.get(_ck)
+    if _cached and _time.time() < _cached[0]:
+        return _cached[1]
+    _db_cached = await _get_price_cache(_db_key)
+    if _db_cached:
+        _GROQ_CACHE[_ck] = (_time.time() + min(_GROQ_TTL, 3600), _db_cached)
+        return _db_cached
+
     raw = await search_products(query=category, page=1, display=100, sort="sim", category=category)
     items = [it for it in raw.get("items", []) if it.get("price", 0) > 0]
 
@@ -132,13 +146,18 @@ async def get_price_intelligence(category: str = Query(..., min_length=1), _: di
     from app.dependencies import get_rag_optional
     rag = get_rag_optional()
 
+    _by_price = sorted(by_brand, key=lambda x: x["avg_price"]) if by_brand else []
     price_insight = {
-        "signal":     "적정가",
-        "reason":     f"현재 평균가 {avg_price // 10000}만원으로 적정 수준입니다.",
-        "strategy":   "현재 재고 수준을 유지하세요.",
-        "brand_pick": by_brand[0]["brand"] if by_brand else "-",
-        "summary":    f"{category} 가격 분석 결과입니다.",
+        "signal":            "적정가",
+        "reason":            f"현재 평균가 {avg_price // 10000}만원으로 적정 수준입니다.",
+        "strategy":          "현재 재고 수준을 유지하세요.",
+        "brand_pick":        _by_price[0]["brand"] if _by_price else "-",
+        "brand_pick_reason": "",
+        "brand_avoid":       _by_price[-1]["brand"] if len(_by_price) > 1 else "-",
+        "brand_avoid_reason": "",
+        "summary":           f"{category} 가격 분석 결과입니다.",
     }
+    _valid_brands = {b["brand"] for b in by_brand}
     try:
         rag_ctx = ""
         if rag:
@@ -146,9 +165,10 @@ async def get_price_intelligence(category: str = Query(..., min_length=1), _: di
             if chunks:
                 rag_ctx = "\n[소비자 가격 반응 데이터]\n" + "\n".join(f"- {c[:_RAG_CHUNK_LEN]}" for c in chunks)
 
-        brand_summary = ", ".join(
+        brand_ctx = "\n  ".join(
             f"{b['brand']} 평균 {b['avg_price'] // 10000}만원"
-            for b in by_brand[:3]
+            f"(시장평균 대비 {'+' if b['avg_price'] >= avg_price else ''}{round((b['avg_price'] - avg_price) / max(avg_price, 1) * 100)}%, 매물 {b['count']}건)"
+            for b in by_brand[:6]
         ) or "데이터 부족"
         change_str = (
             f"{'+' if price_change_pct >= 0 else ''}{price_change_pct}%"
@@ -159,16 +179,23 @@ async def get_price_intelligence(category: str = Query(..., min_length=1), _: di
             f"[{category} 가격 인텔리전스 — {today}]\n"
             f"- 평균가: {avg_price // 10000}만원 / 최저가: {min_price // 10000}만원 / 최고가: {max_price // 10000}만원\n"
             f"- 전일 대비: {change_str}\n"
-            f"- 상위 브랜드 평균가: {brand_summary}\n"
+            f"- 브랜드별 가격 포지션 (시장 평균 대비):\n  {brand_ctx}\n"
             f"{rag_ctx}\n\n"
             f"아래 JSON으로만 응답하세요:\n"
             f'{{\n'
             f'  "signal": "매입 적기 또는 관망 권장 또는 적정가 중 하나",\n'
             f'  "reason": "가격 판단 근거 1문장 (40자 이내). 현재 평균가와 시장 가격 위치를 수치와 함께 간결하게 해석 (~으로 판단됩니다 어조).",\n'
             f'  "strategy": "B2B 구매 전략 1문장 (40자 이내). 매입 방식과 권장 판매가 구간을 핵심만 압축 (~가 권장됩니다 어조).",\n'
-            f'  "brand_pick": "납품 추천 브랜드명",\n'
+            f'  "brand_pick": "위 브랜드별 가격 포지션 목록에 있는 브랜드명 중 하나 — 시장 평균 대비 저렴하면서 매물 수도 충분해 재고 확보가 쉬운 브랜드를 선택",\n'
+            f'  "brand_pick_reason": "추천 근거 1문장 (30자 이내). 반드시 그 브랜드의 가격·매물 수치를 인용.",\n'
+            f'  "brand_avoid": "위 브랜드별 가격 포지션 목록에 있는 브랜드명 중 하나 — 시장 평균 대비 과도하게 비싸거나 매물이 적어 재고 확보가 어려운 브랜드를 선택",\n'
+            f'  "brand_avoid_reason": "비추천 근거 1문장 (30자 이내). 반드시 그 브랜드의 가격·매물 수치를 인용.",\n'
             f'  "summary": "종합 가격 시장 전망 1~2문장 (각 40자 이내, ~을 추천합니다/권장합니다 어조)"\n'
-            f'}}'
+            f'}}\n\n'
+            f'[규칙] 1. "관망 권장"을 선택하더라도 막연히 지켜보라는 뜻이 아니라 '
+            f'"언제까지 무엇을 보고 재판단할지"가 strategy에 구체적으로 드러나야 한다 (예: "다음 스냅샷까지 매입 보류, 5% 이상 하락 시 즉시 매입"). '
+            f'"현재 수준 유지", "지켜봐야 함" 같은 결론 없는 문장 금지 — 반드시 지금 당장 할 행동 하나를 명시할 것. '
+            f'2. brand_pick과 brand_avoid는 반드시 서로 다른 브랜드여야 하며, 반드시 위 브랜드별 가격 포지션 목록에 실제로 있는 이름만 사용할 것 (목록에 없는 브랜드명 생성 금지).'
         )
         res = await _groq_create(
             messages=[
@@ -184,6 +211,19 @@ async def get_price_intelligence(category: str = Query(..., min_length=1), _: di
             if raw.startswith("json"):
                 raw = raw[4:]
         parsed = _json2.loads(raw)
+        # 모델이 프롬프트 지시문(플레이스홀더)을 그대로 되뱉는 경우 방어 — signal은 반드시 정해진 3개 값 중 하나,
+        # 나머지 텍스트 필드에 "어조"·"자 이내"·"중 하나" 같은 지시문 잔재가 섞여 있으면 파싱 실패로 간주한다.
+        _LEAK_MARKERS = ("어조", "자 이내", "중 하나")
+        if parsed.get("signal") not in ("매입 적기", "관망 권장", "적정가"):
+            raise ValueError(f"invalid signal from model: {parsed.get('signal')!r}")
+        for _field in ("reason", "strategy", "summary", "brand_pick_reason", "brand_avoid_reason"):
+            _val = parsed.get(_field, "")
+            if isinstance(_val, str) and any(m in _val for m in _LEAK_MARKERS):
+                raise ValueError(f"prompt leakage detected in {_field}: {_val!r}")
+        if _valid_brands:
+            _bp, _ba = parsed.get("brand_pick"), parsed.get("brand_avoid")
+            if _bp not in _valid_brands or _ba not in _valid_brands or _bp == _ba:
+                raise ValueError(f"invalid brand_pick/brand_avoid from model: {_bp!r} / {_ba!r}")
         price_insight.update({k: v for k, v in parsed.items() if k in price_insight})
     except Exception as e:
         price_insight["_groq_error"] = repr(e)[:300]
@@ -195,7 +235,7 @@ async def get_price_intelligence(category: str = Query(..., min_length=1), _: di
     except Exception:
         pass
 
-    return {
+    result = {
         "category":      category,
         "snapshot_date": str(today),
         "summary": {
@@ -212,6 +252,14 @@ async def get_price_intelligence(category: str = Query(..., min_length=1), _: di
         "price_history":      price_history,
         "price_insight":      price_insight,
     }
+    # AI 인사이트 생성이 실패한 응답은 캐시하지 않는다 — 다음 요청에서 재시도되도록 남겨둔다.
+    if "_groq_error" not in price_insight:
+        _GROQ_CACHE[_ck] = (_time.time() + _GROQ_TTL, result)
+        try:
+            await _set_price_cache(_db_key, result, ttl_hours=24)
+        except Exception:
+            pass
+    return result
 
 
 @router.get("/export-report")
