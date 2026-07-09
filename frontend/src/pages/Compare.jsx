@@ -396,6 +396,13 @@ export default function Compare() {
       .then(r => r.json())
       .then(data => {
         let items = (data.items ?? []).filter(p => !p.title.includes('렌탈') && p.price !== 1)
+        // 네이버 쇼핑 검색은 "LG TV"처럼 브랜드를 검색어에 넣어도 텍스트 관련도로만
+        // 찾기 때문에 실제로는 다른 브랜드(삼성 등) 제품도 섞여 들어온다 — brand 필드로
+        // 한 번 더 걸러야 진짜 그 브랜드만 남는다. "LG전자"/"삼성전자"처럼 정식 법인명이
+        // 붙어 있어 완전 일치 대신 부분 포함으로 비교한다.
+        if (brand) {
+          items = items.filter(p => p.brand && p.brand.includes(brand))
+        }
         if (price) {
           const priceGroup = FILTER_GROUPS.find(g => g.key === 'price')
           const priceIdx = priceGroup.options.indexOf(price)
