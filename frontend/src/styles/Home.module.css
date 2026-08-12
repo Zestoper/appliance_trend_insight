@@ -13,7 +13,28 @@
   overflow: hidden;
 }
 
+.ptDisclosure {
+  position: fixed;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--nav-bg);
+  padding: 4px 12px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
 @media (max-width: 640px) {
+  .ptDisclosure {
+    font-size: 10px;
+    white-space: normal;
+    text-align: center;
+    max-width: 90vw;
+  }
+
   .snapContainer {
     scroll-snap-type: y proximity;
   }
