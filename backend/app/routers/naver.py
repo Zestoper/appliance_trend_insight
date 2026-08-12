@@ -7,10 +7,20 @@ from fastapi import APIRouter, HTTPException, Query
 from app.config import (
     NAVER_CLIENT_ID, NAVER_CLIENT_SECRET, NAVER_HEADERS,
     NAVER_SHOP_URL, YOUTUBE_API_KEY, CATEGORY_RULES, APPLIANCE_KEYWORDS, _DL_CACHE,
+    NAVER_MAINTENANCE_MODE, NAVER_MAINTENANCE_MESSAGE,
 )
 from app.utils.helpers import strip_html
 
 router = APIRouter()
+
+
+def require_naver_available() -> None:
+    """네이버 정책 변경으로 상품 수집이 막혀 있는 동안 API 호출 자체를 차단한다."""
+    if NAVER_MAINTENANCE_MODE:
+        raise HTTPException(
+            status_code=503,
+            detail={"maintenance": True, "message": NAVER_MAINTENANCE_MESSAGE},
+        )
 
 
 async def _fetch_transcript(video_id: str) -> str:
@@ -34,6 +44,7 @@ async def search_products(
     sort:     str = Query("sim"),
     category: str = Query(None),
 ):
+    require_naver_available()
     if not NAVER_CLIENT_ID or not NAVER_CLIENT_SECRET:
         raise HTTPException(status_code=500, detail="Naver API key not configured")
 
@@ -111,6 +122,7 @@ async def get_news(
     query:   str = Query(..., min_length=1),
     display: int = Query(5, ge=1, le=10),
 ):
+    require_naver_available()
     url = "https://openapi.naver.com/v1/search/news.json"
     params = {"query": query, "display": display, "sort": "date"}
 
@@ -135,6 +147,7 @@ async def get_news(
 
 @router.get("/api/naver/datalab")
 async def get_datalab(query: str = Query(..., min_length=1)):
+    require_naver_available()
     end_date   = date.today()
     start_date = end_date - timedelta(days=30)
 
@@ -306,6 +319,7 @@ async def get_ppomppu(query: str = Query(..., min_length=1)):
 @router.get("/api/naver/product-image")
 async def get_product_image(query: str = Query(..., min_length=1)):
     """네이버 쇼핑 검색으로 제품 대표 이미지 URL 반환."""
+    require_naver_available()
     if not NAVER_CLIENT_ID or not NAVER_CLIENT_SECRET:
         raise HTTPException(status_code=500, detail="Naver API key not configured")
     params = {"query": query, "display": 3, "sort": "sim"}

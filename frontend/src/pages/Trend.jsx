@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/common/Navbar'
 import styles from '../styles/Trend.module.css'
 import { API_BASE } from '../config'
+import { isNaverMaintenance, naverMaintenanceMessage } from '../utils/naverMaintenance'
 
 const CATEGORIES = [
   "전체", "냉장고", "세탁기", "건조기", "에어컨",
@@ -170,6 +171,7 @@ export default function Trend() {
         ? `${API_BASE}/api/trend`
         : `${API_BASE}/api/trend?category=${encodeURIComponent(cat)}`
       const data = await fetch(url).then(r => r.json())
+      if (isNaverMaintenance(data)) { setError(naverMaintenanceMessage(data)); return }
       if (data.error) setError(data.error)
       setCache(prev => ({ ...prev, [cat]: data.items ?? [] }))
     } catch {

@@ -7,6 +7,11 @@ NAVER_CLIENT_ID = os.getenv("NAVER_CLIENT_ID")
 NAVER_CLIENT_SECRET = os.getenv("NAVER_CLIENT_SECRET")
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "")
 
+# 네이버 정책 변경으로 상품 수집이 막혀 있는 동안 API 호출 자체를 전면 차단하는 킬스위치.
+# 기본값 on — 정상화되면 환경변수 NAVER_MAINTENANCE_MODE=false 로 해제한다.
+NAVER_MAINTENANCE_MODE = os.getenv("NAVER_MAINTENANCE_MODE", "true").strip().lower() not in {"0", "false", "no", "off"}
+NAVER_MAINTENANCE_MESSAGE = "네이버 정책 변경으로 상품 데이터 연동이 일시 점검 중입니다. 빠르게 정상화하겠습니다."
+
 NAVER_SHOP_URL      = "https://openapi.naver.com/v1/search/shop.json"
 NAVER_NEWS_URL      = "https://openapi.naver.com/v1/search/news.json"
 NAVER_DATALAB_URL   = "https://openapi.naver.com/v1/datalab/search"

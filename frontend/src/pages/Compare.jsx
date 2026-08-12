@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/common/Navbar'
+import MaintenanceNotice from '../components/common/MaintenanceNotice'
 import styles from '../styles/Compare.module.css'
 import { useAuth } from '../context/AuthContext'
 import { API_BASE } from '../config'
+import { isNaverMaintenance, naverMaintenanceMessage } from '../utils/naverMaintenance'
 
 function MiniChart({ data, uid }) {
   if (!data || data.length === 0) return <p className={styles.noData}>데이터 없음</p>
@@ -83,6 +85,7 @@ function SearchSlot({ slotNum, onAdd, alreadyIds, collapsible = false, isOpen = 
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
   const [searching, setSearching] = useState(false)
+  const [maintenanceMsg, setMaintenanceMsg] = useState(null)
   const timerRef = useRef(null)
 
   const favs = (() => {
@@ -96,9 +99,19 @@ function SearchSlot({ slotNum, onAdd, alreadyIds, collapsible = false, isOpen = 
     clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => {
       setSearching(true)
+      setMaintenanceMsg(null)
       fetch(`${API_BASE}/api/naver/products?query=${encodeURIComponent(query)}&page=1&display=15`)
         .then(r => r.json())
-        .then(data => { setResults(data.items ?? []); setSearching(false) })
+        .then(data => {
+          if (isNaverMaintenance(data)) {
+            setMaintenanceMsg(naverMaintenanceMessage(data))
+            setResults([])
+            setSearching(false)
+            return
+          }
+          setResults(data.items ?? [])
+          setSearching(false)
+        })
         .catch(() => setSearching(false))
     }, 400)
     return () => clearTimeout(timerRef.current)
@@ -135,7 +148,8 @@ function SearchSlot({ slotNum, onAdd, alreadyIds, collapsible = false, isOpen = 
         {searching && <span className={styles.spinner} />}
       </div>
       <div className={styles.slotBody}>
-        {results.length > 0 && (
+        {maintenanceMsg && <p className={styles.noResult}>일시 점검중입니다</p>}
+        {!maintenanceMsg && results.length > 0 && (
           <ul className={styles.list}>
             {results.map(p => (
               <li key={p.id} className={styles.listItem} onClick={() => pick(p)}>
@@ -148,7 +162,7 @@ function SearchSlot({ slotNum, onAdd, alreadyIds, collapsible = false, isOpen = 
             ))}
           </ul>
         )}
-        {query.trim() && !searching && results.length === 0 && (
+        {!maintenanceMsg && query.trim() && !searching && results.length === 0 && (
           <p className={styles.noResult}>검색 결과 없음</p>
         )}
         {!query.trim() && availableFavs.length > 0 && (
@@ -377,6 +391,7 @@ export default function Compare() {
   const [catProducts,     setCatProducts]     = useState([])
   const [catLoading,      setCatLoading]      = useState(false)
   const [catMismatch,     setCatMismatch]     = useState(null)  // { current, incoming }
+  const [catMaintenance,  setCatMaintenance]  = useState(null)
 
   // 필터 조합으로 상품 목록 fetch
   useEffect(() => {
@@ -390,11 +405,18 @@ export default function Compare() {
 
     setCatLoading(true)
     setCatProducts([])
+    setCatMaintenance(null)
 
     const categoryParam = product ? `&category=${encodeURIComponent(product)}` : ''
     fetch(`${API_BASE}/api/naver/products?query=${encodeURIComponent(query)}&page=1&display=100&sort=${apiSort}${categoryParam}`)
       .then(r => r.json())
       .then(data => {
+        if (isNaverMaintenance(data)) {
+          setCatMaintenance(naverMaintenanceMessage(data))
+          setCatProducts([])
+          setCatLoading(false)
+          return
+        }
         let items = (data.items ?? []).filter(p => !p.title.includes('렌탈') && p.price !== 1)
         // 네이버 쇼핑 검색은 "LG TV"처럼 브랜드를 검색어에 넣어도 텍스트 관련도로만
         // 찾기 때문에 실제로는 다른 브랜드(삼성 등) 제품도 섞여 들어온다 — brand 필드로
@@ -621,7 +643,9 @@ export default function Compare() {
                   필터 초기화
                 </button>
               </div>
-              {catLoading ? (
+              {catMaintenance ? (
+                <MaintenanceNotice message={catMaintenance} />
+              ) : catLoading ? (
                 <div className={styles.catLoading}>
                   {Array.from({ length: 5 }).map((_, i) => (
                     <div key={i} className={styles.catSkeleton} />
