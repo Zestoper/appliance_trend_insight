@@ -5,6 +5,7 @@ from bs4 import BeautifulSoup
 
 from app.routers.b2b_utils import *
 from app.services.price_service import get_danawa_price_history
+from app.routers.naver import require_naver_available
 
 try:
     import pandas as _pd
@@ -179,6 +180,7 @@ def _linear_forecast(history: list[dict], n_forecast: int = 8, step_days: int = 
 async def get_product_search(q: str = Query(..., min_length=1), _: dict = Depends(require_b2b)):
     """검색어에 매칭되는 실제 상품 목록(사진·모델명·가격)을 반환 — 사용자가 그 중 하나를 골라야
     /search-analysis가 해당 '단일 상품' 기준으로 정밀 분석을 수행한다."""
+    require_naver_available()
     from app.services.public_data import get_kemco_model_grades_cached
 
     detected_category = None
@@ -363,6 +365,7 @@ async def get_search_analysis(
     force: bool = Query(False, description="true면 캐시를 무시하고 가격·리뷰·AI 리포트를 전부 새로 가져온다 ('업데이트' 버튼용)"),
     _: dict = Depends(require_b2b),
 ):
+    require_naver_available()
     from app.database import fetchall, execute as db_exec
 
     today = date.today()

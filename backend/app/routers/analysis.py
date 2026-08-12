@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from app.auth import get_current_user
 from app.config import NAVER_HEADERS, CATEGORY_RULES
 from app.utils.helpers import strip_html
-from app.routers.naver import search_products, get_datalab, get_news, youtube_search, get_ppomppu
+from app.routers.naver import search_products, get_datalab, get_news, youtube_search, get_ppomppu, require_naver_available
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -54,6 +54,7 @@ def _parse_json(content: str | None) -> dict | list:
 
 @router.get("/api/timing")
 async def get_timing(category: str = Query(..., min_length=1), product_id: str = Query(None)):
+    require_naver_available()
     from app.database import fetchall
     from app.services.price_service import upsert_price
 
@@ -325,6 +326,7 @@ async def get_timing(category: str = Query(..., min_length=1), product_id: str =
 
 @router.get("/api/trend")
 async def get_trend(category: str = Query(None)):
+    require_naver_available()
     try:
         from app.routers.b2b_utils import _groq_create as _gc
 
@@ -435,6 +437,7 @@ async def get_trend(category: str = Query(None)):
 
 @router.get("/api/recommend")
 async def get_recommend(query: str = Query(..., min_length=1)):
+    require_naver_available()
     try:
         from app.routers.b2b_utils import _groq_create as _gc
 
@@ -593,6 +596,7 @@ async def get_recommend(query: str = Query(..., min_length=1)):
 
 @router.get("/api/report")
 async def get_report(query: str = Query(..., min_length=1)):
+    require_naver_available()
     STOPWORDS = {"이하", "이상", "포함", "이내", "기준", "용", "형"}
     # 단어 분리 후 후행 구두점 제거 (예: "일반배관," → "일반배관")
     raw = [re.sub(r'[^\w가-힣A-Za-z0-9]+$', '', w) for w in query.split()]
@@ -636,6 +640,7 @@ async def get_report(query: str = Query(..., min_length=1)):
 
 @router.get("/api/user-reviews")
 async def get_user_reviews(query: str = Query(..., min_length=1)):
+    require_naver_available()
     from app.dependencies import get_rag_optional
     rag = get_rag_optional()
 
@@ -694,6 +699,7 @@ async def get_user_reviews(query: str = Query(..., min_length=1)):
 
 @router.get("/api/ai-analysis")
 async def get_ai_analysis(query: str = Query(..., min_length=1)):
+    require_naver_available()
     try:
         from app.dependencies import get_rag_optional
         from app.routers.b2b_utils import _groq_create as _gc
@@ -792,6 +798,7 @@ async def ai_compare(
     q2: str = Query(..., min_length=1),
     _payload: dict = Depends(get_current_user),
 ):
+    require_naver_available()
     try:
         from app.dependencies import get_rag_optional
         rag = get_rag_optional()

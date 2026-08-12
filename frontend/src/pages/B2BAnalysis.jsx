@@ -4,6 +4,7 @@ import Navbar from '../components/common/Navbar'
 import { useAuth } from '../context/AuthContext'
 import s from '../styles/B2BAnalysis.module.css'
 import { API_BASE } from '../config'
+import { isNaverMaintenance, naverMaintenanceMessage } from '../utils/naverMaintenance'
 
 const SIGNAL_STYLE = {
   buy:     { icon: '✅', color: '#22c55e', bg: 'rgba(34,197,94,0.12)',  border: 'rgba(34,197,94,0.3)'  },
@@ -209,6 +210,10 @@ export default function B2BAnalysis() {
         headers: { Authorization: `Bearer ${token}` },
       })
       const json = await res.json()
+      if (isNaverMaintenance(json)) {
+        setError(naverMaintenanceMessage(json))
+        return
+      }
       setProducts(json.items || [])
     } catch {
       setError('서버에 연결할 수 없습니다')
@@ -228,6 +233,10 @@ export default function B2BAnalysis() {
         { headers: { Authorization: `Bearer ${token}` } },
       )
       const json = await res.json()
+      if (isNaverMaintenance(json)) {
+        setError(naverMaintenanceMessage(json))
+        return
+      }
       setData(json)
     } catch {
       setError('서버에 연결할 수 없습니다')

@@ -1,11 +1,13 @@
 from fastapi import APIRouter, Depends, Query
 from app.routers.b2b_utils import *
+from app.routers.naver import require_naver_available
 
 router = APIRouter()
 
 
 @router.get("/product-price")
 async def get_product_price(title: str = Query(..., min_length=1), _: dict = Depends(require_b2b)):
+    require_naver_available()
     import json as _json
     from app.database import fetchall, execute as db_exec
 

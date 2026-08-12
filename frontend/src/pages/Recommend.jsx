@@ -4,6 +4,7 @@ import Navbar from '../components/common/Navbar'
 import styles from '../styles/Recommend.module.css'
 import { useAuth } from '../context/AuthContext'
 import { API_BASE } from '../config'
+import { isNaverMaintenance, naverMaintenanceMessage } from '../utils/naverMaintenance'
 
 const CATEGORIES = [
   '냉장고', '세탁기', '건조기', '에어컨', '공기청정기',
@@ -68,7 +69,9 @@ export default function Recommend() {
     try {
       const res  = await fetch(`${API_BASE}/api/recommend?query=${encodeURIComponent(q)}`)
       const data = await res.json()
-      if (data.error && !data.recommendations?.length) {
+      if (isNaverMaintenance(data)) {
+        setError(naverMaintenanceMessage(data))
+      } else if (data.error && !data.recommendations?.length) {
         setError(data.error)
       } else {
         setResult(data)

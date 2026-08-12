@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import Navbar from '../components/common/Navbar'
 import styles from '../styles/Timing.module.css'
 import { API_BASE } from '../config'
+import { isNaverMaintenance, naverMaintenanceMessage } from '../utils/naverMaintenance'
 
 const QUICK_EXAMPLES = [
   '삼성 비스포크 냉장고',
@@ -505,6 +506,7 @@ export default function Timing() {
           `${API_BASE}/api/naver/products?query=${encodeURIComponent(urlQ)}&display=50&sort=sim`
         ).then(r => r.json())
         if (cancelled) return
+        if (isNaverMaintenance(data)) { setError(naverMaintenanceMessage(data)); return }
         const items = (data.items || []).filter(it =>
           it.price > 0 &&
           !_EXCLUDE_LIST.some(kw => it.title.includes(kw)) &&
@@ -535,7 +537,8 @@ export default function Timing() {
           `${API_BASE}/api/timing?category=${encodeURIComponent(title)}&product_id=${encodeURIComponent(urlPid)}`
         ).then(r => r.json())
         if (cancelled) return
-        if (!data.analysis) setError(data.error ?? '분석 실패')
+        if (isNaverMaintenance(data)) setError(naverMaintenanceMessage(data))
+        else if (!data.analysis) setError(data.error ?? '분석 실패')
         else setResult(data)
       } catch {
         if (!cancelled) setError('서버에 연결할 수 없습니다')

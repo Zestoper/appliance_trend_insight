@@ -116,6 +116,11 @@ async def _seed_category(session: httpx.AsyncClient, rag: "RAGService", category
 
 
 async def seed(rag: "RAGService") -> None:
+    from app.config import NAVER_MAINTENANCE_MODE
+    if NAVER_MAINTENANCE_MODE:
+        print("[RAG] 네이버 API 점검 모드 — 시드 생략")
+        return
+
     count = await rag.count()
     if count > 0:
         print(f"[RAG] 이미 {count}개 문서 존재 — 시드 생략")
