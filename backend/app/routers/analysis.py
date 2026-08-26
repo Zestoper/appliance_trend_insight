@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from app.auth import get_current_user
 from app.config import NAVER_HEADERS, CATEGORY_RULES
 from app.utils.helpers import strip_html
-from app.routers.naver import search_products, get_datalab, get_news, youtube_search, get_ppomppu, require_naver_available
+from app.routers.naver import search_products, get_datalab, get_news, youtube_search, get_ppomppu
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -54,7 +54,6 @@ def _parse_json(content: str | None) -> dict | list:
 
 @router.get("/api/timing")
 async def get_timing(category: str = Query(..., min_length=1), product_id: str = Query(None)):
-    require_naver_available()
     from app.database import fetchall
     from app.services.price_service import upsert_price
 
@@ -326,7 +325,6 @@ async def get_timing(category: str = Query(..., min_length=1), product_id: str =
 
 @router.get("/api/trend")
 async def get_trend(category: str = Query(None)):
-    require_naver_available()
     try:
         from app.routers.b2b_utils import _groq_create as _gc
 
@@ -437,7 +435,6 @@ async def get_trend(category: str = Query(None)):
 
 @router.get("/api/recommend")
 async def get_recommend(query: str = Query(..., min_length=1)):
-    require_naver_available()
     try:
         from app.routers.b2b_utils import _groq_create as _gc
 
