@@ -596,7 +596,6 @@ async def get_recommend(query: str = Query(..., min_length=1)):
 
 @router.get("/api/report")
 async def get_report(query: str = Query(..., min_length=1)):
-    require_naver_available()
     STOPWORDS = {"이하", "이상", "포함", "이내", "기준", "용", "형"}
     # 단어 분리 후 후행 구두점 제거 (예: "일반배관," → "일반배관")
     raw = [re.sub(r'[^\w가-힣A-Za-z0-9]+$', '', w) for w in query.split()]
@@ -640,7 +639,6 @@ async def get_report(query: str = Query(..., min_length=1)):
 
 @router.get("/api/user-reviews")
 async def get_user_reviews(query: str = Query(..., min_length=1)):
-    require_naver_available()
     from app.dependencies import get_rag_optional
     rag = get_rag_optional()
 
@@ -699,7 +697,6 @@ async def get_user_reviews(query: str = Query(..., min_length=1)):
 
 @router.get("/api/ai-analysis")
 async def get_ai_analysis(query: str = Query(..., min_length=1)):
-    require_naver_available()
     try:
         from app.dependencies import get_rag_optional
         from app.routers.b2b_utils import _groq_create as _gc
@@ -798,7 +795,6 @@ async def ai_compare(
     q2: str = Query(..., min_length=1),
     _payload: dict = Depends(get_current_user),
 ):
-    require_naver_available()
     try:
         from app.dependencies import get_rag_optional
         rag = get_rag_optional()

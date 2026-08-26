@@ -15,7 +15,8 @@ router = APIRouter()
 
 
 def require_naver_available() -> None:
-    """네이버 정책 변경으로 상품 수집이 막혀 있는 동안 API 호출 자체를 차단한다."""
+    """네이버 정책 변경으로 막힌 건 쇼핑 검색(shop.json) API 뿐 — 뉴스/블로그/카페/데이터랩은
+    정상 동작 확인됨(2026-08-26). 그래서 이 가드는 상품 검색·가격을 다루는 호출에만 건다."""
     if NAVER_MAINTENANCE_MODE:
         raise HTTPException(
             status_code=503,
@@ -122,7 +123,6 @@ async def get_news(
     query:   str = Query(..., min_length=1),
     display: int = Query(5, ge=1, le=10),
 ):
-    require_naver_available()
     url = "https://openapi.naver.com/v1/search/news.json"
     params = {"query": query, "display": display, "sort": "date"}
 
@@ -147,7 +147,6 @@ async def get_news(
 
 @router.get("/api/naver/datalab")
 async def get_datalab(query: str = Query(..., min_length=1)):
-    require_naver_available()
     end_date   = date.today()
     start_date = end_date - timedelta(days=30)
 
