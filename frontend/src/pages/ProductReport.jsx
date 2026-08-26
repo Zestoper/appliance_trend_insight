@@ -7,6 +7,10 @@ import { useAuth } from '../context/AuthContext'
 import { API_BASE } from '../config'
 import { isNaverMaintenance, naverMaintenanceMessage } from '../utils/naverMaintenance'
 
+// 쿠팡파트너스 심사(실제 게시된 링크 스크린샷) 통과 후, 발급받는 Open API로 상품별
+// 딥링크를 동적 생성하도록 교체 예정 — 그 전까지는 승인용으로 발급받은 고정 링크를 사용한다.
+const COUPANG_PARTNER_LINK = 'https://link.coupang.com/a/gwCNvEqcNg'
+
 function fmtDate(str) {
   try {
     return new Date(str).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })
@@ -752,7 +756,7 @@ export default function ProductReport() {
             </button>
             <button
               className={`${styles.buyBtn} ${styles.buyCoupang}`}
-              onClick={() => window.open(`https://www.coupang.com/np/search?q=${encodeURIComponent(name)}`, '_blank')}
+              onClick={() => window.open(COUPANG_PARTNER_LINK, '_blank')}
             >
               쿠팡에서 구매하기 →
             </button>
