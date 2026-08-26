@@ -10,7 +10,7 @@ from app.config import (
     NAVER_MAINTENANCE_MODE, NAVER_MAINTENANCE_MESSAGE,
 )
 from app.utils.helpers import strip_html
-from app.services.danawa_search import danawa_search_products
+from app.services.danawa_search import danawa_search_products, get_danawa_live_price
 
 router = APIRouter()
 
@@ -142,6 +142,14 @@ async def get_best_price(query: str = Query(..., min_length=1), category: str = 
     danawa = await danawa_search_products(query=query, page=1, display=5, sort="asc", category=category)
     best = next((it for it in danawa["items"] if it["price"] > 0), None)
     source = "다나와"
+
+    if best:
+        # 검색결과 페이지에 박힌 가격(schema.org lowPrice)은 다나와 자체 캐시 갱신 주기
+        # 때문에 상세페이지에 실제로 보이는 최저가보다 뒤처질 수 있다 — 상세 조회 용도라
+        # 정확도가 중요하니 상품 상세페이지에서 직접 최신 최저가를 다시 확인한다.
+        live_price = await get_danawa_live_price(best.get("id", ""))
+        if live_price:
+            best = {**best, "price": live_price}
 
     if not NAVER_MAINTENANCE_MODE:
         try:
