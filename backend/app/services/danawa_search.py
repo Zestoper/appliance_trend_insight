@@ -21,6 +21,7 @@ _COUNT_DIGITS_RE = re.compile(r"\d+")
 # raw 목록을 후처리만 다르게 하는 것이라 캐시 키에 포함하지 않는다).
 _CACHE: dict[str, tuple[float, list[dict]]] = {}
 _CACHE_TTL = 1800  # 30분
+_CACHE_MAX = 200  # 자유 검색어가 계속 쌓여 메모리를 무한정 잡아먹지 않도록 상한선
 
 
 def _parse_item(li) -> dict | None:
@@ -70,11 +71,21 @@ def _parse_item(li) -> dict | None:
 
 
 def _parse_html(html: str) -> list[dict]:
-    """CPU 바운드(대용량 HTML 파싱)라 asyncio.to_thread로 호출해 이벤트 루프를 막지 않는다."""
+    """CPU/메모리 바운드(대용량 HTML 파싱)라 asyncio.to_thread로 호출해 이벤트 루프를 막지 않는다.
+    다나와 검색 페이지는 2~3MB인데 실제 필요한 상품 목록 영역은 20% 안팎이라, 전체를
+    BeautifulSoup 트리로 만들면 Render 같은 메모리 제한 환경에서 OOM이 난다 — 상품 목록
+    구간만 문자열 검색으로 잘라내 그 부분만 파싱한다 (마커를 못 찾으면 안전하게 전체 파싱)."""
+    start = html.find("main_prodlist")
+    end = html.rfind("prod_item")
+    if start != -1 and end != -1:
+        html = html[start:end + 20000]
+
     soup = BeautifulSoup(html, "html.parser")
     raw_items = [_parse_item(li) for li in soup.select("li.prod_item")]
     items = [it for it in raw_items if it]
-    return [it for it in items if not any(kw in it["title"] for kw in _RENTAL_KW)]
+    result = [it for it in items if not any(kw in it["title"] for kw in _RENTAL_KW)]
+    soup.decompose()  # BS4 트리는 내부적으로 순환참조가 있어 즉시 끊어줘야 GC가 빨리 회수한다
+    return result
 
 
 async def _fetch_raw_items(query: str) -> list[dict]:
@@ -93,6 +104,9 @@ async def _fetch_raw_items(query: str) -> list[dict]:
                 )
             resp.raise_for_status()
             items = await asyncio.to_thread(_parse_html, resp.text)
+            if len(_CACHE) >= _CACHE_MAX:
+                oldest_key = min(_CACHE, key=lambda k: _CACHE[k][0])
+                del _CACHE[oldest_key]
             _CACHE[query] = (time.time(), items)
             return items
         except Exception as e:
