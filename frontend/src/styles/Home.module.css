@@ -13,12 +13,29 @@
   overflow: hidden;
 }
 
-.ptDisclosure {
+.ptBar {
   position: fixed;
   bottom: 10px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ptBannerLink {
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, #6366f1, #818cf8);
+  padding: 6px 14px;
+  border-radius: 999px;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.ptDisclosure {
   font-size: 11px;
   color: var(--text-muted);
   background: var(--nav-bg);
@@ -28,6 +45,11 @@
 }
 
 @media (max-width: 640px) {
+  .ptBar {
+    flex-direction: column;
+    gap: 6px;
+  }
+
   .ptDisclosure {
     font-size: 10px;
     white-space: normal;

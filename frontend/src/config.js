@@ -1,4 +1,7 @@
 export const API_BASE = import.meta.env.VITE_API_BASE ?? ''
+// 쿠팡파트너스 최종 승인 심사(실제 게시된 링크 스크린샷)용 — 승인 후 API 키 발급되면
+// 상품별 동적 딥링크 생성으로 교체 예정. 그 전까지는 승인용으로 발급받은 고정 링크를 사용한다.
+export const COUPANG_PARTNER_LINK = 'https://link.coupang.com/a/gwCNvEqcNg'
 export const TOSS_CLIENT_KEY = import.meta.env.VITE_TOSS_CLIENT_KEY ?? ''
 // 개발용 우회: true면 토스 결제창을 열지 않고 바로 결제 승인 처리 (백엔드 SKIP_PAYMENT_VERIFICATION과 함께 사용)
 export const SKIP_PAYMENT_VERIFICATION = (import.meta.env.VITE_SKIP_PAYMENT_VERIFICATION ?? '') === 'true'

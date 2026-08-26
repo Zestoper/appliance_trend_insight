@@ -4,12 +4,8 @@ import Navbar from '../components/common/Navbar'
 import MaintenanceNotice from '../components/common/MaintenanceNotice'
 import styles from '../styles/ProductReport.module.css'
 import { useAuth } from '../context/AuthContext'
-import { API_BASE } from '../config'
+import { API_BASE, COUPANG_PARTNER_LINK } from '../config'
 import { isNaverMaintenance, naverMaintenanceMessage } from '../utils/naverMaintenance'
-
-// 쿠팡파트너스 심사(실제 게시된 링크 스크린샷) 통과 후, 발급받는 Open API로 상품별
-// 딥링크를 동적 생성하도록 교체 예정 — 그 전까지는 승인용으로 발급받은 고정 링크를 사용한다.
-const COUPANG_PARTNER_LINK = 'https://link.coupang.com/a/gwCNvEqcNg'
 
 function fmtDate(str) {
   try {
