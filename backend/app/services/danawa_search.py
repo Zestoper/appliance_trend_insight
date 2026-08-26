@@ -35,10 +35,12 @@ def _parse_item(li) -> dict | None:
     price_input = li.select_one("input[id^='min_price_']")
     price = int(price_input["value"]) if price_input and price_input.get("value", "").isdigit() else 0
 
+    # 다나와는 대부분의 이미지를 lazyload 처리해서 실제 URL이 src가 아니라 data-src에
+    # 있고, src는 항상 placeholder(noImg_160.gif)로 채워져 있다 — data-src를 우선 본다.
     image = ""
     img = li.select_one(".thumb_image img")
     if img:
-        src = img.get("src", "")
+        src = img.get("data-src") or img.get("src", "")
         if src and "noImg" not in src:
             image = "https:" + src if src.startswith("//") else src
 
