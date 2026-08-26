@@ -7,10 +7,11 @@ NAVER_CLIENT_ID = os.getenv("NAVER_CLIENT_ID")
 NAVER_CLIENT_SECRET = os.getenv("NAVER_CLIENT_SECRET")
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "")
 
-# 네이버 정책 변경으로 상품 수집이 막혀 있는 동안 API 호출 자체를 전면 차단하는 킬스위치.
+# 네이버 쇼핑 검색(shop.json) API만 정책 변경으로 막혀 있는 동안 상품 검색·가격 조회 호출을
+# 차단하는 킬스위치 (뉴스/블로그/카페/데이터랩은 정상 동작 확인됨 — 이 플래그의 영향을 받지 않음).
 # 기본값 on — 정상화되면 환경변수 NAVER_MAINTENANCE_MODE=false 로 해제한다.
 NAVER_MAINTENANCE_MODE = os.getenv("NAVER_MAINTENANCE_MODE", "true").strip().lower() not in {"0", "false", "no", "off"}
-NAVER_MAINTENANCE_MESSAGE = "네이버 정책 변경으로 상품 데이터 연동이 일시 점검 중입니다. 빠르게 정상화하겠습니다."
+NAVER_MAINTENANCE_MESSAGE = "네이버 쇼핑 검색 API 정책 변경으로 상품 검색·가격 정보가 일시 점검 중입니다. 빠르게 정상화하겠습니다."
 
 NAVER_SHOP_URL      = "https://openapi.naver.com/v1/search/shop.json"
 NAVER_NEWS_URL      = "https://openapi.naver.com/v1/search/news.json"

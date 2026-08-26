@@ -116,11 +116,8 @@ async def _seed_category(session: httpx.AsyncClient, rag: "RAGService", category
 
 
 async def seed(rag: "RAGService") -> None:
-    from app.config import NAVER_MAINTENANCE_MODE
-    if NAVER_MAINTENANCE_MODE:
-        print("[RAG] 네이버 API 점검 모드 — 시드 생략")
-        return
-
+    # 네이버 쇼핑 검색(shop.json)만 막혀있고 뉴스/블로그는 정상 동작 — _fetch_products()는
+    # 자체 try/except로 빈 리스트를 반환하니 여기서 전체를 막을 필요는 없다.
     count = await rag.count()
     if count > 0:
         print(f"[RAG] 이미 {count}개 문서 존재 — 시드 생략")
