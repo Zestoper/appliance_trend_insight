@@ -38,19 +38,14 @@ async def _fetch_transcript(video_id: str) -> str:
         return ""
 
 
-@router.get("/api/naver/products")
-async def search_products(
-    query:    str = Query(..., min_length=1),
-    page:     int = Query(1,  ge=1),
-    display:  int = Query(15, ge=1, le=100),
-    sort:     str = Query("sim"),
-    category: str = Query(None),
-):
-    if NAVER_MAINTENANCE_MODE:
-        # 네이버 쇼핑 검색(shop.json)만 막혀 있는 동안 다나와 스크래핑으로 대체 —
-        # 반환 형태가 동일해서 이 함수를 호출하는 다른 모든 곳(타이밍/트렌드/추천/
-        # 가격 스냅샷 등)은 코드 변경 없이 그대로 동작한다.
-        return await danawa_search_products(query=query, page=page, display=display, sort=sort, category=category)
+async def _fetch_naver_raw(
+    query: str,
+    page: int = 1,
+    display: int = 15,
+    sort: str = "sim",
+    category: str | None = None,
+) -> dict:
+    """실제 네이버 쇼핑 검색(shop.json) 호출 — search_products()와 get_best_price()가 공유."""
     if not NAVER_CLIENT_ID or not NAVER_CLIENT_SECRET:
         raise HTTPException(status_code=500, detail="Naver API key not configured")
 
@@ -121,6 +116,53 @@ async def search_products(
     capped_total = min(data.get("total", 0), display * 66)
 
     return {"items": items, "total": capped_total, "page": page, "display": display}
+
+
+@router.get("/api/naver/products")
+async def search_products(
+    query:    str = Query(..., min_length=1),
+    page:     int = Query(1,  ge=1),
+    display:  int = Query(15, ge=1, le=100),
+    sort:     str = Query("sim"),
+    category: str = Query(None),
+):
+    if NAVER_MAINTENANCE_MODE:
+        # 네이버 쇼핑 검색(shop.json)만 막혀 있는 동안 다나와 스크래핑으로 대체 —
+        # 반환 형태가 동일해서 이 함수를 호출하는 다른 모든 곳(타이밍/트렌드/추천/
+        # 가격 스냅샷 등)은 코드 변경 없이 그대로 동작한다.
+        return await danawa_search_products(query=query, page=page, display=display, sort=sort, category=category)
+    return await _fetch_naver_raw(query=query, page=page, display=display, sort=sort, category=category)
+
+
+@router.get("/api/best-price")
+async def get_best_price(query: str = Query(..., min_length=1), category: str = Query(None)):
+    """다나와(항상 시도)와 네이버(점검모드가 풀렸을 때만 시도)를 비교해 더 싼 쪽의
+    가격·링크·출처를 반환한다. 네이버 쇼핑 API가 막혀 있는 동안은 다나와만 써서
+    이미 막힌 걸 아는 API를 매번 두들기지 않는다."""
+    danawa = await danawa_search_products(query=query, page=1, display=5, sort="asc", category=category)
+    best = next((it for it in danawa["items"] if it["price"] > 0), None)
+    source = "다나와"
+
+    if not NAVER_MAINTENANCE_MODE:
+        try:
+            naver = await _fetch_naver_raw(query=query, page=1, display=5, sort="asc", category=category)
+            naver_best = next((it for it in naver["items"] if it["price"] > 0), None)
+            if naver_best and (not best or naver_best["price"] < best["price"]):
+                best = naver_best
+                source = "네이버"
+        except Exception:
+            pass
+
+    if not best:
+        return {"available": False}
+
+    return {
+        "available": True,
+        "price":     best["price"],
+        "link":      best["link"],
+        "mallName":  best.get("mallName", ""),
+        "source":    source,
+    }
 
 
 @router.get("/api/naver/news")
