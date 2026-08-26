@@ -10,6 +10,7 @@ from app.config import (
     NAVER_MAINTENANCE_MODE, NAVER_MAINTENANCE_MESSAGE,
 )
 from app.utils.helpers import strip_html
+from app.services.danawa_search import danawa_search_products
 
 router = APIRouter()
 
@@ -45,7 +46,11 @@ async def search_products(
     sort:     str = Query("sim"),
     category: str = Query(None),
 ):
-    require_naver_available()
+    if NAVER_MAINTENANCE_MODE:
+        # 네이버 쇼핑 검색(shop.json)만 막혀 있는 동안 다나와 스크래핑으로 대체 —
+        # 반환 형태가 동일해서 이 함수를 호출하는 다른 모든 곳(타이밍/트렌드/추천/
+        # 가격 스냅샷 등)은 코드 변경 없이 그대로 동작한다.
+        return await danawa_search_products(query=query, page=page, display=display, sort=sort, category=category)
     if not NAVER_CLIENT_ID or not NAVER_CLIENT_SECRET:
         raise HTTPException(status_code=500, detail="Naver API key not configured")
 
@@ -318,7 +323,11 @@ async def get_ppomppu(query: str = Query(..., min_length=1)):
 @router.get("/api/naver/product-image")
 async def get_product_image(query: str = Query(..., min_length=1)):
     """네이버 쇼핑 검색으로 제품 대표 이미지 URL 반환."""
-    require_naver_available()
+    if NAVER_MAINTENANCE_MODE:
+        result = await danawa_search_products(query=query, page=1, display=3, sort="sim")
+        items = result.get("items", [])
+        image = items[0]["image"] if items else ""
+        return {"image": image}
     if not NAVER_CLIENT_ID or not NAVER_CLIENT_SECRET:
         raise HTTPException(status_code=500, detail="Naver API key not configured")
     params = {"query": query, "display": 3, "sort": "sim"}
