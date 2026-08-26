@@ -142,7 +142,12 @@ async def danawa_search_products(
             if not any(kw in it["title"] for kw in rules["block"])
             and (it["price"] == 0 or it["price"] >= rules["min_price"])
         ]
-        must_ok = [it for it in safety if any(kw in it["title"] for kw in rules["must"])]
+        # 다나와 검색엔 실제 상품과 무관한 액세서리/부속품(가격 0원으로 파싱되는 제휴
+        # 리스팅)이 섞여 나오는데, "삼성냉장고RB30D4051S9냉장실 선반..."처럼 부속품
+        # 제목에 우연히 카테고리 단어가 들어있으면 must 필터를 통과해버려서, 정작 카테고리
+        # 단어가 없는 진짜 본품(가격 있음)보다 먼저 뽑히는 문제가 있었다 — 가격이 있는
+        # 것만 must 후보로 삼는다.
+        must_ok = [it for it in safety if it["price"] > 0 and any(kw in it["title"] for kw in rules["must"])]
         items = must_ok if must_ok else safety
 
     if sort == "asc":
