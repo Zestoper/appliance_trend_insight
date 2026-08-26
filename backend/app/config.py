@@ -29,8 +29,8 @@ KOSIS_API_KEY       = os.getenv("KOSIS_API_KEY", "")        # 통계청 kosis.kr
 KEPCO_API_KEY       = os.getenv("KEPCO_API_KEY", "")        # 한전 bigdata.kepco.co.kr
 
 # Groq
-GROQ_PRIMARY_MODEL   = os.getenv("GROQ_PRIMARY_MODEL",   "llama-3.3-70b-versatile")
-GROQ_FALLBACK_MODEL  = os.getenv("GROQ_FALLBACK_MODEL",  "llama-3.1-8b-instant")
+GROQ_PRIMARY_MODEL   = os.getenv("GROQ_PRIMARY_MODEL",   "openai/gpt-oss-120b")
+GROQ_FALLBACK_MODEL  = os.getenv("GROQ_FALLBACK_MODEL",  "openai/gpt-oss-20b")
 GROQ_CACHE_TTL       = int(os.getenv("GROQ_CACHE_TTL",   "14400"))  # 4시간
 
 # 토스페이먼츠 (결제창 방식 — 단건 결제, 자동 정기결제 아님)
