@@ -413,7 +413,7 @@ async def get_trend(category: str = Query(None)):
                     {"role": "system", "content": sys_msg},
                     {"role": "user", "content": product_text},
                 ],
-                max_tokens=700,
+                max_tokens=2000,
                 temperature=0.4,
             )
         except Exception as ai_err:
@@ -465,7 +465,7 @@ async def get_recommend(query: str = Query(..., min_length=1)):
                     },
                     {"role": "user", "content": query},
                 ],
-                max_tokens=700,
+                max_tokens=2000,
                 temperature=0.1,
             )
             parsed = _parse_json(parse_res.choices[0].message.content)
@@ -559,7 +559,7 @@ async def get_recommend(query: str = Query(..., min_length=1)):
                         ),
                     },
                 ],
-                max_tokens=700,
+                max_tokens=2000,
                 temperature=0.2,
             )
             rec_data = _parse_json(rec_res.choices[0].message.content)
@@ -723,29 +723,33 @@ async def get_ai_analysis(query: str = Query(..., min_length=1)):
                 })
             await rag.add_documents(docs)
 
+        # 방금 이 검색어로 직접 가져온 실사용자 후기·뉴스가 있으면 그게 가장 구체적이고
+        # 정확한 근거라 항상 먼저 넣는다. RAG 검색 결과는 이걸 대체하지 않고 보조 참고
+        # 자료로만 덧붙인다 — RAG가 "냉장고" 같은 넓은 카테고리 시딩 문서를 (실제로는
+        # 관련성이 낮은데도) 건져오면, 방금 확보한 구체적인 후기를 아예 못 보고 AI가
+        # "데이터 부족"이라고 잘못 판단하는 문제가 있었다.
         context_parts = []
+
+        if user_reviews:
+            lines = [
+                f"[{r.get('source', '')}] {r.get('title', '')} - {r.get('review', '')[:120]}"
+                for r in user_reviews[:12]
+                if r.get("review")
+            ]
+            if lines:
+                context_parts.append(f"[실사용자 후기 {len(lines)}개]\n" + "\n".join(lines))
+
+        if news_items:
+            lines = [f"- {n['title']}: {n.get('description', '')[:80]}" for n in news_items[:5]]
+            context_parts.append("[최신 뉴스]\n" + "\n".join(lines))
 
         if rag:
             rag_chunks = await rag.query(f"{query} 구매 후기 장단점 특징", n_results=5)
             if rag_chunks:
                 context_parts.append(
-                    f"[RAG 검색 결과 — {query} 관련 문서 {len(rag_chunks)}개]\n"
+                    f"[참고 자료 — {query} 관련 문서 {len(rag_chunks)}개]\n"
                     + "\n".join(c[:_RAG_CHUNK_MAX] for c in rag_chunks)
                 )
-
-        if not context_parts:
-            if user_reviews:
-                lines = [
-                    f"[{r.get('source', '')}] {r.get('title', '')} - {r.get('review', '')[:120]}"
-                    for r in user_reviews[:12]
-                    if r.get("review")
-                ]
-                if lines:
-                    context_parts.append(f"[실사용자 후기 {len(lines)}개]\n" + "\n".join(lines))
-
-            if news_items:
-                lines = [f"- {n['title']}: {n.get('description', '')[:80]}" for n in news_items[:5]]
-                context_parts.append("[최신 뉴스]\n" + "\n".join(lines))
 
         if not context_parts:
             return {"analysis": None, "reviews": [], "error": "분석할 데이터가 부족합니다"}
@@ -775,7 +779,7 @@ async def get_ai_analysis(query: str = Query(..., min_length=1)):
                     "content": f"제품명: {query}\n\n" + "\n\n".join(context_parts),
                 },
             ],
-            max_tokens=700,
+            max_tokens=2000,
             temperature=0.3,
         )
 
@@ -818,6 +822,11 @@ async def ai_compare(
                 parts.append("관련 뉴스:\n" + "\n".join(f"- {n['title']}" for n in news[:3]))
             return "\n".join(parts)
 
+        # 방금 확보한 구체적인 실사용 리뷰·뉴스를 항상 먼저 넣고, RAG는 보조 참고
+        # 자료로만 덧붙인다 (get_ai_analysis와 동일한 이유 — RAG 단독으로는 넓은
+        # 카테고리 시딩 문서만 걸려 정작 구체적인 후기가 프롬프트에서 빠질 수 있음).
+        context = fmt_ctx(r1, n1, q1) + "\n\n" + fmt_ctx(r2, n2, q2)
+
         if rag:
             docs = []
             for reviews_res, product_name in [(r1, q1), (r2, q2)]:
@@ -838,13 +847,11 @@ async def ai_compare(
             def fmt_rag(chunks, name):
                 if not chunks:
                     return ""
-                return f"=== {name} 관련 문서 ===\n" + "\n".join(chunks)
+                return f"=== {name} 관련 참고 자료 ===\n" + "\n".join(chunks)
 
-            context = fmt_rag(chunks1, q1) + "\n\n" + fmt_rag(chunks2, q2)
-            if not context.strip():
-                context = fmt_ctx(r1, n1, q1) + "\n\n" + fmt_ctx(r2, n2, q2)
-        else:
-            context = fmt_ctx(r1, n1, q1) + "\n\n" + fmt_ctx(r2, n2, q2)
+            rag_context = fmt_rag(chunks1, q1) + "\n\n" + fmt_rag(chunks2, q2)
+            if rag_context.strip():
+                context += "\n\n" + rag_context
 
         res = await _gc(
             [
@@ -864,7 +871,7 @@ async def ai_compare(
                 },
                 {"role": "user", "content": f"비교 대상:\n제품1: {q1}\n제품2: {q2}\n\n수집 데이터:\n{context}"},
             ],
-            max_tokens=700,
+            max_tokens=2000,
             temperature=0.3,
         )
 
