@@ -49,7 +49,7 @@ def _calc_risk(growth: float) -> str:
     """성장률 기반 시장 위험도 산출 (두 엔드포인트 공통)"""
     return "낮음" if growth > -15 else ("중간" if growth > -30 else "높음")
 
-_GROQ_MODELS = (GROQ_PRIMARY_MODEL, GROQ_FALLBACK_MODEL, "llama-3.1-8b-instant")
+_GROQ_MODELS = (GROQ_PRIMARY_MODEL, GROQ_FALLBACK_MODEL, "qwen/qwen3.8-27b")
 _GROQ_CACHE: dict = {}
 _GROQ_TTL   = GROQ_CACHE_TTL
 _CACHE_VER  = "v10"
@@ -144,6 +144,11 @@ async def _groq_create(messages: list, max_tokens: int = 600, temperature: float
         except APIStatusError as e:
             if e.status_code == 413:
                 logger.warning("[Groq] %s 요청 크기 초과(413) — 다음 모델 시도", model)
+                last_err = e
+                continue
+            if e.status_code == 404:
+                # Groq가 모델을 폐기/개편하면 나는 오류 — 즉시 죽지 않고 다음 모델로 넘어간다
+                logger.warning("[Groq] %s 모델을 찾을 수 없음(404, 폐기/개편 추정) — 다음 모델 시도", model)
                 last_err = e
                 continue
             raise
