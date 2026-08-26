@@ -1,13 +1,12 @@
 from fastapi import APIRouter, Depends, Query
 from app.routers.b2b_utils import *
-from app.routers.naver import require_naver_available
+from app.routers.naver import search_products
 
 router = APIRouter()
 
 
 @router.get("/product-price")
 async def get_product_price(title: str = Query(..., min_length=1), _: dict = Depends(require_b2b)):
-    require_naver_available()
     import json as _json
     from app.database import fetchall, execute as db_exec
 
@@ -16,27 +15,21 @@ async def get_product_price(title: str = Query(..., min_length=1), _: dict = Dep
     product_key = model if model else re.sub(r'\s+', ' ', title.strip())[:100]
     search_q = model if model else title
 
-    async with httpx.AsyncClient(timeout=8.0) as client:
-        resp = await client.get(
-            NAVER_SHOP_URL,
-            headers=NAVER_HEADERS,
-            params={"query": search_q, "display": 50, "sort": "sim"},
-        )
-
-    items_raw = resp.json().get("items", []) if resp.status_code == 200 else []
+    result = await search_products(query=search_q, page=1, display=50, sort="sim")
+    items_raw = result.get("items", [])
     _RENTAL_MALL_KW = ["렌탈", "리스", "렌트", "월정액", "구독"]
 
     items = [
         {
-            "mall":  strip_html(it.get("mallName", "")),
-            "title": strip_html(it["title"]),
-            "price": int(it["lprice"]),
+            "mall":  it.get("mallName", ""),
+            "title": it["title"],
+            "price": it["price"],
             "link":  it.get("link", ""),
         }
         for it in items_raw
-        if it.get("lprice") and int(it["lprice"]) > 0
-        and not any(kw in strip_html(it.get("mallName", "")) for kw in _RENTAL_MALL_KW)
-        and not any(kw in strip_html(it["title"]) for kw in _RENTAL_MALL_KW)
+        if it.get("price", 0) > 0
+        and not any(kw in it.get("mallName", "") for kw in _RENTAL_MALL_KW)
+        and not any(kw in it["title"] for kw in _RENTAL_MALL_KW)
     ]
 
     if not items:
