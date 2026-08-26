@@ -155,3 +155,37 @@ async def danawa_search_products(
     page_items = items[start:start + display]
 
     return {"items": page_items, "total": total, "page": page, "display": display}
+
+
+_LIVE_PRICE_RE = re.compile(r'og:description"\s*content="최저가\s*([0-9,]+)원')
+_LIVE_PRICE_CACHE: dict[str, tuple[float, int]] = {}
+_LIVE_PRICE_TTL = 600  # 10분 — 검색결과에 박힌 가격(schema.org lowPrice)은 다나와 자체
+# 캐시가 갱신 주기가 있어 상세페이지에 실제로 표시되는 "최저가"(og:description)보다
+# 꽤 뒤처질 수 있다 — 상품 상세 조회처럼 정확도가 중요한 곳은 이 값을 대신 쓴다.
+
+
+async def get_danawa_live_price(pcode: str) -> int | None:
+    """다나와 상품 상세페이지(prod.danawa.com)의 og:description에 박힌 "최저가 N원"을
+    읽어온다 — 검색결과 페이지에 있는 값보다 실제 화면에 보이는 최저가에 더 가깝다."""
+    if not pcode:
+        return None
+
+    cached = _LIVE_PRICE_CACHE.get(pcode)
+    if cached and time.time() - cached[0] < _LIVE_PRICE_TTL:
+        return cached[1]
+
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            resp = await client.get(
+                "https://prod.danawa.com/info/",
+                params={"pcode": pcode},
+                headers=_DANAWA_HEADERS,
+            )
+        m = _LIVE_PRICE_RE.search(resp.text)
+        if not m:
+            return None
+        price = int(m.group(1).replace(",", ""))
+        _LIVE_PRICE_CACHE[pcode] = (time.time(), price)
+        return price
+    except Exception:
+        return None
