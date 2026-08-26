@@ -7,22 +7,12 @@ from fastapi import APIRouter, HTTPException, Query
 from app.config import (
     NAVER_CLIENT_ID, NAVER_CLIENT_SECRET, NAVER_HEADERS,
     NAVER_SHOP_URL, YOUTUBE_API_KEY, CATEGORY_RULES, APPLIANCE_KEYWORDS, _DL_CACHE,
-    NAVER_MAINTENANCE_MODE, NAVER_MAINTENANCE_MESSAGE,
+    NAVER_MAINTENANCE_MODE,
 )
 from app.utils.helpers import strip_html
 from app.services.danawa_search import danawa_search_products, get_danawa_live_price
 
 router = APIRouter()
-
-
-def require_naver_available() -> None:
-    """네이버 정책 변경으로 막힌 건 쇼핑 검색(shop.json) API 뿐 — 뉴스/블로그/카페/데이터랩은
-    정상 동작 확인됨(2026-08-26). 그래서 이 가드는 상품 검색·가격을 다루는 호출에만 건다."""
-    if NAVER_MAINTENANCE_MODE:
-        raise HTTPException(
-            status_code=503,
-            detail={"maintenance": True, "message": NAVER_MAINTENANCE_MESSAGE},
-        )
 
 
 async def _fetch_transcript(video_id: str) -> str:

@@ -5,7 +5,7 @@ from bs4 import BeautifulSoup
 
 from app.routers.b2b_utils import *
 from app.services.price_service import get_danawa_price_history
-from app.routers.naver import require_naver_available, search_products
+from app.routers.naver import search_products
 
 try:
     import pandas as _pd
@@ -362,7 +362,6 @@ async def get_search_analysis(
     force: bool = Query(False, description="true면 캐시를 무시하고 가격·리뷰·AI 리포트를 전부 새로 가져온다 ('업데이트' 버튼용)"),
     _: dict = Depends(require_b2b),
 ):
-    require_naver_available()
     from app.database import fetchall, execute as db_exec
 
     today = date.today()
@@ -408,50 +407,46 @@ async def get_search_analysis(
 
     async def _fetch_product_items():
         try:
-            async with httpx.AsyncClient(timeout=8.0) as client:
-                resp = await client.get(NAVER_SHOP_URL, headers=NAVER_HEADERS,
-                    params={"query": search_q_product, "display": 40, "sort": "sim"})
-            raw = resp.json().get("items", []) if resp.status_code == 200 else []
+            result = await search_products(query=search_q_product, page=1, display=40, sort="sim")
+            raw = result.get("items", [])
         except Exception as e:
             logger.warning("[search-analysis] 제품 가격 조회 실패: %s", e)
             raw = []
         return [
             {
-                "mall":  strip_html(it.get("mallName", "")),
-                "brand": (it.get("maker") or it.get("brand") or "").strip(),
-                "title": strip_html(it.get("title", "")),
-                "price": int(it["lprice"]),
+                "mall":  it.get("mallName", ""),
+                "brand": it.get("brand", ""),
+                "title": it.get("title", ""),
+                "price": it["price"],
                 "link":  it.get("link", ""),
                 "image": it.get("image", ""),
             }
             for it in raw
-            if it.get("lprice") and int(it["lprice"]) > 0
-            and not any(k in strip_html(it.get("mallName", "")) for k in _RENTAL_KW)
-            and not any(k in strip_html(it.get("title", "")) for k in _RENTAL_KW)
+            if it.get("price", 0) > 0
+            and not any(k in it.get("mallName", "") for k in _RENTAL_KW)
+            and not any(k in it.get("title", "") for k in _RENTAL_KW)
         ]
 
     async def _fetch_category_items():
         if not detected_category:
             return []
         try:
-            async with httpx.AsyncClient(timeout=8.0) as client:
-                resp = await client.get(NAVER_SHOP_URL, headers=NAVER_HEADERS,
-                    params={"query": detected_category, "display": 60, "sort": "sim"})
-            raw = resp.json().get("items", []) if resp.status_code == 200 else []
+            result = await search_products(query=detected_category, page=1, display=60, sort="sim", category=detected_category)
+            raw = result.get("items", [])
         except Exception as e:
             logger.warning("[search-analysis] 카테고리 조회 실패: %s", e)
             raw = []
         return [
             {
-                "brand": (it.get("maker") or it.get("brand") or "").strip(),
-                "title": strip_html(it.get("title", "")),
-                "price": int(it["lprice"]),
+                "brand": it.get("brand", ""),
+                "title": it.get("title", ""),
+                "price": it["price"],
                 "link":  it.get("link", ""),
                 "image": it.get("image", ""),
             }
             for it in raw
-            if it.get("lprice") and int(it["lprice"]) > 0
-            and not any(k in strip_html(it.get("title", "")) for k in _RENTAL_KW)
+            if it.get("price", 0) > 0
+            and not any(k in it.get("title", "") for k in _RENTAL_KW)
         ]
 
     async def _fetch_search_trend(keyword: str, days: int):
