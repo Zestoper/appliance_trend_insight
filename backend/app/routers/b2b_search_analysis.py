@@ -986,7 +986,7 @@ async def get_search_analysis(
                 )},
                 {"role": "user", "content": prompt},
             ],
-            max_tokens=1300, temperature=0.2,
+            max_tokens=4000, temperature=0.2,
         )
         raw = resp.choices[0].message.content.strip()
         if "```" in raw:
