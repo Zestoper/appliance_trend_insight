@@ -186,6 +186,13 @@
   margin-bottom: 4px;
 }
 
+.priceSource {
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 500;
+  opacity: 0.8;
+}
+
 .heroPrice {
   font-size: clamp(24px, 3.5vw, 34px);
   font-weight: 900;

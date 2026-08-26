@@ -4,7 +4,7 @@ import Navbar from '../components/common/Navbar'
 import MaintenanceNotice from '../components/common/MaintenanceNotice'
 import styles from '../styles/ProductReport.module.css'
 import { useAuth } from '../context/AuthContext'
-import { API_BASE, COUPANG_PARTNER_LINK } from '../config'
+import { API_BASE } from '../config'
 import { isNaverMaintenance, naverMaintenanceMessage } from '../utils/naverMaintenance'
 
 function fmtDate(str) {
@@ -489,6 +489,7 @@ export default function ProductReport() {
   const [reportLoading, setReportLoading] = useState(true)
   const [aiData,        setAiData]        = useState(null)
   const [aiLoading,     setAiLoading]     = useState(true)
+  const [bestPrice,     setBestPrice]     = useState(null)
   const [isFav, setIsFav] = useState(() => {
     try {
       const favs = JSON.parse(localStorage.getItem('applens_favs') || '[]')
@@ -513,6 +514,12 @@ export default function ProductReport() {
       .then(r => r.json())
       .then(data => { setAiData(data); setAiLoading(false) })
       .catch(() => setAiLoading(false))
+
+    // 네이버·다나와 중 더 싼 가격을 비교해 상단 가격/구매 링크에 반영
+    fetch(`${API_BASE}/api/best-price?query=${encodeURIComponent(product.title)}${category ? `&category=${encodeURIComponent(category)}` : ''}`)
+      .then(r => r.json())
+      .then(data => { if (data.available) setBestPrice(data) })
+      .catch(() => {})
   }, [])
 
   // product가 없으면 (직접 URL 접근 등) 안내 화면
@@ -533,6 +540,12 @@ export default function ProductReport() {
   const ytItems        = reportData?.youtube?.items  ?? []
   const ppomppuItems   = reportData?.ppomppu?.items  ?? []
   const name           = product.title ?? product.name ?? '제품명 없음'
+  // 네이버·다나와 비교 결과가 도착하기 전까지는 목록에서 넘어온 값으로 보여주다가,
+  // 비교 결과(더 싼 쪽)가 오면 그걸로 교체한다.
+  const effectivePrice  = bestPrice?.price ?? product.price
+  const effectiveLink   = bestPrice?.link  ?? product.link
+  const effectiveSource = bestPrice?.source
+    ?? (product.mallName === '다나와 최저가비교' ? '다나와' : '네이버')
   const currentTrend   = trendData.length > 0
     ? Math.round(trendData[trendData.length - 1].ratio)
     : null
@@ -566,8 +579,8 @@ export default function ProductReport() {
         body: JSON.stringify({
           product_name:  product.title,
           target_price:  price,
-          current_price: product.price ?? 0,
-          product_url:   product.link ?? '',
+          current_price: effectivePrice ?? 0,
+          product_url:   effectiveLink ?? '',
           alert_type:    'below',
         }),
       })
@@ -632,12 +645,14 @@ export default function ProductReport() {
               </div>
             )}
             <div className={styles.heroPriceArea}>
-              <p className={styles.heroPriceLabel}>현재가</p>
+              <p className={styles.heroPriceLabel}>
+                현재가 {effectivePrice > 0 && <span className={styles.priceSource}>· {effectiveSource} 기준 최저가</span>}
+              </p>
               <div className={styles.heroPriceRow}>
                 <p className={styles.heroPrice}>
-                  {product.price > 0 ? `${product.price.toLocaleString()}원` : '가격 미정'}
+                  {effectivePrice > 0 ? `${effectivePrice.toLocaleString()}원` : '가격 미정'}
                 </p>
-                {isLoggedIn && product.price > 0 && (
+                {isLoggedIn && effectivePrice > 0 && (
                   <button
                     className={styles.alertBtn}
                     onClick={() => { setAlertOpen(true); setAlertDone(false); setAlertPrice('') }}
@@ -741,20 +756,15 @@ export default function ProductReport() {
           </div>
         )}
 
-        {/* ⑤ 구매 버튼 */}
+        {/* ⑤ 구매 버튼 — 네이버·다나와 중 실제로 더 싼 쪽으로 안내 (가짜 매칭 방지 위해 출처를 그대로 표기) */}
         <div className={styles.section}>
           <div className={styles.buyRow}>
             <button
               className={`${styles.buyBtn} ${styles.buyNaver}`}
-              onClick={() => product.link && window.open(product.link, '_blank')}
+              onClick={() => effectiveLink && window.open(effectiveLink, '_blank')}
+              disabled={!effectiveLink}
             >
-              네이버 쇼핑에서 구매하기 →
-            </button>
-            <button
-              className={`${styles.buyBtn} ${styles.buyCoupang}`}
-              onClick={() => window.open(COUPANG_PARTNER_LINK, '_blank')}
-            >
-              쿠팡에서 구매하기 →
+              {effectiveSource}에서 최저가로 구매하기 →
             </button>
           </div>
           <p className={styles.ptNote}>이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.</p>
@@ -768,7 +778,7 @@ export default function ProductReport() {
           <div className={styles.modalBox} onClick={e => e.stopPropagation()}>
             <button className={styles.modalClose} onClick={() => setAlertOpen(false)}>✕</button>
             <p className={styles.modalTitle}>🔔 가격 알림 설정</p>
-            <p className={styles.modalSub}>현재가: <strong>{product.price.toLocaleString()}원</strong></p>
+            <p className={styles.modalSub}>현재가: <strong>{effectivePrice.toLocaleString()}원</strong></p>
 
             {!alertDone ? (
               <>
