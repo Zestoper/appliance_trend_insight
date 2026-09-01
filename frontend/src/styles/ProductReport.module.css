@@ -513,17 +513,6 @@
   transform: translateY(-1px);
 }
 
-.buyCoupang {
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--text);
-  border: 1px solid var(--border);
-}
-
-.buyCoupang:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.15);
-  transform: translateY(-1px);
-}
 .chartDesc {
   font-size: 11px;
   color: var(--text-muted);
