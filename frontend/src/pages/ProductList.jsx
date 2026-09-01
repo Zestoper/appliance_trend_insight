@@ -3,10 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom'
 import Navbar from '../components/common/Navbar'
 import FilterBar from '../components/common/FilterBar'
 import TrendBlock from '../components/common/TrendBlock'
-import MaintenanceNotice from '../components/common/MaintenanceNotice'
 import styles from '../styles/ProductList.module.css'
 import { API_BASE } from '../config'
-import { isNaverMaintenance, naverMaintenanceMessage } from '../utils/naverMaintenance'
 
 const PAGE_SIZE = 15
 
@@ -43,7 +41,6 @@ export default function ProductList() {
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
-  const [maintenanceMsg, setMaintenanceMsg] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterState, setFilterState] = useState({ selectedBrands: [], priceRange: null })
   const [sort, setSort] = useState({ label: '관련도순', api: 'sim', client: null })
@@ -58,20 +55,12 @@ export default function ProductList() {
     setLoading(true)
     const controller = new AbortController()
     const query = searchTerm ? `${category} ${searchTerm}` : category
-    setMaintenanceMsg(null)
     fetch(
       `${API_BASE}/api/naver/products?query=${encodeURIComponent(query)}&page=${page}&display=${PAGE_SIZE}&sort=${sort.api}&category=${encodeURIComponent(category)}`,
       { signal: controller.signal }
     )
       .then(r => r.json())
       .then(data => {
-        if (isNaverMaintenance(data)) {
-          setMaintenanceMsg(naverMaintenanceMessage(data))
-          setProducts([])
-          setTotal(0)
-          setLoading(false)
-          return
-        }
         setProducts(data.items ?? [])
         setTotal(data.total ?? 0)
         setLoading(false)
@@ -143,25 +132,21 @@ export default function ProductList() {
         <div className={styles.header}>
           <h1 className={styles.title}>{category}</h1>
           <p className={styles.sub}>
-            {maintenanceMsg ? '일시 점검중' : total > 0 ? `${total.toLocaleString()}개 제품` : '검색 중...'} · 실시간 트렌드 분석
+            {total > 0 ? `${total.toLocaleString()}개 제품` : '검색 중...'} · 실시간 트렌드 분석
           </p>
         </div>
 
-        {!maintenanceMsg && <TrendBlock category={category} />}
+        <TrendBlock category={category} />
 
-        {!maintenanceMsg && (
-          <FilterBar
-            products={products}
-            category={category}
-            onSearchChange={setSearchTerm}
-            onFilterChange={setFilterState}
-            onSortChange={setSort}
-          />
-        )}
+        <FilterBar
+          products={products}
+          category={category}
+          onSearchChange={setSearchTerm}
+          onFilterChange={setFilterState}
+          onSortChange={setSort}
+        />
 
-        {maintenanceMsg ? (
-          <MaintenanceNotice message={maintenanceMsg} />
-        ) : loading ? (
+        {loading ? (
           <div className={styles.grid}>
             {Array.from({ length: PAGE_SIZE }).map((_, i) => (
               <div key={i} className={styles.cardSkeleton} />

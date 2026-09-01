@@ -1,11 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import Navbar from '../components/common/Navbar'
-import MaintenanceNotice from '../components/common/MaintenanceNotice'
 import styles from '../styles/ProductReport.module.css'
 import { useAuth } from '../context/AuthContext'
 import { API_BASE } from '../config'
-import { isNaverMaintenance, naverMaintenanceMessage } from '../utils/naverMaintenance'
 
 function fmtDate(str) {
   try {
@@ -735,15 +733,11 @@ export default function ProductReport() {
 
         {/* 로딩 완료 후 모든 섹션이 비어있을 때 */}
         {!reportLoading && trendData.length < 2 && newsItems.length === 0 && ytItems.length === 0 && ppomppuItems.length === 0 && (
-          isNaverMaintenance(reportData) ? (
-            <MaintenanceNotice message={naverMaintenanceMessage(reportData)} />
-          ) : (
-            <div className={styles.emptyState}>
-              <p className={styles.emptyIcon}>📭</p>
-              <p className={styles.emptyTitle}>아직 분석 데이터가 없는 제품이에요</p>
-              <p className={styles.emptyDesc}>검색량이 적거나 출시 초기 제품은 데이터가 수집되지 않을 수 있어요</p>
-            </div>
-          )
+          <div className={styles.emptyState}>
+            <p className={styles.emptyIcon}>📭</p>
+            <p className={styles.emptyTitle}>아직 분석 데이터가 없는 제품이에요</p>
+            <p className={styles.emptyDesc}>검색량이 적거나 출시 초기 제품은 데이터가 수집되지 않을 수 있어요</p>
+          </div>
         )}
 
         {/* ④ 뽐뿌 — 데이터 있을 때만 표시 */}
@@ -767,7 +761,6 @@ export default function ProductReport() {
               {effectiveSource}에서 최저가로 구매하기 →
             </button>
           </div>
-          <p className={styles.ptNote}>이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.</p>
         </div>
 
       </div>
