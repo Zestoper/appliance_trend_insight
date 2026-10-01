@@ -83,6 +83,24 @@ def render_recommend(cond: QueryConditions, products: list[dict], nearest: bool)
     if cond.extras.get("popular"):
         title = f"## 🔥 많이 구매한 {_household_text(cond.household)}{brand}{cond.category}"
     summary = _condition_summary(cond)
+    if cond.extras.get("best") and products:
+        top = products[0]
+        reason = []
+        if top.get("score"):
+            reason.append(f"평점 {top['score']:.1f}")
+        if top.get("reviews"):
+            reason.append(f"후기 {top['reviews']:,}개")
+        lines = [f"## 🏆 가장 추천하는 {_household_text(cond.household)}{brand}{cond.category}", "",
+                 f"**{top['title']}** · {top['price']:,}원",
+                 (f"지금 조건에서 가장 평가가 좋은 제품이에요 ({' · '.join(reason)})." if reason
+                  else "지금 조건에 가장 잘 맞는 제품이에요."), ""]
+        if len(products) > 1:
+            lines.append("### 함께 비교해 볼 제품")
+            for i, p in enumerate(products[1:], 2):
+                lines += _product_block(i, p)
+        lines += _footer(cond, [])
+        return "\n".join(lines)
+
     lines = [title, ""]
     relative = cond.extras.get("relative")
     if relative == "cheaper" and not nearest:

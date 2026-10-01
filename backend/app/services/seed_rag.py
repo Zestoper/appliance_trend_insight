@@ -83,11 +83,11 @@ async def _fetch_products(session: httpx.AsyncClient, category: str) -> list[dic
         )
         docs = []
         for it in res.get("items", []):
-            title = it.get("title", "")
+            title = _strip(it.get("title", ""))
             price = int(it.get("price") or 0)
             if not title or price <= 0:
                 continue
-            brand = it.get("brand", "")
+            brand = _strip(it.get("brand", ""))
             score = float(it.get("reviewScore") or 0)
             reviews = int(it.get("reviewCount") or 0)
             text = f"[쇼핑] {title}"
