@@ -5,6 +5,16 @@ import styles from '../styles/Chat.module.css'
 import { useAuth } from '../context/AuthContext'
 import { API_BASE } from '../config'
 
+// **굵게** 를 <strong>으로 바꾼다 (LLM이 강조 표시를 자주 써서)
+function renderInline(text) {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g)
+  return parts.map((part, i) =>
+    part.startsWith('**') && part.endsWith('**') && part.length > 4
+      ? <strong key={i}>{part.slice(2, -2)}</strong>
+      : part
+  )
+}
+
 function renderMarkdown(text) {
   const lines = text.split('\n')
   const elements = []
@@ -14,20 +24,20 @@ function renderMarkdown(text) {
     const line = lines[i]
 
     if (line.startsWith('### ')) {
-      elements.push(<h3 key={key++} className={styles.mdH3}>{line.slice(4)}</h3>)
+      elements.push(<h3 key={key++} className={styles.mdH3}>{renderInline(line.slice(4))}</h3>)
     } else if (line.startsWith('## ')) {
-      elements.push(<h2 key={key++} className={styles.mdH2}>{line.slice(3)}</h2>)
+      elements.push(<h2 key={key++} className={styles.mdH2}>{renderInline(line.slice(3))}</h2>)
     } else if (line.startsWith('# ')) {
-      elements.push(<h2 key={key++} className={styles.mdH2}>{line.slice(2)}</h2>)
+      elements.push(<h2 key={key++} className={styles.mdH2}>{renderInline(line.slice(2))}</h2>)
     } else if (/^\d+\.\s/.test(line)) {
       const content = line.replace(/^\d+\.\s/, '')
-      elements.push(<div key={key++} className={styles.mdOrderedItem}>{content}</div>)
+      elements.push(<div key={key++} className={styles.mdOrderedItem}>{renderInline(content)}</div>)
     } else if (line.startsWith('- ')) {
-      elements.push(<div key={key++} className={styles.mdItem}>{line.slice(2)}</div>)
+      elements.push(<div key={key++} className={styles.mdItem}>{renderInline(line.slice(2))}</div>)
     } else if (line.trim() === '') {
       elements.push(<div key={key++} className={styles.mdSpacer} />)
     } else {
-      elements.push(<p key={key++} className={styles.mdP}>{line}</p>)
+      elements.push(<p key={key++} className={styles.mdP}>{renderInline(line)}</p>)
     }
   }
 

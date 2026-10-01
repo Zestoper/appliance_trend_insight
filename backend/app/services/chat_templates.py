@@ -80,6 +80,8 @@ def _footer(cond: QueryConditions, extra: list[str]) -> list[str]:
 def render_recommend(cond: QueryConditions, products: list[dict], nearest: bool) -> str:
     brand = f"{cond.brand} " if cond.brand else ""
     title = f"## 🛒 {_household_text(cond.household)}{brand}{cond.category} 추천"
+    if cond.extras.get("popular"):
+        title = f"## 🔥 많이 구매한 {_household_text(cond.household)}{brand}{cond.category}"
     summary = _condition_summary(cond)
     lines = [title, ""]
     relative = cond.extras.get("relative")
@@ -89,6 +91,9 @@ def render_recommend(cond: QueryConditions, products: list[dict], nearest: bool)
         lines.append("앞에서 보여드린 제품보다 저렴한 건 찾지 못해서 가격이 가장 가까운 다른 제품을 골랐어요.")
     elif relative == "pricier" and not nearest:
         lines.append(f"앞에서 보여드린 제품보다 한 단계 위 가격대의 {cond.category}{_josa(cond.category, '이에요', '예요')}.")
+    elif cond.extras.get("popular") and not nearest:
+        lines.append(f"구매 후기가 많은 순으로 {cond.category}{_josa(cond.category, '을', '를')} 골라봤어요. "
+                     "후기 수는 실제 판매량을 짐작할 수 있는 지표예요.")
     elif relative == "more" and not nearest:
         lines.append("앞에서 보여드린 제품 말고 다른 제품을 골라봤어요.")
     elif relative == "more":

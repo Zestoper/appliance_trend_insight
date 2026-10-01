@@ -153,6 +153,9 @@ async def find_products(
         popular = _rerank(in_range, cond)[:15]
         ranked = sorted(popular, key=lambda p: p["price"]) or ranked
         return ranked[:limit], False
+    if in_range and cond.extras.get("popular"):
+        # '많이 구매한 거' → 구매 후기(리뷰) 수가 많은 순
+        return sorted(in_range, key=lambda p: (p.get("reviews") or 0, p.get("score") or 0), reverse=True)[:limit], False
     if in_range:
         return _rerank(in_range, cond)[:limit], False
 
