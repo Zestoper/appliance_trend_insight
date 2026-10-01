@@ -248,7 +248,7 @@ def extract_price(text: str) -> tuple[int | None, int | None]:
         return won, None
     if is_dae:
         step = 100_000 if won < 1_000_000 else 1_000_000
-        return won, won + step - 1
+        return won, won + step
     return round(won * 0.85), round(won * 1.15)
 
 
@@ -271,10 +271,16 @@ def extract_household(text: str) -> int | None:
 _INTENT_RULES: list[tuple[str, str]] = [
     ("compare", r"vs|비교|차이|뭐가나|어떤게나|어느게나|중에뭐|중에어떤|둘중"),
     ("timing", r"언제|타이밍|시기|몇월|세일기간|할인기간|사는시기|살때"),
-    ("review", r"후기|리뷰|장단점|단점|장점|어때|어떰|괜찮아|쓸만|만족|불만|고장"),
+    ("review", r"후기|리뷰|장단점|단점|장점|어때|어떰|괜찮아|쓸만|만족|불만|고장|소음|전기세|전기요금"),
     ("recommend", r"추천|뭐사|뭘사|뭐살|골라|살까|사야|사고싶|가성비|좋은거|괜찮은거|입문"),
     ("price", r"얼마|가격|최저가|시세|싸게|저렴|할인"),
 ]
+
+
+# 직전 상품에 대해 이어 묻는 걸로 볼 수 있는 표현
+_FOLLOWUP_KW = (r"후기|리뷰|장단점|단점|장점|쓸만|고장|소음|전기세|전기요금|용량|크기|사이즈|"
+                r"비교|차이|언제|타이밍|추천|다른거|다른제품|더싼|더저렴|싼거|저렴한거|비싼거|"
+                r"가격|얼마|최저가|그거|이거|저거|그중|그럼")
 
 
 def detect_intent(text: str, has_price_range: bool) -> str:
@@ -320,12 +326,19 @@ class QueryConditions:
     def to_dict(self) -> dict:
         return asdict(self)
 
+    def to_context(self) -> dict:
+        """프론트에 돌려줬다가 다음 질문 때 다시 받는 '대화 맥락' (원문은 빼고 조건만)"""
+        return {k: getattr(self, k) for k in
+                ("category", "brand", "min_price", "max_price", "household", "intent")}
 
-def parse_query(query: str) -> QueryConditions:
+
+def parse_query(query: str, context: dict | None = None) -> QueryConditions:
+    """context = 직전 질문에서 뽑은 조건. "100만원대는?"처럼 카테고리 없이 이어 묻는 질문은
+    직전 조건(냉장고 · 3인)을 이어받고 새로 말한 것(가격)만 바꾼다."""
     norm = normalize(query)
     category, corrected = find_category(norm)
     lo, hi = extract_price(norm)
-    return QueryConditions(
+    cond = QueryConditions(
         raw=query,
         normalized=norm,
         category=category,
@@ -336,3 +349,26 @@ def parse_query(query: str) -> QueryConditions:
         household=extract_household(norm),
         intent=detect_intent(norm, lo is not None or hi is not None),
     )
+
+    prev = context or {}
+    prev_cat = prev.get("category")
+    is_followup = bool(prev_cat) and (cond.category is None or cond.category == prev_cat)
+    if is_followup:
+        # 가격·브랜드·가구를 새로 말했거나 '장단점·후기·비교·언제'처럼 상품에 대한 질문이면 이어 묻기로 본다.
+        # '어때'처럼 아무 데나 붙는 말만 있으면("오늘 날씨 어때") 새 질문으로 본다.
+        has_new_info = lo is not None or hi is not None or cond.brand or cond.household
+        product_question = re.search(_FOLLOWUP_KW, _nospace(norm))
+        if cond.category or has_new_info or product_question:
+            cond.extras["followup"] = cond.category is None
+            cond.category = cond.category or prev_cat
+            cond.brand = cond.brand or prev.get("brand")
+            cond.household = cond.household or prev.get("household")
+            if lo is None and hi is None:
+                cond.min_price, cond.max_price = prev.get("min_price"), prev.get("max_price")
+            if cond.intent == "other":
+                cond.intent = prev.get("intent") if prev.get("intent") in ("recommend", "price") else "recommend"
+
+    # "3인 냉장고"처럼 카테고리만 말하고 의도가 없으면 추천으로 본다
+    if cond.category and cond.intent == "other":
+        cond.intent = "recommend"
+    return cond
