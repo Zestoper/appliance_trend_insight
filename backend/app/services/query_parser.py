@@ -64,6 +64,16 @@ BRAND_ALIASES: dict[str, list[str]] = {
 }
 
 
+# 한 가지 제품군만 파는(또는 대표 제품군이 뚜렷한) 브랜드 → 카테고리를 말하지 않아도 추정한다
+# ("드리미 어때?" → 로봇청소기). 삼성·LG·다이슨처럼 제품군이 많은 브랜드는 추정하지 않는다.
+BRAND_DEFAULT_CATEGORY: dict[str, str] = {
+    "드리미": "로봇청소기", "로보락": "로봇청소기", "에코백스": "로봇청소기",
+    "모바": "로봇청소기", "나르왈": "로봇청소기", "아이로봇": "로봇청소기",
+    "쿠쿠": "전기밥솥", "쿠첸": "전기밥솥",
+    "캐리어": "에어컨", "위니아": "에어컨",
+}
+
+
 def _categories() -> list[str]:
     try:
         from app.config import CATEGORY_RULES
@@ -296,7 +306,8 @@ _INTENT_RULES: list[tuple[str, str]] = [
     ("timing", r"언제|타이밍|시기|몇월|세일기간|할인기간|사는시기|살때"),
     # 전력효율·소음·디자인처럼 '특정 성능'을 묻는 질문도 상품 목록(템플릿)이 아니라 LLM 설명이 필요하다
     ("review", r"후기|리뷰|장단점|단점|장점|어때|어떰|괜찮아|쓸만|만족|불만|고장|소음|조용|전기세|전기요금|"
-               r"전력|효율|에너지|등급|소비전력|절전|디자인|설치|기능|성능|내구성|용량|크기|사이즈"),
+               r"전력|효율|에너지|등급|소비전력|절전|디자인|설치|기능|성능|내구성|용량|크기|사이즈|"
+               r"스펙|사양|제원|특징|흡입력|배터리|소음|무게|물걸레|직배수"),
     ("recommend", r"추천|뭐사|뭘사|뭐살|골라|살까|사야|사고싶|가성비|좋은거|괜찮은거|입문|"
                   r"인기|많이산|많이사|많이구매|많이팔|잘팔|잘나가|베스트|판매량|대세|국민|제일많이|가장많이"),
     ("price", r"얼마|가격|최저가|시세|싸게|저렴|할인"),
@@ -304,7 +315,7 @@ _INTENT_RULES: list[tuple[str, str]] = [
 
 
 # 직전 상품에 대해 이어 묻는 걸로 볼 수 있는 표현
-_FOLLOWUP_KW = (r"후기|리뷰|장단점|단점|장점|쓸만|고장|소음|조용|전기세|전기요금|용량|크기|사이즈|"
+_FOLLOWUP_KW = (r"스펙|사양|제원|특징|후기|리뷰|장단점|단점|장점|쓸만|고장|소음|조용|전기세|전기요금|용량|크기|사이즈|"
                 r"전력|효율|에너지|등급|소비전력|절전|디자인|색상|설치|기능|성능|내구성|as|a/s|보증|"
                 r"비교|차이|언제|타이밍|추천|다른거|다른제품|더싼|더저렴|싼거|저렴한거|비싼거|"
                 r"좋은건|좋은걸|좋은거|나은건|나은거|괜찮은건|어떤게|어떤거|뭐가좋|제일|가장|1위|순위|"
@@ -428,6 +439,13 @@ def parse_query(query: str, context: dict | None = None) -> QueryConditions:
         household=extract_household(norm),
         intent=detect_intent(norm, lo is not None or hi is not None),
     )
+
+    # 카테고리 없이 브랜드만 말했으면 대표 제품군으로 추정 (직전 대화 주제가 있으면 그게 우선)
+    if not cond.category and cond.brand in BRAND_DEFAULT_CATEGORY:
+        prev_cat0 = (context or {}).get("category")
+        if not prev_cat0:
+            cond.category = BRAND_DEFAULT_CATEGORY[cond.brand]
+            cond.extras["category_from_brand"] = True
 
     prev = context or {}
     prev_cat = prev.get("category")
