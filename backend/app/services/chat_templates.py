@@ -82,7 +82,18 @@ def render_recommend(cond: QueryConditions, products: list[dict], nearest: bool)
     title = f"## 🛒 {_household_text(cond.household)}{brand}{cond.category} 추천"
     summary = _condition_summary(cond)
     lines = [title, ""]
-    if nearest:
+    relative = cond.extras.get("relative")
+    if relative == "cheaper" and not nearest:
+        lines.append(f"앞에서 보여드린 제품보다 저렴한 {cond.category}{_josa(cond.category, '이에요', '예요')}.")
+    elif relative == "cheaper":
+        lines.append("앞에서 보여드린 제품보다 저렴한 건 찾지 못해서 가격이 가장 가까운 다른 제품을 골랐어요.")
+    elif relative == "pricier" and not nearest:
+        lines.append(f"앞에서 보여드린 제품보다 한 단계 위 가격대의 {cond.category}{_josa(cond.category, '이에요', '예요')}.")
+    elif relative == "more" and not nearest:
+        lines.append("앞에서 보여드린 제품 말고 다른 제품을 골라봤어요.")
+    elif relative == "more":
+        lines.append("그 가격대에는 더 보여드릴 제품이 없어서 가격이 가장 가까운 다른 제품을 골랐어요.")
+    elif nearest:
         lines.append(f"{_range_text(cond) or '말씀하신 조건'}에 맞는 {brand}{cond.category}"
                      f"{_josa(cond.category, '은', '는')} 찾지 못해서 가장 가까운 가격의 제품을 골랐어요.")
     elif summary:
