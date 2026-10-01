@@ -73,7 +73,12 @@ export default function Chat() {
       const res = await fetch(`${API_BASE}/api/insights/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query, target, top_k: 8, context: lastConditions }),
+        body: JSON.stringify({
+          query, target, top_k: 8,
+          context: lastConditions,
+          // 최근 대화 4개(질문·답변)를 같이 보내서 LLM이 앞 대화를 이해하게 한다
+          history: messages.slice(-4).map(m => ({ role: m.role, content: m.content })),
+        }),
       })
       const data = await res.json()
       if (data.conditions) setLastConditions(data.conditions)
