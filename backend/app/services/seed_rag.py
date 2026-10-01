@@ -71,34 +71,65 @@ async def _fetch_blog(session: httpx.AsyncClient, category: str, query_suffix: s
 
 
 async def _fetch_products(session: httpx.AsyncClient, category: str) -> list[dict]:
+    """쇼핑 상품 문서. 네이버 쇼핑 API가 막혀 있어서 다나와 검색 결과를 쓴다.
+    가격·브랜드·평점을 metadata에 숫자로 넣어야 '40만원 이하' 같은 조건을 SQL로 거를 수 있다
+    (벡터 검색은 뜻이 비슷한 문장을 찾을 뿐 숫자 비교를 못 한다)."""
     try:
-        resp = await session.get(
-            "https://openapi.naver.com/v1/search/shop.json",
-            headers=_NAVER_HEADERS,
-            params={"query": category, "display": 10, "sort": "sim"},
-            timeout=8.0,
+        from app.config import CATEGORY_RULES
+        from app.services.danawa_search import danawa_search_products
+        res = await danawa_search_products(
+            query=category, page=1, display=40, sort="sim",
+            category=category if category in CATEGORY_RULES else None,
         )
-        items = resp.json().get("items", [])
         docs = []
-        for it in items:
-            title = _strip(it.get("title", ""))
-            brand = it.get("brand") or it.get("maker", "")
-            price = it.get("lprice", "")
-            score = it.get("reviewScore", "")
-            review = it.get("reviewCount", "")
-            if not title:
+        for it in res.get("items", []):
+            title = it.get("title", "")
+            price = int(it.get("price") or 0)
+            if not title or price <= 0:
                 continue
+            brand = it.get("brand", "")
+            score = float(it.get("reviewScore") or 0)
+            reviews = int(it.get("reviewCount") or 0)
             text = f"[쇼핑] {title}"
             if brand:
                 text += f" | 브랜드: {brand}"
-            if price:
-                text += f" | 가격: {int(price):,}원"
+            text += f" | 가격: {price:,}원"
             if score:
-                text += f" | 평점: {score}/5 (리뷰 {review}개)"
-            docs.append({"text": text, "metadata": {"source": "shop", "product": category}})
+                text += f" | 평점: {score}/5 (리뷰 {reviews}개)"
+            docs.append({
+                "text": text,
+                "metadata": {
+                    "source": "shop", "product": category,
+                    "title": title, "brand": brand, "price": price,
+                    "score": score, "reviews": reviews, "link": it.get("link", ""),
+                },
+            })
         return docs
-    except Exception:
+    except Exception as e:
+        print(f"[RAG] {category} 상품 수집 실패: {e}")
         return []
+
+
+async def seed_products(rag: "RAGService") -> int:
+    """쇼핑 상품 문서만 새로 고친다 (가격이 바뀌므로 하루 한 번 돌리는 용도).
+    새 데이터를 받아온 카테고리만 기존 상품 문서를 지우고 다시 넣는다."""
+    from app.database import execute
+    total = 0
+    async with httpx.AsyncClient() as session:
+        for category in _CATEGORIES:
+            docs = await _fetch_products(session, category)
+            if not docs:
+                print(f"[RAG] {category}: 상품 0개 — 기존 데이터 유지")
+                continue
+            await execute(
+                "DELETE FROM rag_documents WHERE metadata->>'source' = 'shop' AND metadata->>'product' = %s",
+                (category,),
+            )
+            await rag.add_documents(docs)
+            total += len(docs)
+            print(f"[RAG] {category}: 상품 {len(docs)}개 갱신")
+            await asyncio.sleep(1.0)  # 다나와에 부담 주지 않도록
+    return total
 
 
 async def _seed_category(session: httpx.AsyncClient, rag: "RAGService", category: str) -> int:

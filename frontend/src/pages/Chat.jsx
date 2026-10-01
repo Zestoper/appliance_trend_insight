@@ -77,7 +77,7 @@ export default function Chat() {
 
       setMessages(prev => [...prev, {
         role: 'ai',
-        content: data.report ?? '분석 결과를 가져올 수 없습니다.',
+        content: data.report || '분석 결과를 가져올 수 없습니다.',
         sources: data.sources ?? [],
       }])
     } catch {

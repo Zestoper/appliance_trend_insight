@@ -25,6 +25,7 @@ class InsightResponse(BaseModel):
     target: str
     report: str
     sources: list[InsightSource]
+    answered_by: str = "llm"   # cache / template / llm / stale_cache — 어느 단계에서 답했는지
 
 
 router = APIRouter(prefix="/api/insights", tags=["insights"])
@@ -57,4 +58,5 @@ async def analyze_insights(
         target=result["target"],
         report=result["report"],
         sources=[InsightSource(**s) for s in result["sources"]],
+        answered_by=result.get("answered_by", "llm"),
     )

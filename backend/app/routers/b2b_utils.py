@@ -120,7 +120,8 @@ async def _cerebras_create(messages: list, max_tokens: int = 600, temperature: f
     raise RuntimeError("Cerebras 429 재시도 3회 초과")
 
 
-async def _groq_create(messages: list, max_tokens: int = 600, temperature: float = 0.3):
+async def _groq_create(messages: list, max_tokens: int = 600, temperature: float = 0.3,
+                       reasoning_effort: str | None = None):
     """모델별 일일 한도 관리. 모든 모델 소진 시 Cerebras로 폴백."""
     from groq import RateLimitError, APIStatusError
     client = _get_groq_client()
@@ -129,18 +130,26 @@ async def _groq_create(messages: list, max_tokens: int = 600, temperature: float
         if _is_model_exhausted(model):
             continue
         try:
+            extra = {}
+            # reasoning_effort(low/medium/high)는 gpt-oss 계열만 지원 — 다른 모델엔 넣지 않는다
+            if reasoning_effort and model.startswith("openai/gpt-oss"):
+                extra["reasoning_effort"] = reasoning_effort
             return await client.chat.completions.create(
                 model=model, messages=messages,
                 max_tokens=max_tokens, temperature=temperature,
+                **extra,
             )
         except RateLimitError as e:
             err_str = str(e).lower()
-            if "tokens per day" in err_str or "tpd" in err_str or "rate_limit" in err_str:
+            # 하루 한도(TPD/RPD) 소진일 때만 2시간 동안 이 모델을 건너뛴다
+            if ("per day" in err_str or "tpd" in err_str or "rpd" in err_str):
                 _GROQ_MODEL_EXHAUSTED[model] = _time.time()
-                logger.warning("[Groq] %s 일일 토큰 한도 소진 — 다음 모델 시도", model)
-                last_err = e
-                continue
-            raise
+                logger.warning("[Groq] %s 일일 한도 소진 — 다음 모델 시도", model)
+            else:
+                # 분당 한도(TPM/RPM)는 1분이면 풀리므로 잠깐 다음 모델로만 넘긴다
+                logger.warning("[Groq] %s 분당 한도 초과 — 이번 요청만 다음 모델 시도", model)
+            last_err = e
+            continue
         except APIStatusError as e:
             if e.status_code == 413:
                 logger.warning("[Groq] %s 요청 크기 초과(413) — 다음 모델 시도", model)
