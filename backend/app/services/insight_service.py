@@ -181,11 +181,31 @@ async def _answer(
 ) -> dict:
     """질문 처리 흐름 — LLM은 마지막 수단으로만 쓴다.
 
-    ① 조건 추출(정규식·별칭·오타 보정) → ② 캐시 → ③ 템플릿(추천·가격) → ④ LLM → ⑤ 캐시 저장
+    ① 조건 추출(정규식·별칭·오타 보정) → ⓑ B2B 시장 분석(숫자 계산 + LLM 해석)
+    → ② 캐시 → ③ 템플릿(추천·가격) → ④ LLM → ⑤ 캐시 저장
     ⑥ LLM이 전부 실패하면 만료된 캐시(예전 답변)라도 날짜 안내와 함께 보여준다
     """
     from app.services.product_finder import find_products
     from app.services.chat_templates import TEMPLATES, products_as_sources
+    from app.services.market_answer import is_market_question, answer_market
+
+    # ⓑ B2B 시장 분석 — 숫자는 코드가 계산하고 LLM은 해석만 한다
+    if target == "b2b" and is_market_question(cond):
+        import re as _re
+        q_key = _re.sub(r"\s+", "", cond.normalized)[:120]
+        mkey = f"chat:v2:b2b:market:{cond.category}:{cond.brand or '-'}:{q_key}"
+        cached = await _cache_get(mkey)
+        if cached and _cacheable(cached.get("report")):
+            print(f"[Insight] answered_by=cache ({mkey})")
+            return {**cached, "query": query, "target": target, "answered_by": "cache"}
+        market = await answer_market(cond, query, rag, history)
+        if market:
+            result = {"query": query, "target": target, **market}
+            if market["answered_by"] == "market":   # 해석까지 성공한 답만 저장
+                await _cache_set(mkey, result)
+            print(f"[Insight] answered_by={market['answered_by']} ({mkey})")
+            return result
+        # 시장 데이터를 못 모았으면 아래 일반 흐름으로 넘어간다
 
     cache_key = cond.cache_key(target)
     print(f"[Insight] 조건: cat={cond.category} brand={cond.brand} "
