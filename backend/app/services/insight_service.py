@@ -158,8 +158,19 @@ async def analyze(
     """context(직전 질문 조건)를 반영해 조건을 뽑고, 답변에 이번 조건을 실어 보낸다.
     프론트는 이 conditions를 저장했다가 다음 질문 때 context로 다시 보내서 대화가 이어진다."""
     from app.services.query_parser import parse_query
+    from app.services.agent_answer import is_confident, answer_agent
     cond = parse_query(query, context)
-    result = await _answer(cond, query, rag, target, top_k, history)
+
+    # 하이브리드: 확실한 질문은 키워드 경로(템플릿·캐시, LLM 0회),
+    # 애매한 질문은 LLM이 해석 → 내 데이터 조회 → 답변. LLM이 실패하면 키워드 경로로 돌아간다.
+    result = None
+    if not is_confident(cond, target):
+        agent = await answer_agent(query, cond, rag, target, context, history)
+        if agent:
+            cond = agent.pop("_cond", cond)
+            result = {"query": query, "target": target, **agent}
+    if result is None:
+        result = await _answer(cond, query, rag, target, top_k, history)
 
     ctx = cond.to_context()
     shown = result.pop("_shown", None)
@@ -286,6 +297,22 @@ async def _answer(
             print(f"[Insight] answered_by=stale_cache ({cache_key})")
             return {**stale, "query": query, "target": target,
                     "report": notice + "\n\n" + stale["report"], "answered_by": "stale_cache"}
+
+        # ⑦ 예전 답변도 없으면 관련 상품 목록이라도 보여준다 (LLM 없이 만들 수 있는 최선)
+        if cond.category:
+            try:
+                import copy
+                pcond = copy.deepcopy(cond)
+                pcond.intent = "recommend"
+                products, nearest = await find_products(pcond, rag)
+                if products:
+                    report = ("⏳ 지금은 AI 설명이 어려워서 관련 제품을 먼저 보여드려요. 잠시 후 다시 물어봐 주세요.\n\n"
+                              + TEMPLATES["recommend"](pcond, products, nearest))
+                    print(f"[Insight] answered_by=template_fallback ({cache_key})")
+                    return {"query": query, "target": target, "report": report,
+                            "sources": products_as_sources(products), "answered_by": "template_fallback"}
+            except Exception as e:
+                print(f"[Insight] 상품 목록 폴백 실패: {e}")
 
     await _cache_set(cache_key, result)
     print(f"[Insight] answered_by=llm ({cache_key})")
