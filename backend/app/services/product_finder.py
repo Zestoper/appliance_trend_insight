@@ -51,6 +51,22 @@ def _in_range(price: int, cond: QueryConditions) -> bool:
 _ACCESSORY_RE = re.compile(r"리폼|키트|부품|필터|소모품|호환|거치대|교체용|브러시|걸레패드|먼지봉투|케이블|리모컨|커버|받침|선반")
 
 
+_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def _clean(text: str) -> str:
+    """다나와 응답에 섞여 오는 검색어 강조 태그(<b>로보락</b>) 제거"""
+    return re.sub(r"\s+", " ", _TAG_RE.sub("", text or "")).strip()
+
+
+# 두 제품을 묶어 파는 세트 상품 (예: '로보락F25 Ultra +로봇청소기Q8 Max Pro Plus')
+_BUNDLE_RE = re.compile(r"\+|세트|패키지|1\+1|묶음|번들")
+
+
+def _is_bundle(p: dict) -> bool:
+    return bool(_BUNDLE_RE.search(p.get("title", "")))
+
+
 def _is_accessory(p: dict) -> bool:
     return bool(_ACCESSORY_RE.search(p.get("title", "")))
 
@@ -97,8 +113,8 @@ async def _from_rag(rag: "RAGService", cond: QueryConditions, limit: int) -> lis
     for r in rows:
         meta = r["metadata"] if isinstance(r["metadata"], dict) else json.loads(r["metadata"])
         out.append({
-            "title": meta.get("title") or r["text"],
-            "brand": meta.get("brand", ""),
+            "title": _clean(meta.get("title") or r["text"]),
+            "brand": _clean(meta.get("brand", "")),
             "price": int(meta.get("price") or 0),
             "score": float(meta.get("score") or 0),
             "reviews": int(meta.get("reviews") or 0),
@@ -121,8 +137,8 @@ async def _from_danawa(cond: QueryConditions) -> list[dict]:
         print(f"[ProductFinder] 다나와 검색 실패: {e}")
         return []
     return [{
-        "title": it.get("title", ""),
-        "brand": it.get("brand", ""),
+        "title": _clean(it.get("title", "")),
+        "brand": _clean(it.get("brand", "")),
         "price": int(it.get("price") or 0),
         "score": float(it.get("reviewScore") or 0),
         "reviews": int(it.get("reviewCount") or 0),
@@ -156,6 +172,12 @@ async def find_products(
         candidates += [p for p in live if _in_range(p["price"], cond) and p["title"] not in seen]
 
     in_range = [p for p in candidates if _in_range(p["price"], cond)]
+    # 세트 상품은 단품이 충분하면 빼고, 부족하면 뒤로 보낸다 (가격·비교가 헷갈려서)
+    singles = [p for p in in_range if not _is_bundle(p)]
+    if len(singles) >= limit:
+        in_range = singles
+    else:
+        in_range = singles + [p for p in in_range if _is_bundle(p)]
     if cond.intent == "price" and not (cond.min_price or cond.max_price):
         # 가격 문의는 인기순이 아니라 최저가 위주로
         ranked = sorted(in_range, key=lambda p: p["price"])

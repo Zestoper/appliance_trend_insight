@@ -370,13 +370,15 @@ class QueryConditions:
                      str(self.min_price or 0), str(self.max_price or 0), str(self.household or 0)]
             if self.extras.get("popular"):
                 parts.append("pop")
+            if self.extras.get("best"):
+                parts.append("best")
             if self.extras.get("exclude_brand"):
                 parts.append("nb" + self.extras["exclude_brand"])
             if self.extras.get("exclude"):
                 import hashlib
                 ex = "|".join(sorted(self.extras["exclude"]))
                 parts.append("ex" + hashlib.md5(ex.encode("utf-8")).hexdigest()[:8])
-            return f"chat:v2:{target}:" + ":".join(parts)
+            return f"chat:v4:{target}:" + ":".join(parts)
         # 질문 문장 키라도 대화 맥락(카테고리·가구·브랜드·직전 상품)을 같이 넣는다.
         # 안 그러면 '전력효율은?'이 냉장고 대화든 에어컨 대화든 같은 캐시를 써버린다.
         ctx = ""
@@ -385,7 +387,7 @@ class QueryConditions:
             shown = "|".join(self.extras.get("prev_shown") or [])
             raw = f"{self.category}:{self.household or 0}:{self.brand or '-'}:{shown}"
             ctx = hashlib.md5(raw.encode("utf-8")).hexdigest()[:10] + ":"
-        return f"chat:v2:{target}:q:{ctx}{_nospace(self.normalized)[:200]}"
+        return f"chat:v4:{target}:q:{ctx}{_nospace(self.normalized)[:200]}"
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -488,6 +490,10 @@ def parse_query(query: str, context: dict | None = None) -> QueryConditions:
             cond.min_price, cond.max_price = prev.get("min_price"), prev.get("max_price")
             if cond.intent == "other":
                 cond.intent = "review"   # 템플릿 말고 대화형 LLM으로
+
+    # '제일 추천하는 모델' · '딱 하나만' → 1순위를 강조해서 보여준다
+    if cond.intent == "recommend" and re.search(r"제일|가장|최고|하나만|딱하나|한개만|1개만|best|베스트원", _nospace(norm)):
+        cond.extras["best"] = True
 
     if re.search(_POPULAR_KW, _nospace(norm)) and cond.intent == "recommend":
         cond.extras["popular"] = True
