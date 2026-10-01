@@ -31,8 +31,9 @@ _B2C_SYSTEM_PROMPT = """\
 1. 사용자가 방금 물어본 것에 바로 답하세요. 물어보지 않은 항목을 형식 맞추려고 채우지 마세요.
 2. 구체적인 질문(전력효율·소음·용량·비교 등)은 3~8줄로 짧고 자연스럽게 답하세요. 필요할 때만 목록을 쓰세요.
 3. "정리해줘"·"리포트"·"장단점 전부"처럼 종합 정리를 원할 때만 아래 정리 형식을 쓰세요.
-4. 참고 문서와 이전 대화에 있는 내용만 근거로 쓰세요. 문서에 없는 수치(전력량·가격 등)는 지어내지 말고
-   "자료에서 확인되지 않아요"라고 말한 뒤 확인 방법(에너지소비효율 등급 라벨, 제조사 상세페이지 등)을 알려주세요.
+4. 참고 문서와 이전 대화에 있는 내용만 근거로 쓰세요. 특히 [상품]으로 시작하는 줄은 실제 판매 중인 제품 데이터이니
+   상품·브랜드를 물으면 먼저 이 데이터(모델명·가격·평점·후기 수)로 구체적으로 답하세요. "없다"고만 답하지 마세요.
+   데이터에 없는 세부 수치(전력량·흡입력 등)만 지어내지 말고 "자료에서 확인되지 않아요"라고 한 뒤 확인 방법을 짧게 알려주세요.
 5. 앞에서 보여준 제품이 있으면 그 제품들을 기준으로 답하세요.
 6. 출처 번호([1], [2] 등)는 표기하지 마세요. JSON 금지. 일반 소비자가 이해하기 쉬운 구어체로 답하세요.
 
@@ -55,7 +56,8 @@ _B2B_SYSTEM_PROMPT = """\
 1. 사용자가 방금 물어본 것에 바로 답하세요. 물어보지 않은 항목을 형식 맞추려고 채우지 마세요.
 2. 구체적인 질문(특정 성능·가격대·경쟁 제품 등)은 핵심 인사이트 위주로 3~8줄로 답하세요. 필요할 때만 목록을 쓰세요.
 3. "시장 동향"·"트렌드 리포트"·"전체 분석"처럼 시장 전반을 물을 때만 아래 리포트 형식을 쓰세요.
-4. 참고 문서와 이전 대화에 있는 내용만 근거로 쓰세요. 문서에 없는 수치는 지어내지 말고 확인되지 않는다고 말하세요.
+4. 참고 문서와 이전 대화에 있는 내용만 근거로 쓰세요. [상품]으로 시작하는 줄은 실제 판매 중인 제품 데이터이니
+   상품·브랜드를 물으면 이 데이터(가격대·평점·후기 수)로 먼저 구체적으로 답하세요. 데이터에 없는 수치만 지어내지 마세요.
 5. 앞에서 보여준 제품이 있으면 그 제품들을 기준으로 비즈니스 관점에서 답하세요.
 6. 출처 번호([1], [2] 등)는 표기하지 마세요. JSON 금지.
 
@@ -193,7 +195,7 @@ async def _answer(
     if target == "b2b" and is_market_question(cond):
         import re as _re
         q_key = _re.sub(r"\s+", "", cond.normalized)[:120]
-        mkey = f"chat:v2:b2b:market:{cond.category}:{cond.brand or '-'}:{q_key}"
+        mkey = f"chat:v3:b2b:market:{cond.category}:{cond.brand or '-'}:{q_key}"
         cached = await _cache_get(mkey)
         if cached and _cacheable(cached.get("report")):
             print(f"[Insight] answered_by=cache ({mkey})")
@@ -253,7 +255,23 @@ async def _answer(
         if cond.extras.get("prev_shown"):
             hint.append("(앞에서 보여준 제품: " + " / ".join(cond.extras["prev_shown"]) + ")")
         llm_query = f"{' '.join(hint)} — {query}"
-    result = await _llm_answer(llm_query, rag, target, top_k, history)
+    # 카테고리를 알면 실제 상품 데이터(가격·평점·후기 수)도 같이 넘긴다.
+    # RAG 문서(뉴스·블로그)에는 특정 브랜드 정보가 없을 때가 많아서 "드리미는 어때?"에 답을 못 하던 문제 방지
+    product_docs: list[str] = []
+    if cond.category:
+        try:
+            import copy
+            pcond = copy.deepcopy(cond)
+            pcond.intent = "recommend"
+            products, _ = await find_products(pcond, rag, limit=5)
+            product_docs = [
+                f"[상품] {p['title']} | 브랜드: {p.get('brand') or '-'} | 가격: {p['price']:,}원"
+                + (f" | 평점: {p['score']:.1f}/5 (리뷰 {p.get('reviews', 0):,}개)" if p.get("score") else "")
+                for p in products
+            ]
+        except Exception as e:
+            print(f"[Insight] LLM용 상품 데이터 조회 실패: {e}")
+    result = await _llm_answer(llm_query, rag, target, top_k, history, product_docs)
     result["query"] = query
     result["answered_by"] = "llm"
 
@@ -278,8 +296,9 @@ async def _llm_answer(
     target: str = "b2b",
     top_k: int = 5,
     history: list[dict] | None = None,
+    product_docs: list[str] | None = None,
 ) -> dict:
-    """RAG 검색 결과를 Groq LLM에 전달해 마크다운 트렌드 리포트를 생성한다."""
+    """RAG 검색 결과(+실제 상품 데이터)를 Groq LLM에 전달해 답변을 생성한다."""
     rag_query = (
         f"{query} 소비자 트렌드 구매 후기 특징"
         if target == "b2c"
@@ -293,6 +312,9 @@ async def _llm_answer(
     chunks = await rag.query(rag_query, n_results=top_k, where=where) if rag else []
     if not chunks and where:  # 해당 카테고리 문서가 전혀 없을 때만 필터 없이 재시도
         chunks = await rag.query(rag_query, n_results=top_k) if rag else []
+
+    # 상품 데이터를 맨 앞에 둔다 (가격·평점은 문서보다 정확하다)
+    chunks = list(product_docs or []) + list(chunks)
 
     if not chunks:
         return {

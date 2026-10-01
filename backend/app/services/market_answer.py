@@ -261,46 +261,97 @@ def render_stats(stats: dict, cond: QueryConditions) -> str:
 
 
 def stats_for_llm(stats: dict) -> str:
-    """LLM에게 넘길 숫자 요약 (이 숫자만 근거로 해석하게 한다)."""
+    """LLM에게 넘길 숫자 요약. 화면과 똑같은 '만원' 표기로 넘긴다.
+    (원 단위 '1,087,500원'을 넘기면 LLM이 '1,087만원'처럼 단위를 잘못 바꾸는 일이 생긴다)"""
     d = stats["distribution"]
-    parts = [f"카테고리: {stats['category']} (수집 상품 {d['n']}개, 중앙값 {d['median']:,}원, 평균 {d['avg']:,}원)"]
+    parts = [f"카테고리: {stats['category']} (수집 상품 {d['n']}개, 중앙값 {_won(d['median'])}, 평균 {_won(d['avg'])})"]
     parts.append("가격대 분포: " + " / ".join(f"{t['label']} {t['share']}%" for t in d["tiers"]))
-    parts.append("브랜드: " + " / ".join(f"{b['brand']} 비중 {b['share']}% 평균 {b['avg']:,}원" for b in stats["brands"]))
+    parts.append("브랜드: " + " / ".join(f"{b['brand']} 비중 {b['share']}% 평균 {_won(b['avg'])}" for b in stats["brands"]))
     pt = stats.get("price_trend")
     if pt and pt.get("latest_avg"):
-        parts.append(f"평균가 추이: 최근 {pt['latest_avg']:,}원, 30일 대비 {_signed(pt['chg_30'])}, 90일 대비 {_signed(pt['chg_90'])}")
+        parts.append(f"평균가 추이: 최근 {_won(pt['latest_avg'])}, 30일 대비 {_signed(pt['chg_30'])}, 90일 대비 {_signed(pt['chg_90'])}")
     st = stats.get("search_trend")
     if st:
         parts.append(f"검색 관심도: 최근 7일 이전 7일 대비 {_signed(st['chg_7d'])}")
     return "\n".join(parts)
 
 
+# ── LLM이 쓴 금액 검증 ────────────────────────────────────────────
+
+_MAN_RE = re.compile(r"(\d[\d,]*(?:\.\d+)?)\s*만\s*원")
+
+
+def _allowed_amounts(stats: dict) -> list[float]:
+    """데이터에 실제로 있는 금액들 (만원 단위)"""
+    d = stats["distribution"]
+    vals = [d["median"], d["avg"]] + [b["avg"] for b in stats["brands"]]
+    pt = stats.get("price_trend")
+    if pt and pt.get("latest_avg"):
+        vals.append(pt["latest_avg"])
+    # 가격대 경계값 (예: '80만원 미만')
+    for t in d["tiers"]:
+        vals += [float(x.replace(",", "")) * 10_000 for x in _MAN_RE.findall(t["label"])]
+    return [v / 10_000 for v in vals if v]
+
+
+def invalid_amounts(text: str, stats: dict) -> list[str]:
+    """해석문에 나온 'N만원' 중 데이터에 없는 금액 목록 (±3% 또는 ±1만원까지는 허용)"""
+    allowed = _allowed_amounts(stats)
+    bad = []
+    for m in _MAN_RE.finditer(text):
+        raw = m.group(1)
+        # '100만원대' · '50~100만원' 같은 가격대 표현은 제안일 뿐 데이터 인용이 아니라서 검사하지 않는다
+        if text[m.end():m.end() + 1] == "대" or text[max(0, m.start() - 1):m.start()] in ("~", "-"):
+            continue
+        v = float(raw.replace(",", ""))
+        if not any(abs(v - a) <= max(1.0, a * 0.03) for a in allowed):
+            bad.append(f"{raw}만원")
+    return bad
+
+
 _INTERPRET_PROMPT = """\
 당신은 가전 시장 B2B 전략 컨설턴트입니다. 반드시 한국어로만 답하세요.
 아래 [시장 데이터]의 숫자만 근거로 사용자의 질문에 답하세요.
-- 데이터에 없는 숫자(점유율·판매량·성장률 등)는 절대 새로 만들지 마세요.
+- 금액은 [시장 데이터]에 적힌 표기(예: 109만원) 그대로 옮겨 쓰세요. 단위를 바꾸거나 다시 계산하지 마세요.
+- 데이터에 없는 숫자(점유율·판매량·성장률·금액 등)는 절대 새로 만들지 마세요.
 - 3~5줄로 핵심 해석을 쓰고, 마지막에 '💡 시사점' 한 줄을 붙이세요.
 - 표나 목록을 다시 나열하지 마세요 (숫자는 이미 화면에 표로 보여주고 있습니다).
 - 데이터가 '데이터 없음'인 항목은 판단하지 말고 넘어가세요.
 """
 
 
-async def interpret(stats: dict, query: str, history: list[dict] | None) -> str | None:
+async def _ask(messages: list[dict]) -> str | None:
     from app.routers.b2b_utils import _groq_create
+    res = await _groq_create(messages=messages, max_tokens=1500, temperature=0.2, reasoning_effort="low")
+    return (res.choices[0].message.content or "").strip() or None
+
+
+async def interpret(stats: dict, query: str, history: list[dict] | None) -> str | None:
+    """숫자 해석을 만들고, 데이터에 없는 금액이 나오면 한 번 고쳐 쓰게 한다. 그래도 틀리면 버린다."""
     from app.services.insight_service import _history_messages
+    messages = [
+        {"role": "system", "content": _INTERPRET_PROMPT},
+        *_history_messages(history),
+        {"role": "user", "content": f"질문: {query}\n\n[시장 데이터]\n{stats_for_llm(stats)}"},
+    ]
     try:
-        res = await _groq_create(
-            messages=[
-                {"role": "system", "content": _INTERPRET_PROMPT},
-                *_history_messages(history),
-                {"role": "user", "content": f"질문: {query}\n\n[시장 데이터]\n{stats_for_llm(stats)}"},
-            ],
-            max_tokens=1500,
-            temperature=0.3,
-            reasoning_effort="low",
-        )
-        text = (res.choices[0].message.content or "").strip()
-        return text or None
+        text = await _ask(messages)
+        if not text:
+            return None
+        bad = invalid_amounts(text, stats)
+        if not bad:
+            return text
+        print(f"[Market] 해석에 데이터에 없는 금액 {bad} → 재작성 요청")
+        retry = messages + [
+            {"role": "assistant", "content": text},
+            {"role": "user", "content": f"{', '.join(bad)}은(는) [시장 데이터]에 없는 금액입니다. "
+                                        "금액은 데이터에 적힌 표기 그대로만 써서 다시 작성하세요."},
+        ]
+        text2 = await _ask(retry)
+        if text2 and not invalid_amounts(text2, stats):
+            return text2
+        print("[Market] 재작성 후에도 금액 불일치 → 해석 생략")
+        return None
     except Exception as e:
         print(f"[Market] 해석 생성 실패: {e}")
         return None
