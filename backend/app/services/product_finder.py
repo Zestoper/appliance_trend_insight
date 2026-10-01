@@ -47,9 +47,19 @@ def _in_range(price: int, cond: QueryConditions) -> bool:
     return True
 
 
+# 본품이 아닌 부속품·설치 키트·소모품 (예: '드림스테이 드리미 직배수 리폼 키트')
+_ACCESSORY_RE = re.compile(r"리폼|키트|부품|필터|소모품|호환|거치대|교체용|브러시|걸레패드|먼지봉투|케이블|리모컨|커버|받침|선반")
+
+
+def _is_accessory(p: dict) -> bool:
+    return bool(_ACCESSORY_RE.search(p.get("title", "")))
+
+
 def _brand_ok(p: dict, cond: QueryConditions) -> bool:
     from app.services.query_parser import BRAND_ALIASES
-    hay = (p.get("brand", "") + " " + p.get("title", "")).lower()
+    # 브랜드 칸이 있으면 브랜드 칸으로만 판단한다. 제목으로 보면 '드림스테이 드리미 키트'처럼
+    # 다른 회사의 호환 부품이 '드리미' 상품으로 잘못 잡힌다. 브랜드 칸이 비었을 때만 제목을 본다.
+    hay = (p.get("brand") or p.get("title", "")).lower()
     excluded = cond.extras.get("exclude_brand")
     if excluded and any(a in hay for a in BRAND_ALIASES.get(excluded, [excluded.lower()])):
         return False   # '삼성 빼고'
@@ -133,7 +143,7 @@ async def find_products(
     exclude = set(cond.extras.get("exclude") or [])
 
     def ok(p: dict) -> bool:
-        return _brand_ok(p, cond) and p["title"] not in exclude
+        return _brand_ok(p, cond) and p["title"] not in exclude and not _is_accessory(p)
 
     candidates: list[dict] = []
     if rag is not None:

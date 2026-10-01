@@ -82,7 +82,8 @@ async def _collect_products(category: str, rag) -> list[dict]:
         items = await _from_rag(rag, cond, 100)
     if len(items) < 10:
         items = await _from_danawa(cond)
-    items = [p for p in items if p.get("price", 0) > 0]
+    from app.services.product_finder import _is_accessory
+    items = [p for p in items if p.get("price", 0) > 0 and not _is_accessory(p)]
     if len(items) < 3:
         return items
     med = statistics.median(p["price"] for p in items)
