@@ -13,6 +13,7 @@ class InsightRequest(BaseModel):
     query: str
     target: str = "b2b"
     top_k: int = 8
+    context: dict | None = None   # 직전 답변의 conditions — 이어 묻는 질문용
 
 
 class InsightSource(BaseModel):
@@ -25,6 +26,7 @@ class InsightResponse(BaseModel):
     target: str
     report: str
     sources: list[InsightSource]
+    conditions: dict | None = None   # 이번 질문에서 뽑은 조건 (프론트가 다음 질문 때 context로 보냄)
     answered_by: str = "llm"   # cache / template / llm / stale_cache — 어느 단계에서 답했는지
 
 
@@ -49,6 +51,7 @@ async def analyze_insights(
             rag=rag,
             target=body.target,
             top_k=body.top_k,
+            context=body.context,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -58,5 +61,6 @@ async def analyze_insights(
         target=result["target"],
         report=result["report"],
         sources=[InsightSource(**s) for s in result["sources"]],
+        conditions=result.get("conditions"),
         answered_by=result.get("answered_by", "llm"),
     )

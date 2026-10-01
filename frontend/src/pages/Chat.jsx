@@ -52,6 +52,8 @@ export default function Chat() {
   const [target, setTarget] = useState(() =>
     (user?.user_type === 'b2b' || user?.role === 'admin') ? 'b2b' : 'b2c'
   )
+  // 직전 질문에서 서버가 뽑은 조건 (카테고리·가격대·가구 수) — "100만원대는?" 같은 이어 묻기에 사용
+  const [lastConditions, setLastConditions] = useState(null)
   const bottomRef = useRef(null)
   const inputRef = useRef(null)
 
@@ -71,9 +73,10 @@ export default function Chat() {
       const res = await fetch(`${API_BASE}/api/insights/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query, target, top_k: 8 }),
+        body: JSON.stringify({ query, target, top_k: 8, context: lastConditions }),
       })
       const data = await res.json()
+      if (data.conditions) setLastConditions(data.conditions)
 
       setMessages(prev => [...prev, {
         role: 'ai',

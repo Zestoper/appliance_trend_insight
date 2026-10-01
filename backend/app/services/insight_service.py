@@ -143,20 +143,36 @@ async def analyze(
     rag: "RAGService",
     target: str = "b2b",
     top_k: int = 5,
+    context: dict | None = None,
+) -> dict:
+    """context(직전 질문 조건)를 반영해 조건을 뽑고, 답변에 이번 조건을 실어 보낸다.
+    프론트는 이 conditions를 저장했다가 다음 질문 때 context로 다시 보내서 대화가 이어진다."""
+    from app.services.query_parser import parse_query
+    cond = parse_query(query, context)
+    result = await _answer(cond, query, rag, target, top_k)
+    result["conditions"] = cond.to_context()
+    return result
+
+
+async def _answer(
+    cond,
+    query: str,
+    rag: "RAGService",
+    target: str = "b2b",
+    top_k: int = 5,
 ) -> dict:
     """질문 처리 흐름 — LLM은 마지막 수단으로만 쓴다.
 
     ① 조건 추출(정규식·별칭·오타 보정) → ② 캐시 → ③ 템플릿(추천·가격) → ④ LLM → ⑤ 캐시 저장
     ⑥ LLM이 전부 실패하면 만료된 캐시(예전 답변)라도 날짜 안내와 함께 보여준다
     """
-    from app.services.query_parser import parse_query
     from app.services.product_finder import find_products
     from app.services.chat_templates import TEMPLATES, products_as_sources
 
-    cond = parse_query(query)
     cache_key = cond.cache_key(target)
     print(f"[Insight] 조건: cat={cond.category} brand={cond.brand} "
-          f"price={cond.min_price}~{cond.max_price} house={cond.household} intent={cond.intent}")
+          f"price={cond.min_price}~{cond.max_price} house={cond.household} intent={cond.intent} "
+          f"followup={cond.extras.get('followup', False)}")
 
     # ② 캐시 — 표현이 달라도 조건이 같으면 같은 답을 재사용
     cached = await _cache_get(cache_key)
@@ -182,6 +198,14 @@ async def analyze(
     # ④ LLM — 템플릿이 없는 유형(비교·후기·트렌드 등)이거나 상품을 못 찾았을 때
     # 오타·줄임말(에어콘·로청)이면 표준 카테고리명을 붙여서 RAG 카테고리 필터가 걸리게 한다
     llm_query = f"{query} ({cond.category})" if cond.category and cond.category not in query else query
+    if cond.extras.get("followup"):
+        # "100만원대는?" 같은 이어 묻기는 LLM이 맥락을 모르니 이어받은 조건을 문장으로 붙여준다
+        hint = [cond.category]
+        if cond.household:
+            hint.append(f"{cond.household}인 가구")
+        if cond.brand:
+            hint.append(cond.brand)
+        llm_query = f"{' '.join(hint)} — {query}"
     result = await _llm_answer(llm_query, rag, target, top_k)
     result["query"] = query
     result["answered_by"] = "llm"
