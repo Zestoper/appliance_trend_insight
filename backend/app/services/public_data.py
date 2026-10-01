@@ -67,10 +67,11 @@ async def fetch_kma_history(days: int = 730) -> list[dict]:
         "endDt":     end.strftime("%Y%m%d"),
         "stnIds":    "108",  # 서울
     })
+    data = await _get_public_json(url, params, "KMA")
+    if not data:
+        return []
     try:
-        async with httpx.AsyncClient(timeout=15.0) as c:
-            r = await c.get(url, params=params)
-        items = r.json()["response"]["body"]["items"]["item"]
+        items = data["response"]["body"]["items"]["item"]
         return [
             {
                 "date":     item["tm"].replace("-", ""),  # YYYYMMDD
@@ -81,47 +82,99 @@ async def fetch_kma_history(days: int = 730) -> list[dict]:
             if item.get("avgTa") not in (None, "")
         ]
     except Exception as e:
-        logger.warning("[KMA] 기상청 이력 수집 실패: %s", e)
+        logger.warning("[KMA] 기상청 응답 파싱 실패: %r", e)
         return []
 
 
+async def _get_public_json(url: str, params: dict, name: str, timeout: float = 30.0, retries: int = 2) -> dict | None:
+    """공공데이터포털 API 공통 호출.
+    - 타임아웃은 예외 메시지가 빈 문자열이라 로그에 '실패: '만 찍혔다 → 예외 종류(repr)까지 남긴다
+    - 키 오류 등은 JSON을 요청해도 XML로 오기 때문에 그 내용도 로그로 남긴다
+    - resultCode가 '00'이 아니면 resultMsg를 남긴다"""
+    last_err = ""
+    for attempt in range(1, retries + 1):
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as c:
+                r = await c.get(url, params=params)
+            if r.status_code != 200:
+                last_err = f"HTTP {r.status_code}: {r.text[:200]}"
+            else:
+                try:
+                    data = r.json()
+                except ValueError:
+                    # 'SERVICE_KEY_IS_NOT_REGISTERED_ERROR' 같은 오류는 XML로 내려온다
+                    last_err = f"JSON 아님(키/트래픽 오류 가능): {r.text[:200]}"
+                    break
+                header = (data.get("response") or {}).get("header") or {}
+                code = str(header.get("resultCode", "00"))
+                if code not in ("00", "0"):
+                    last_err = f"resultCode={code} {header.get('resultMsg', '')}"
+                    break
+                return data
+        except Exception as e:
+            last_err = repr(e)   # ReadTimeout() 처럼 종류가 보이게
+        if attempt < retries:
+            await asyncio.sleep(2 * attempt)
+    logger.warning("[%s] 수집 실패: %s", name, last_err)
+    return None
+
+
 async def fetch_airkorea_history(days: int = 90) -> list[dict]:
-    """에어코리아 대기오염 이력 (종로구, 최근 90일)"""
+    """에어코리아 대기오염 이력 (종로구, 최근 최대 3개월) — 시간별 측정값을 일평균으로 묶는다."""
     if not PUBLIC_DATA_KEY:
         return []
     url = "https://apis.data.go.kr/B552584/ArpltnInforInqireSvc/getMsrstnAcctoRltmMesureDnsty"
     term = "3MONTH" if days >= 60 else "MONTH"
-    params = {
-        "serviceKey":  PUBLIC_DATA_KEY,
-        "returnType":  "json",   # AirKorea는 dataType 아닌 returnType 사용
-        "stationName": "종로구",
-        "dataTerm":    term,
-        "pageNo":      1,
-        "numOfRows":   200,
-        "ver":         "1.3",
-    }
-    try:
-        async with httpx.AsyncClient(timeout=15.0) as c:
-            r = await c.get(url, params=params)
-        items = r.json()["response"]["body"]["items"]
-        def _safe_float(v):
-            try:
-                return float(v) if v not in (None, "-", "", "None") else 0.0
-            except (ValueError, TypeError):
-                return 0.0
 
-        return [
-            {
-                "date":  item["dataTime"][:10].replace("-", ""),
-                "pm25":  _safe_float(item.get("pm25Value")),
-                "pm10":  _safe_float(item.get("pm10Value")),
-            }
-            for item in items
-            if item.get("pm25Value") not in (None, "-", "")
-        ]
-    except Exception as e:
-        logger.warning("[AirKorea] 이력 수집 실패: %s", e)
-        return []
+    def _safe_float(v):
+        try:
+            return float(v) if v not in (None, "-", "", "None") else None
+        except (ValueError, TypeError):
+            return None
+
+    # 시간별 데이터라 3개월이면 2,000건이 넘는다 — 예전엔 200건(약 8일치)만 받고 있었다
+    raw: list[dict] = []
+    for page in range(1, 4):
+        data = await _get_public_json(url, {
+            "serviceKey":  PUBLIC_DATA_KEY,
+            "returnType":  "json",   # AirKorea는 dataType 아닌 returnType 사용
+            "stationName": "종로구",
+            "dataTerm":    term,
+            "pageNo":      page,
+            "numOfRows":   1000,
+            "ver":         "1.3",
+        }, "AirKorea")
+        if not data:
+            break
+        body = data["response"].get("body") or {}
+        items = body.get("items") or []
+        raw.extend(items)
+        if len(raw) >= int(body.get("totalCount") or 0) or len(items) < 1000:
+            break
+
+    daily: dict[str, dict[str, list[float]]] = {}
+    for item in raw:
+        d = (item.get("dataTime") or "")[:10].replace("-", "")
+        if len(d) != 8:
+            continue
+        bucket = daily.setdefault(d, {"pm25": [], "pm10": []})
+        for key, field in (("pm25", "pm25Value"), ("pm10", "pm10Value")):
+            v = _safe_float(item.get(field))
+            if v is not None:
+                bucket[key].append(v)
+
+    result = [
+        {
+            "date": d,
+            "pm25": round(sum(v["pm25"]) / len(v["pm25"]), 1) if v["pm25"] else 0.0,
+            "pm10": round(sum(v["pm10"]) / len(v["pm10"]), 1) if v["pm10"] else 0.0,
+        }
+        for d, v in sorted(daily.items())
+        if v["pm25"]
+    ]
+    if raw and not result:
+        logger.warning("[AirKorea] 응답은 %d건 왔지만 유효한 PM2.5 값이 없음", len(raw))
+    return result
 
 
 async def fetch_kosis_cpi() -> list[dict]:
