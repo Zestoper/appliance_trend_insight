@@ -291,16 +291,20 @@ def extract_household(text: str) -> int | None:
 _INTENT_RULES: list[tuple[str, str]] = [
     ("compare", r"vs|비교|차이|뭐가나|어떤게나|어느게나|중에뭐|중에어떤|둘중"),
     ("timing", r"언제|타이밍|시기|몇월|세일기간|할인기간|사는시기|살때"),
-    ("review", r"후기|리뷰|장단점|단점|장점|어때|어떰|괜찮아|쓸만|만족|불만|고장|소음|전기세|전기요금"),
+    # 전력효율·소음·디자인처럼 '특정 성능'을 묻는 질문도 상품 목록(템플릿)이 아니라 LLM 설명이 필요하다
+    ("review", r"후기|리뷰|장단점|단점|장점|어때|어떰|괜찮아|쓸만|만족|불만|고장|소음|조용|전기세|전기요금|"
+               r"전력|효율|에너지|등급|소비전력|절전|디자인|설치|기능|성능|내구성|용량|크기|사이즈"),
     ("recommend", r"추천|뭐사|뭘사|뭐살|골라|살까|사야|사고싶|가성비|좋은거|괜찮은거|입문"),
     ("price", r"얼마|가격|최저가|시세|싸게|저렴|할인"),
 ]
 
 
 # 직전 상품에 대해 이어 묻는 걸로 볼 수 있는 표현
-_FOLLOWUP_KW = (r"후기|리뷰|장단점|단점|장점|쓸만|고장|소음|전기세|전기요금|용량|크기|사이즈|"
+_FOLLOWUP_KW = (r"후기|리뷰|장단점|단점|장점|쓸만|고장|소음|조용|전기세|전기요금|용량|크기|사이즈|"
+                r"전력|효율|에너지|등급|소비전력|절전|디자인|색상|설치|기능|성능|내구성|as|a/s|보증|"
                 r"비교|차이|언제|타이밍|추천|다른거|다른제품|더싼|더저렴|싼거|저렴한거|비싼거|"
-                r"가격|얼마|최저가|그거|이거|저거|그중|그럼")
+                r"좋은건|좋은걸|좋은거|나은건|나은거|괜찮은건|어떤게|어떤거|뭐가좋|제일|가장|1위|순위|"
+                r"가격|얼마|최저가|그거|이거|저거|그중|그럼|이중|여기서")
 
 
 # 직전에 보여준 상품을 기준으로 하는 상대 표현
@@ -419,6 +423,8 @@ def parse_query(query: str, context: dict | None = None) -> QueryConditions:
         product_question = re.search("|".join([_FOLLOWUP_KW, _CHEAPER_KW, _PRICIER_KW, _MORE_KW]), _nospace(norm))
         if cond.category or has_new_info or product_question:
             cond.extras["followup"] = cond.category is None
+            # LLM으로 넘어갈 때 "앞에서 본 제품 중에 뭐가 나아?"에 답할 수 있게 직전 상품명을 넘긴다
+            cond.extras["prev_shown"] = (prev.get("shown_titles") or [])[-3:]
             cond.category = cond.category or prev_cat
             excluded = find_excluded_brand(norm)
             if not excluded and not cond.brand:

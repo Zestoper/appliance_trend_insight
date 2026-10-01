@@ -223,6 +223,8 @@ async def _answer(
             hint.append(f"{cond.household}인 가구")
         if cond.brand:
             hint.append(cond.brand)
+        if cond.extras.get("prev_shown"):
+            hint.append("(앞에서 보여준 제품: " + " / ".join(cond.extras["prev_shown"]) + ")")
         llm_query = f"{' '.join(hint)} — {query}"
     result = await _llm_answer(llm_query, rag, target, top_k)
     result["query"] = query
