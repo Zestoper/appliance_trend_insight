@@ -14,6 +14,7 @@ class InsightRequest(BaseModel):
     target: str = "b2b"
     top_k: int = 8
     context: dict | None = None   # 직전 답변의 conditions — 이어 묻는 질문용
+    history: list[dict] | None = None   # 최근 대화 [{role: user|ai, content}] — LLM 답변용
 
 
 class InsightSource(BaseModel):
@@ -52,6 +53,7 @@ async def analyze_insights(
             target=body.target,
             top_k=body.top_k,
             context=body.context,
+            history=body.history,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

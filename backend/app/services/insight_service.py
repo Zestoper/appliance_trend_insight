@@ -22,72 +22,67 @@ def _get_groq() -> AsyncGroq:
 _CHUNK_MAX = 150
 
 _B2C_SYSTEM_PROMPT = """\
-당신은 가전제품 소비자 구매 참고 리포트 작성 전문가입니다.
+당신은 가전제품 구매 상담을 해주는 친절한 AI 상담원입니다.
 반드시 한국어로만 응답하세요. 영어·중국어·일본어 사용 금지.
 
-[작성 규칙]
-0. 질문이 가전제품·생활가전·주방가전·계절가전·영상음향기기와 무관한 경우, 리포트 형식 없이 단 한 문장으로만 응답하세요: "가전제품 관련 질문을 입력해주세요. (예: 로봇청소기 후기, 에어컨 추천)"
-1. 아래 참고 문서에 실제로 언급된 내용만 작성하세요.
-2. 문서에 없는 내용은 추측하거나 단정하지 마세요. 근거 없는 항목은 생략하세요.
-3. 출처 번호([1], [2] 등)는 절대 표기하지 마세요. 문장만 자연스럽게 작성하세요.
-4. 일반 소비자가 이해하기 쉬운 구어체로 작성하세요.
-5. 반드시 아래 마크다운 형식으로만 응답하세요. JSON 금지.
+[답변 원칙]
+0. 이전 대화까지 봐도 가전제품과 전혀 무관한 질문이면 한 문장으로만 답하세요: "가전제품 관련 질문을 입력해주세요. (예: 로봇청소기 후기, 에어컨 추천)"
+   이전 대화에서 이어지는 짧은 질문("전력효율은?", "그럼 소음은?")은 가전 질문으로 보고 답하세요.
+1. 사용자가 방금 물어본 것에 바로 답하세요. 물어보지 않은 항목을 형식 맞추려고 채우지 마세요.
+2. 구체적인 질문(전력효율·소음·용량·비교 등)은 3~8줄로 짧고 자연스럽게 답하세요. 필요할 때만 목록을 쓰세요.
+3. "정리해줘"·"리포트"·"장단점 전부"처럼 종합 정리를 원할 때만 아래 정리 형식을 쓰세요.
+4. 참고 문서와 이전 대화에 있는 내용만 근거로 쓰세요. 문서에 없는 수치(전력량·가격 등)는 지어내지 말고
+   "자료에서 확인되지 않아요"라고 말한 뒤 확인 방법(에너지소비효율 등급 라벨, 제조사 상세페이지 등)을 알려주세요.
+5. 앞에서 보여준 제품이 있으면 그 제품들을 기준으로 답하세요.
+6. 출처 번호([1], [2] 등)는 표기하지 마세요. JSON 금지. 일반 소비자가 이해하기 쉬운 구어체로 답하세요.
 
-[출력 형식]
-
+[정리 형식 — 종합 정리를 원할 때만]
 ## 소비자 구매 참고 리포트
-
 ### ✅ 주요 장점
-- (장점 한 줄)
-
 ### ❌ 주요 단점
-- (단점 한 줄)
-
 ### 💡 이런 분께 추천
-(실제 후기 기반 추천 대상 1~2문장)
-
 ### ⚠️ 구매 전 확인사항
-- (주의사항)
-
 ### 📝 한줄 요약
-(전체를 한 문장으로 요약)
 """
 
 _B2B_SYSTEM_PROMPT = """\
-당신은 가전 시장 B2B 전략 리포트 작성 전문가입니다. 기업 기획자와 MD가 읽는 리포트를 작성합니다.
+당신은 가전 시장을 분석하는 B2B 전략 컨설턴트입니다. 기업 기획자와 MD의 질문에 답합니다.
 반드시 한국어로만 응답하세요. 영어·중국어·일본어 사용 금지.
 
-[작성 규칙]
-0. 질문이 가전제품·생활가전·주방가전·계절가전·영상음향기기와 무관한 경우, 리포트 형식 없이 단 한 문장으로만 응답하세요: "가전 시장 관련 질문을 입력해주세요. (예: 에어컨 시장 트렌드, 로봇청소기 소비자 페인포인트)"
-1. 아래 참고 문서에 실제로 언급된 내용만 작성하세요.
-2. 문서에 없는 내용은 추측하거나 단정하지 마세요. 근거 없는 항목은 생략하세요.
-3. 출처 번호([1], [2] 등)는 절대 표기하지 마세요. 문장만 자연스럽게 작성하세요.
-4. 비즈니스 관점의 인사이트와 전략적 시사점을 중심으로 작성하세요.
-5. 반드시 아래 마크다운 형식으로만 응답하세요. JSON 금지.
+[답변 원칙]
+0. 이전 대화까지 봐도 가전 시장과 전혀 무관한 질문이면 한 문장으로만 답하세요: "가전 시장 관련 질문을 입력해주세요. (예: 에어컨 시장 트렌드, 로봇청소기 소비자 페인포인트)"
+   이전 대화에서 이어지는 짧은 질문("전력효율은?", "그럼 가격대는?")은 가전 질문으로 보고 답하세요.
+1. 사용자가 방금 물어본 것에 바로 답하세요. 물어보지 않은 항목을 형식 맞추려고 채우지 마세요.
+2. 구체적인 질문(특정 성능·가격대·경쟁 제품 등)은 핵심 인사이트 위주로 3~8줄로 답하세요. 필요할 때만 목록을 쓰세요.
+3. "시장 동향"·"트렌드 리포트"·"전체 분석"처럼 시장 전반을 물을 때만 아래 리포트 형식을 쓰세요.
+4. 참고 문서와 이전 대화에 있는 내용만 근거로 쓰세요. 문서에 없는 수치는 지어내지 말고 확인되지 않는다고 말하세요.
+5. 앞에서 보여준 제품이 있으면 그 제품들을 기준으로 비즈니스 관점에서 답하세요.
+6. 출처 번호([1], [2] 등)는 표기하지 마세요. JSON 금지.
 
-[출력 형식]
-
+[리포트 형식 — 시장 전반을 물을 때만]
 ## 시장 트렌드 리포트
-
 ### 📌 시장 동향 요약
-(전체 시장 동향 2~3문장)
-
 ### 📈 주요 소비자 트렌드
-- (트렌드 한 줄)
-
 ### 😤 소비자 페인포인트
-- (소비자 불만 한 줄)
-
 ### 💼 사업 기회
-- (기회 한 줄)
-
 ### 🎯 전략적 액션 아이템
-1. (구체적 액션)
-2. (구체적 액션)
-
 ### 👥 타겟 바이어 세그먼트
-(주요 타겟 고객 설명)
 """
+
+_HISTORY_TURNS = 4        # 최근 몇 개 메시지를 LLM에 넘길지 (질문·답변 합쳐서)
+_HISTORY_CHARS = 600      # 메시지 하나당 최대 글자 수 (토큰 절약)
+
+
+def _history_messages(history: list[dict] | None) -> list[dict]:
+    """프론트가 보낸 최근 대화를 Groq messages 형식으로 변환 (길이 제한)."""
+    out = []
+    for h in (history or [])[-_HISTORY_TURNS:]:
+        role = "assistant" if h.get("role") in ("ai", "assistant") else "user"
+        content = str(h.get("content") or "").strip()
+        if content:
+            out.append({"role": role, "content": content[:_HISTORY_CHARS]})
+    return out
+
 
 _EMPTY_REPORT = "RAG 데이터를 준비 중이에요. 잠시 후 다시 시도해주세요.\n\n서버 최초 실행 시 Naver 데이터를 수집하는 데 약 30초가 소요됩니다."
 
@@ -103,6 +98,16 @@ _NO_CACHE_REPORTS = {
     "AI 분석을 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도해주세요.",
     "답변을 만들지 못했어요. 질문을 조금 더 짧고 구체적으로 다시 입력해주세요.",
 }
+
+
+# "가전 관련 질문을 입력해주세요" 같은 거절 안내도 저장하지 않는다 (맥락이 바뀌면 답이 달라져야 해서)
+_NO_CACHE_PREFIXES = ("가전제품 관련 질문을 입력해주세요", "가전 시장 관련 질문을 입력해주세요")
+
+
+def _cacheable(report: str | None) -> bool:
+    if not report or report in _NO_CACHE_REPORTS:
+        return False
+    return not report.strip().startswith(_NO_CACHE_PREFIXES)
 
 
 async def _cache_get(key: str) -> dict | None:
@@ -125,7 +130,7 @@ async def _cache_get_stale(key: str) -> dict | None:
 
 
 async def _cache_set(key: str, result: dict) -> None:
-    if result.get("report") in _NO_CACHE_REPORTS:
+    if not _cacheable(result.get("report")):
         return
     try:
         from datetime import datetime, timedelta, timezone
@@ -144,12 +149,13 @@ async def analyze(
     target: str = "b2b",
     top_k: int = 5,
     context: dict | None = None,
+    history: list[dict] | None = None,
 ) -> dict:
     """context(직전 질문 조건)를 반영해 조건을 뽑고, 답변에 이번 조건을 실어 보낸다.
     프론트는 이 conditions를 저장했다가 다음 질문 때 context로 다시 보내서 대화가 이어진다."""
     from app.services.query_parser import parse_query
     cond = parse_query(query, context)
-    result = await _answer(cond, query, rag, target, top_k)
+    result = await _answer(cond, query, rag, target, top_k, history)
 
     ctx = cond.to_context()
     shown = result.pop("_shown", None)
@@ -171,6 +177,7 @@ async def _answer(
     rag: "RAGService",
     target: str = "b2b",
     top_k: int = 5,
+    history: list[dict] | None = None,
 ) -> dict:
     """질문 처리 흐름 — LLM은 마지막 수단으로만 쓴다.
 
@@ -187,7 +194,7 @@ async def _answer(
 
     # ② 캐시 — 표현이 달라도 조건이 같으면 같은 답을 재사용
     cached = await _cache_get(cache_key)
-    if cached and cached.get("report"):
+    if cached and _cacheable(cached.get("report")):
         print(f"[Insight] answered_by=cache ({cache_key})")
         return {**cached, "query": query, "target": target, "answered_by": "cache"}
 
@@ -226,14 +233,14 @@ async def _answer(
         if cond.extras.get("prev_shown"):
             hint.append("(앞에서 보여준 제품: " + " / ".join(cond.extras["prev_shown"]) + ")")
         llm_query = f"{' '.join(hint)} — {query}"
-    result = await _llm_answer(llm_query, rag, target, top_k)
+    result = await _llm_answer(llm_query, rag, target, top_k, history)
     result["query"] = query
     result["answered_by"] = "llm"
 
     # ⑥ LLM이 전부 실패했으면(안내 문구만 받았으면) 같은 질문의 예전 답변이라도 보여준다
     if result.get("report") in _NO_CACHE_REPORTS:
         stale = await _cache_get_stale(cache_key)
-        if stale and stale.get("report") and stale["report"] not in _NO_CACHE_REPORTS:
+        if stale and _cacheable(stale.get("report")):
             date = stale.get("cached_at", "이전")
             notice = f"⏳ 지금은 AI 분석이 어려워서 {date} 기준 답변을 보여드려요. 가격은 달라졌을 수 있어요."
             print(f"[Insight] answered_by=stale_cache ({cache_key})")
@@ -250,6 +257,7 @@ async def _llm_answer(
     rag: "RAGService",
     target: str = "b2b",
     top_k: int = 5,
+    history: list[dict] | None = None,
 ) -> dict:
     """RAG 검색 결과를 Groq LLM에 전달해 마크다운 트렌드 리포트를 생성한다."""
     rag_query = (
@@ -286,10 +294,12 @@ async def _llm_answer(
         res = await _gc(
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"제품/카테고리: {query}\n\n{context}"},
+                # 최근 대화를 같이 넘겨야 "그럼 이 중엔?" "아까 그거" 같은 질문을 알아듣는다
+                *_history_messages(history),
+                {"role": "user", "content": f"질문: {query}\n\n{context}"},
             ],
             max_tokens=2500,          # 추론 모델은 생각 토큰도 여기 포함 → 여유 있게
-            temperature=0.3,
+            temperature=0.4,          # 질문마다 표현이 조금씩 달라지도록 살짝 올림
             reasoning_effort="low",   # 문서 정리 작업이라 깊은 추론 불필요 → 토큰 절약
         )
     except Exception:

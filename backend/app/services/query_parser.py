@@ -356,8 +356,16 @@ class QueryConditions:
                 import hashlib
                 ex = "|".join(sorted(self.extras["exclude"]))
                 parts.append("ex" + hashlib.md5(ex.encode("utf-8")).hexdigest()[:8])
-            return f"chat:v1:{target}:" + ":".join(parts)
-        return f"chat:v1:{target}:q:{_nospace(self.normalized)[:200]}"
+            return f"chat:v2:{target}:" + ":".join(parts)
+        # 질문 문장 키라도 대화 맥락(카테고리·가구·브랜드·직전 상품)을 같이 넣는다.
+        # 안 그러면 '전력효율은?'이 냉장고 대화든 에어컨 대화든 같은 캐시를 써버린다.
+        ctx = ""
+        if self.category:
+            import hashlib
+            shown = "|".join(self.extras.get("prev_shown") or [])
+            raw = f"{self.category}:{self.household or 0}:{self.brand or '-'}:{shown}"
+            ctx = hashlib.md5(raw.encode("utf-8")).hexdigest()[:10] + ":"
+        return f"chat:v2:{target}:q:{ctx}{_nospace(self.normalized)[:200]}"
 
     def to_dict(self) -> dict:
         return asdict(self)
