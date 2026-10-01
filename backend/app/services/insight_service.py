@@ -95,7 +95,113 @@ _EMPTY_REPORT = "RAG 데이터를 준비 중이에요. 잠시 후 다시 시도�
 _GROQ_MODEL = "llama-3.3-70b-versatile"
 
 
+_CACHE_TTL_HOURS = 24  # 가격이 매일 바뀌므로 하루만 재사용
+
+# 이 문구들은 일시적 실패 안내라 캐시에 저장하지 않는다
+_NO_CACHE_REPORTS = {
+    _EMPTY_REPORT,
+    "AI 분석을 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도해주세요.",
+    "답변을 만들지 못했어요. 질문을 조금 더 짧고 구체적으로 다시 입력해주세요.",
+}
+
+
+async def _cache_get(key: str) -> dict | None:
+    try:
+        from app.services.naver_cache import get_db_cache
+        return await get_db_cache(key)
+    except Exception as e:
+        print(f"[Insight] 캐시 조회 실패: {e}")
+        return None
+
+
+async def _cache_get_stale(key: str) -> dict | None:
+    """만료 여부와 상관없이 가장 최근 답변 — LLM이 전부 실패했을 때 대신 보여주는 용도."""
+    try:
+        from app.services.naver_cache import get_db_cache_stale
+        return await get_db_cache_stale(key)
+    except Exception as e:
+        print(f"[Insight] 이전 답변 조회 실패: {e}")
+        return None
+
+
+async def _cache_set(key: str, result: dict) -> None:
+    if result.get("report") in _NO_CACHE_REPORTS:
+        return
+    try:
+        from datetime import datetime, timedelta, timezone
+        from app.services.naver_cache import set_db_cache
+        kst_now = datetime.now(timezone(timedelta(hours=9)))
+        # 나중에 이전 답변으로 꺼내 쓸 때 "○월 ○일 기준"을 보여주려고 저장 날짜를 같이 남긴다
+        payload = {**result, "cached_at": f"{kst_now.month}월 {kst_now.day}일"}
+        await set_db_cache(key, payload, ttl_hours=_CACHE_TTL_HOURS)
+    except Exception as e:
+        print(f"[Insight] 캐시 저장 실패: {e}")
+
+
 async def analyze(
+    query: str,
+    rag: "RAGService",
+    target: str = "b2b",
+    top_k: int = 5,
+) -> dict:
+    """질문 처리 흐름 — LLM은 마지막 수단으로만 쓴다.
+
+    ① 조건 추출(정규식·별칭·오타 보정) → ② 캐시 → ③ 템플릿(추천·가격) → ④ LLM → ⑤ 캐시 저장
+    ⑥ LLM이 전부 실패하면 만료된 캐시(예전 답변)라도 날짜 안내와 함께 보여준다
+    """
+    from app.services.query_parser import parse_query
+    from app.services.product_finder import find_products
+    from app.services.chat_templates import TEMPLATES, products_as_sources
+
+    cond = parse_query(query)
+    cache_key = cond.cache_key(target)
+    print(f"[Insight] 조건: cat={cond.category} brand={cond.brand} "
+          f"price={cond.min_price}~{cond.max_price} house={cond.household} intent={cond.intent}")
+
+    # ② 캐시 — 표현이 달라도 조건이 같으면 같은 답을 재사용
+    cached = await _cache_get(cache_key)
+    if cached and cached.get("report"):
+        print(f"[Insight] answered_by=cache ({cache_key})")
+        return {**cached, "query": query, "target": target, "answered_by": "cache"}
+
+    # ③ 템플릿 — 추천·가격 질문은 실제 상품 데이터를 틀에 채워 바로 답한다 (LLM 0회)
+    if cond.category and cond.intent in TEMPLATES:
+        products, nearest = await find_products(cond, rag)
+        if products:
+            result = {
+                "query": query,
+                "target": target,
+                "report": TEMPLATES[cond.intent](cond, products, nearest),
+                "sources": products_as_sources(products),
+                "answered_by": "template",
+            }
+            await _cache_set(cache_key, result)
+            print(f"[Insight] answered_by=template ({cache_key})")
+            return result
+
+    # ④ LLM — 템플릿이 없는 유형(비교·후기·트렌드 등)이거나 상품을 못 찾았을 때
+    # 오타·줄임말(에어콘·로청)이면 표준 카테고리명을 붙여서 RAG 카테고리 필터가 걸리게 한다
+    llm_query = f"{query} ({cond.category})" if cond.category and cond.category not in query else query
+    result = await _llm_answer(llm_query, rag, target, top_k)
+    result["query"] = query
+    result["answered_by"] = "llm"
+
+    # ⑥ LLM이 전부 실패했으면(안내 문구만 받았으면) 같은 질문의 예전 답변이라도 보여준다
+    if result.get("report") in _NO_CACHE_REPORTS:
+        stale = await _cache_get_stale(cache_key)
+        if stale and stale.get("report") and stale["report"] not in _NO_CACHE_REPORTS:
+            date = stale.get("cached_at", "이전")
+            notice = f"⏳ 지금은 AI 분석이 어려워서 {date} 기준 답변을 보여드려요. 가격은 달라졌을 수 있어요."
+            print(f"[Insight] answered_by=stale_cache ({cache_key})")
+            return {**stale, "query": query, "target": target,
+                    "report": notice + "\n\n" + stale["report"], "answered_by": "stale_cache"}
+
+    await _cache_set(cache_key, result)
+    print(f"[Insight] answered_by=llm ({cache_key})")
+    return result
+
+
+async def _llm_answer(
     query: str,
     rag: "RAGService",
     target: str = "b2b",
@@ -138,8 +244,9 @@ async def analyze(
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"제품/카테고리: {query}\n\n{context}"},
             ],
-            max_tokens=900,
+            max_tokens=2500,          # 추론 모델은 생각 토큰도 여기 포함 → 여유 있게
             temperature=0.3,
+            reasoning_effort="low",   # 문서 정리 작업이라 깊은 추론 불필요 → 토큰 절약
         )
     except Exception:
         return {
@@ -149,7 +256,9 @@ async def analyze(
             "sources": [],
         }
 
-    report = res.choices[0].message.content
+    report = (res.choices[0].message.content or "").strip()
+    if not report:  # 생각만 하다 토큰이 끝나 본문이 비는 경우 방어
+        report = "답변을 만들지 못했어요. 질문을 조금 더 짧고 구체적으로 다시 입력해주세요."
     sources = [{"rank": i + 1, "text": chunk} for i, chunk in enumerate(chunks)]
 
     return {

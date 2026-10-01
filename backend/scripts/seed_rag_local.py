@@ -5,7 +5,8 @@
 사용법:
     cd backend
     python -m scripts.seed_rag_local
-    python -m scripts.seed_rag_local --reset  # 기존 문서 삭제 후 재시딩
+    python -m scripts.seed_rag_local --reset     # 기존 문서 삭제 후 재시딩
+    python -m scripts.seed_rag_local --products  # 쇼핑 상품만 최신 가격으로 갱신
 """
 import asyncio
 import argparse
@@ -17,7 +18,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-async def main(reset: bool = False):
+async def main(reset: bool = False, products: bool = False):
     from app.database import get_pool, close_pool, execute, fetchone
     from app.rag_service import RAGService
     from app.services.seed_rag import seed
@@ -33,6 +34,12 @@ async def main(reset: bool = False):
     print(f"[RAG] 현재 문서 수: {current}개")
 
     rag = RAGService()
+    if products:
+        from app.services.seed_rag import seed_products
+        n = await seed_products(rag)
+        print(f"\n완료! 쇼핑 상품 {n}개 갱신 (가격·브랜드·평점 metadata 포함)")
+        await close_pool()
+        return
     # reset 시엔 count=0이므로 seed()가 다시 진행됨
     if reset:
         # seed() 내부의 count > 0 조기 종료를 우회
@@ -60,5 +67,6 @@ async def main(reset: bool = False):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--reset", action="store_true", help="기존 문서 삭제 후 재시딩")
+    parser.add_argument("--products", action="store_true", help="쇼핑 상품 문서만 다나와 최신 가격으로 갱신")
     args = parser.parse_args()
-    asyncio.run(main(reset=args.reset))
+    asyncio.run(main(reset=args.reset, products=args.products))
