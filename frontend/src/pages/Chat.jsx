@@ -55,15 +55,23 @@ function TypingDots() {
 export default function Chat() {
   const navigate = useNavigate()
   const { isLoggedIn, user } = useAuth()
-  const [messages, setMessages] = useState([])
+  // 소비자 / 시장 분석 대화를 따로 보관한다 (탭을 바꾸면 각자 자기 대화만 보이고 이어진다)
+  const [chats, setChats] = useState({ b2c: [], b2b: [] })
   const [input, setInput] = useState('')
-  const [loading, setLoading] = useState(false)
+  // 어느 탭에서 답변을 기다리는 중인지 (null이면 대기 없음)
+  const [loadingTarget, setLoadingTarget] = useState(null)
   const isB2B = user?.user_type === 'b2b' || user?.role === 'admin'
   const [target, setTarget] = useState(() =>
     (user?.user_type === 'b2b' || user?.role === 'admin') ? 'b2b' : 'b2c'
   )
-  // 직전 질문에서 서버가 뽑은 조건 (카테고리·가격대·가구 수) — "100만원대는?" 같은 이어 묻기에 사용
-  const [lastConditions, setLastConditions] = useState(null)
+  // 직전 질문에서 서버가 뽑은 조건 (카테고리·가격대·가구 수) — 탭마다 따로 기억
+  const [conditionsByTarget, setConditionsByTarget] = useState({ b2c: null, b2b: null })
+  const messages = chats[target]
+  const loading = loadingTarget === target
+
+  function addMessage(t, msg) {
+    setChats(prev => ({ ...prev, [t]: [...prev[t].slice(-39), msg] }))
+  }
   const bottomRef = useRef(null)
   const inputRef = useRef(null)
 
@@ -73,39 +81,42 @@ export default function Chat() {
 
   async function send() {
     const query = input.trim()
-    if (!query || loading) return
+    if (!query || loadingTarget) return
 
-    setMessages(prev => [...prev.slice(-39), { role: 'user', content: query }])
+    // 보내는 순간의 탭을 고정 — 답을 기다리는 중에 탭을 바꿔도 원래 탭에 답이 들어간다
+    const t = target
+    const history = chats[t].slice(-4).map(m => ({ role: m.role, content: m.content }))
+    addMessage(t, { role: 'user', content: query })
     setInput('')
-    setLoading(true)
+    setLoadingTarget(t)
 
     try {
       const res = await fetch(`${API_BASE}/api/insights/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          query, target, top_k: 8,
-          context: lastConditions,
-          // 최근 대화 4개(질문·답변)를 같이 보내서 LLM이 앞 대화를 이해하게 한다
-          history: messages.slice(-4).map(m => ({ role: m.role, content: m.content })),
+          query, target: t, top_k: 8,
+          context: conditionsByTarget[t],
+          // 같은 탭의 최근 대화 4개(질문·답변)만 보내서 LLM이 앞 대화를 이해하게 한다
+          history,
         }),
       })
       const data = await res.json()
-      if (data.conditions) setLastConditions(data.conditions)
+      if (data.conditions) setConditionsByTarget(prev => ({ ...prev, [t]: data.conditions }))
 
-      setMessages(prev => [...prev, {
+      addMessage(t, {
         role: 'ai',
         content: data.report || '분석 결과를 가져올 수 없습니다.',
         sources: data.sources ?? [],
-      }])
+      })
     } catch {
-      setMessages(prev => [...prev, {
+      addMessage(t, {
         role: 'ai',
         content: '서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.',
         sources: [],
-      }])
+      })
     } finally {
-      setLoading(false)
+      setLoadingTarget(null)
       setTimeout(() => inputRef.current?.focus(), 100)
     }
   }
@@ -232,7 +243,7 @@ export default function Chat() {
               <button
                 className={styles.sendBtn}
                 onClick={send}
-                disabled={!input.trim() || loading}
+                disabled={!input.trim() || !!loadingTarget}
                 aria-label="전송"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
