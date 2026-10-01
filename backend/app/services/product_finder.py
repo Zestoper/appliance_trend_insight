@@ -48,10 +48,13 @@ def _in_range(price: int, cond: QueryConditions) -> bool:
 
 
 def _brand_ok(p: dict, cond: QueryConditions) -> bool:
-    if not cond.brand:
-        return True
     from app.services.query_parser import BRAND_ALIASES
     hay = (p.get("brand", "") + " " + p.get("title", "")).lower()
+    excluded = cond.extras.get("exclude_brand")
+    if excluded and any(a in hay for a in BRAND_ALIASES.get(excluded, [excluded.lower()])):
+        return False   # '삼성 빼고'
+    if not cond.brand:
+        return True
     return any(a in hay for a in BRAND_ALIASES.get(cond.brand, [cond.brand.lower()]))
 
 
@@ -127,13 +130,18 @@ async def find_products(
     if not cond.category:
         return [], False
 
+    exclude = set(cond.extras.get("exclude") or [])
+
+    def ok(p: dict) -> bool:
+        return _brand_ok(p, cond) and p["title"] not in exclude
+
     candidates: list[dict] = []
     if rag is not None:
-        candidates = [p for p in await _from_rag(rag, cond, 40) if _brand_ok(p, cond)]
+        candidates = [p for p in await _from_rag(rag, cond, 40) if ok(p)]
 
     live: list[dict] = []
     if len(candidates) < limit:
-        live = [p for p in await _from_danawa(cond) if _brand_ok(p, cond)]
+        live = [p for p in await _from_danawa(cond) if ok(p)]
         seen = {p["title"] for p in candidates}
         candidates += [p for p in live if _in_range(p["price"], cond) and p["title"] not in seen]
 
@@ -149,7 +157,7 @@ async def find_products(
         return _rerank(in_range, cond)[:limit], False
 
     # 범위 안에 하나도 없으면 → 가장 가까운 가격
-    pool = [p for p in (live or await _from_danawa(cond)) if p["price"] > 0 and _brand_ok(p, cond)]
+    pool = [p for p in (live or await _from_danawa(cond)) if p["price"] > 0 and ok(p)]
     if not pool:
         return [], False
 

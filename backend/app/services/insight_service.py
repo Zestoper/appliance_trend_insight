@@ -150,7 +150,18 @@ async def analyze(
     from app.services.query_parser import parse_query
     cond = parse_query(query, context)
     result = await _answer(cond, query, rag, target, top_k)
-    result["conditions"] = cond.to_context()
+
+    ctx = cond.to_context()
+    shown = result.pop("_shown", None)
+    if shown:
+        # '더 싼 거' · '다른 거'를 처리하려면 방금 보여준 상품의 가격 범위와 이름이 필요하다
+        ctx.update(shown)
+    elif context and context.get("category") == cond.category:
+        # 이번에 상품 목록을 안 보여줬으면(LLM 답변) 직전 목록 기준을 그대로 이어간다
+        for k in ("shown_min", "shown_max", "shown_titles"):
+            if context.get(k) is not None:
+                ctx[k] = context[k]
+    result["conditions"] = ctx
     return result
 
 
@@ -184,12 +195,19 @@ async def _answer(
     if cond.category and cond.intent in TEMPLATES:
         products, nearest = await find_products(cond, rag)
         if products:
+            prices = [p["price"] for p in products]
+            # '다른 거'를 연달아 물으면 앞에서 보여준 것까지 계속 빼야 해서 목록을 누적한다
+            prev_titles = cond.extras.get("exclude") if cond.extras.get("relative") == "more" else []
+            shown_titles = list(prev_titles or []) + [p["title"] for p in products]
             result = {
                 "query": query,
                 "target": target,
                 "report": TEMPLATES[cond.intent](cond, products, nearest),
                 "sources": products_as_sources(products),
                 "answered_by": "template",
+                # '다른 거'를 계속 물어도 앞에서 보여준 건 계속 빼도록 누적 (최근 30개)
+                "_shown": {"shown_min": min(prices), "shown_max": max(prices),
+                           "shown_titles": shown_titles[-30:]},
             }
             await _cache_set(cache_key, result)
             print(f"[Insight] answered_by=template ({cache_key})")

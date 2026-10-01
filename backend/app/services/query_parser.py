@@ -159,10 +159,30 @@ def find_category(text: str) -> tuple[str | None, bool]:
 
 
 def find_brand(text: str) -> str | None:
+    """'LG 말고 삼성은?'처럼 말고·빼고가 붙은 브랜드는 건너뛰고, 원하는 브랜드를 고른다."""
+    ns = _nospace(text)
+    found: list[tuple[int, str]] = []
+    for brand, aliases in BRAND_ALIASES.items():
+        for a in aliases:
+            a = a.replace(" ", "")
+            idx = ns.find(a)
+            if idx == -1:
+                continue
+            after = ns[idx + len(a): idx + len(a) + 3]
+            if re.match(r"(말고|빼고|제외|아닌)", after):
+                continue
+            found.append((idx, brand))
+            break
+    return min(found)[1] if found else None
+
+
+def find_excluded_brand(text: str) -> str | None:
+    """'삼성 빼고' · 'LG 말고' 처럼 빼달라는 브랜드"""
     ns = _nospace(text)
     for brand, aliases in BRAND_ALIASES.items():
-        if any(a.replace(" ", "") in ns for a in aliases):
-            return brand
+        for a in aliases:
+            if re.search(re.escape(a.replace(" ", "")) + r"(말고|빼고|제외|아닌)", ns):
+                return brand
     return None
 
 
@@ -283,6 +303,12 @@ _FOLLOWUP_KW = (r"후기|리뷰|장단점|단점|장점|쓸만|고장|소음|전
                 r"가격|얼마|최저가|그거|이거|저거|그중|그럼")
 
 
+# 직전에 보여준 상품을 기준으로 하는 상대 표현
+_CHEAPER_KW = r"더싼|더저렴|싼거|싼걸|싼제품|저렴한거|저렴한걸|저렴한제품|가격낮은|더낮은|싸게나온|덜비싼"
+_PRICIER_KW = r"더비싼|비싼거|비싼걸|고급|프리미엄|더좋은|상위모델|하이엔드|돈더"
+_MORE_KW = r"다른거|다른걸|다른제품|다른모델|더보여|더추천|또있|더있|말고"
+
+
 def detect_intent(text: str, has_price_range: bool) -> str:
     ns = _nospace(text)
     for intent, pattern in _INTENT_RULES:
@@ -320,6 +346,12 @@ class QueryConditions:
         if self.is_structured and self.intent in ("recommend", "price"):
             parts = [self.intent, self.category, self.brand or "-",
                      str(self.min_price or 0), str(self.max_price or 0), str(self.household or 0)]
+            if self.extras.get("exclude_brand"):
+                parts.append("nb" + self.extras["exclude_brand"])
+            if self.extras.get("exclude"):
+                import hashlib
+                ex = "|".join(sorted(self.extras["exclude"]))
+                parts.append("ex" + hashlib.md5(ex.encode("utf-8")).hexdigest()[:8])
             return f"chat:v1:{target}:" + ":".join(parts)
         return f"chat:v1:{target}:q:{_nospace(self.normalized)[:200]}"
 
@@ -328,8 +360,34 @@ class QueryConditions:
 
     def to_context(self) -> dict:
         """프론트에 돌려줬다가 다음 질문 때 다시 받는 '대화 맥락' (원문은 빼고 조건만)"""
-        return {k: getattr(self, k) for k in
-                ("category", "brand", "min_price", "max_price", "household", "intent")}
+        ctx = {k: getattr(self, k) for k in
+               ("category", "brand", "min_price", "max_price", "household", "intent")}
+        ctx["exclude_brand"] = self.extras.get("exclude_brand")
+        return ctx
+
+
+def _apply_relative(cond: QueryConditions, prev: dict, said_price: bool) -> None:
+    """'더 싼 거' · '더 비싼 거' · '다른 거'를 직전에 보여준 상품 가격·목록 기준으로 바꾼다.
+    prev에는 직전 답변의 shown_min / shown_max / shown_titles 가 들어 있다."""
+    ns = _nospace(cond.normalized)
+    shown = prev.get("shown_titles") or []
+    relative = None
+    if not said_price and re.search(_CHEAPER_KW, ns):
+        relative = "cheaper"
+        if prev.get("shown_min"):
+            cond.min_price, cond.max_price = None, int(prev["shown_min"]) - 1
+    elif not said_price and re.search(_PRICIER_KW, ns):
+        relative = "pricier"
+        if prev.get("shown_max"):
+            cond.min_price, cond.max_price = int(prev["shown_max"]) + 1, None
+    elif re.search(_MORE_KW, ns):
+        relative = "more"
+    if relative:
+        cond.extras["relative"] = relative
+        # '다른 거'는 지금까지 보여준 상품을 전부 빼고, '더 싼/비싼 거'는 가격 범위만 옮긴다
+        cond.extras["exclude"] = shown if relative == "more" else []
+        if cond.intent not in ("recommend", "price") or relative != "more":
+            cond.intent = "recommend"
 
 
 def parse_query(query: str, context: dict | None = None) -> QueryConditions:
@@ -356,17 +414,25 @@ def parse_query(query: str, context: dict | None = None) -> QueryConditions:
     if is_followup:
         # 가격·브랜드·가구를 새로 말했거나 '장단점·후기·비교·언제'처럼 상품에 대한 질문이면 이어 묻기로 본다.
         # '어때'처럼 아무 데나 붙는 말만 있으면("오늘 날씨 어때") 새 질문으로 본다.
-        has_new_info = lo is not None or hi is not None or cond.brand or cond.household
-        product_question = re.search(_FOLLOWUP_KW, _nospace(norm))
+        has_new_info = (lo is not None or hi is not None or cond.brand or cond.household
+                        or find_excluded_brand(norm))
+        product_question = re.search("|".join([_FOLLOWUP_KW, _CHEAPER_KW, _PRICIER_KW, _MORE_KW]), _nospace(norm))
         if cond.category or has_new_info or product_question:
             cond.extras["followup"] = cond.category is None
             cond.category = cond.category or prev_cat
-            cond.brand = cond.brand or prev.get("brand")
+            excluded = find_excluded_brand(norm)
+            if not excluded and not cond.brand:
+                excluded = prev.get("exclude_brand")   # '삼성 빼고' 는 다음 질문에도 유지
+            if excluded:
+                cond.extras["exclude_brand"] = excluded
+            if not cond.brand and prev.get("brand") != excluded:
+                cond.brand = prev.get("brand")
             cond.household = cond.household or prev.get("household")
             if lo is None and hi is None:
                 cond.min_price, cond.max_price = prev.get("min_price"), prev.get("max_price")
             if cond.intent == "other":
                 cond.intent = prev.get("intent") if prev.get("intent") in ("recommend", "price") else "recommend"
+            _apply_relative(cond, prev, lo is not None or hi is not None)
 
     # "3인 냉장고"처럼 카테고리만 말하고 의도가 없으면 추천으로 본다
     if cond.category and cond.intent == "other":
