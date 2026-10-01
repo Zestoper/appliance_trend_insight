@@ -294,7 +294,8 @@ _INTENT_RULES: list[tuple[str, str]] = [
     # 전력효율·소음·디자인처럼 '특정 성능'을 묻는 질문도 상품 목록(템플릿)이 아니라 LLM 설명이 필요하다
     ("review", r"후기|리뷰|장단점|단점|장점|어때|어떰|괜찮아|쓸만|만족|불만|고장|소음|조용|전기세|전기요금|"
                r"전력|효율|에너지|등급|소비전력|절전|디자인|설치|기능|성능|내구성|용량|크기|사이즈"),
-    ("recommend", r"추천|뭐사|뭘사|뭐살|골라|살까|사야|사고싶|가성비|좋은거|괜찮은거|입문"),
+    ("recommend", r"추천|뭐사|뭘사|뭐살|골라|살까|사야|사고싶|가성비|좋은거|괜찮은거|입문|"
+                  r"인기|많이산|많이사|많이구매|많이팔|잘팔|잘나가|베스트|판매량|대세|국민|제일많이|가장많이"),
     ("price", r"얼마|가격|최저가|시세|싸게|저렴|할인"),
 ]
 
@@ -306,6 +307,9 @@ _FOLLOWUP_KW = (r"후기|리뷰|장단점|단점|장점|쓸만|고장|소음|조
                 r"좋은건|좋은걸|좋은거|나은건|나은거|괜찮은건|어떤게|어떤거|뭐가좋|제일|가장|1위|순위|"
                 r"가격|얼마|최저가|그거|이거|저거|그중|그럼|이중|여기서")
 
+
+# '사람들이 많이 산 거' — 리뷰(구매 후기) 수가 많은 순으로 보여준다
+_POPULAR_KW = r"인기|많이산|많이사|많이구매|많이팔|잘팔|잘나가|베스트|판매량|대세|국민|제일많이|가장많이|1위|순위"
 
 # 직전에 보여준 상품을 기준으로 하는 상대 표현
 _CHEAPER_KW = r"더싼|더저렴|싼거|싼걸|싼제품|저렴한거|저렴한걸|저렴한제품|가격낮은|더낮은|싸게나온|덜비싼"
@@ -350,6 +354,8 @@ class QueryConditions:
         if self.is_structured and self.intent in ("recommend", "price"):
             parts = [self.intent, self.category, self.brand or "-",
                      str(self.min_price or 0), str(self.max_price or 0), str(self.household or 0)]
+            if self.extras.get("popular"):
+                parts.append("pop")
             if self.extras.get("exclude_brand"):
                 parts.append("nb" + self.extras["exclude_brand"])
             if self.extras.get("exclude"):
@@ -428,7 +434,8 @@ def parse_query(query: str, context: dict | None = None) -> QueryConditions:
         # '어때'처럼 아무 데나 붙는 말만 있으면("오늘 날씨 어때") 새 질문으로 본다.
         has_new_info = (lo is not None or hi is not None or cond.brand or cond.household
                         or find_excluded_brand(norm))
-        product_question = re.search("|".join([_FOLLOWUP_KW, _CHEAPER_KW, _PRICIER_KW, _MORE_KW]), _nospace(norm))
+        product_question = re.search("|".join([_FOLLOWUP_KW, _CHEAPER_KW, _PRICIER_KW, _MORE_KW, _POPULAR_KW]),
+                                     _nospace(norm))
         if cond.category or has_new_info or product_question:
             cond.extras["followup"] = cond.category is None
             # LLM으로 넘어갈 때 "앞에서 본 제품 중에 뭐가 나아?"에 답할 수 있게 직전 상품명을 넘긴다
@@ -447,6 +454,25 @@ def parse_query(query: str, context: dict | None = None) -> QueryConditions:
             if cond.intent == "other":
                 cond.intent = prev.get("intent") if prev.get("intent") in ("recommend", "price") else "recommend"
             _apply_relative(cond, prev, lo is not None or hi is not None)
+        else:
+            # 이어 묻기 키워드는 없지만 카테고리도 없는 질문("사람들이 뭐 많이 써?", "괜찮아?")
+            # → 대화 주제(카테고리·가구·브랜드)는 이어받되, 상품 목록 대신 LLM이 앞 대화를 보고 답하게 한다.
+            #   진짜 무관한 질문("오늘 날씨 어때")이면 LLM 프롬프트 규칙이 걸러낸다.
+            cond.extras["followup"] = True
+            cond.extras["weak_followup"] = True
+            cond.extras["prev_shown"] = (prev.get("shown_titles") or [])[-3:]
+            cond.category = prev_cat
+            cond.brand = prev.get("brand")
+            cond.household = prev.get("household")
+            cond.min_price, cond.max_price = prev.get("min_price"), prev.get("max_price")
+            if cond.intent == "other":
+                cond.intent = "review"   # 템플릿 말고 대화형 LLM으로
+
+    if re.search(_POPULAR_KW, _nospace(norm)) and cond.intent == "recommend":
+        cond.extras["popular"] = True
+        if lo is None and hi is None and cond.extras.get("followup"):
+            # '사람들이 많이 산 거'는 직전 가격대가 아니라 카테고리 전체에서 찾는 게 자연스럽다
+            cond.min_price = cond.max_price = None
 
     # "3인 냉장고"처럼 카테고리만 말하고 의도가 없으면 추천으로 본다
     if cond.category and cond.intent == "other":
