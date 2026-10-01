@@ -28,7 +28,7 @@ class InsightResponse(BaseModel):
     report: str
     sources: list[InsightSource]
     conditions: dict | None = None   # 이번 질문에서 뽑은 조건 (프론트가 다음 질문 때 context로 보냄)
-    answered_by: str = "llm"   # cache / template / llm / stale_cache — 어느 단계에서 답했는지
+    answered_by: str = "llm"   # cache / template / market / market_stats_only / llm / stale_cache — 어느 단계에서 답했는지
 
 
 router = APIRouter(prefix="/api/insights", tags=["insights"])
