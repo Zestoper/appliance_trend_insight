@@ -142,13 +142,17 @@ async def danawa_search_products(
             if not any(kw in it["title"] for kw in rules["block"])
             and (it["price"] == 0 or it["price"] >= rules["min_price"])
         ]
-        # 다나와 검색엔 실제 상품과 무관한 액세서리/부속품(가격 0원으로 파싱되는 제휴
-        # 리스팅)이 섞여 나오는데, "삼성냉장고RB30D4051S9냉장실 선반..."처럼 부속품
-        # 제목에 우연히 카테고리 단어가 들어있으면 must 필터를 통과해버려서, 정작 카테고리
-        # 단어가 없는 진짜 본품(가격 있음)보다 먼저 뽑히는 문제가 있었다 — 가격이 있는
-        # 것만 must 후보로 삼는다.
-        must_ok = [it for it in safety if it["price"] > 0 and any(kw in it["title"] for kw in rules["must"])]
-        items = must_ok if must_ok else safety
+        # 다나와 상품명은 "브랜드+모델명" 위주라 "AR50F10D13HS"처럼 실제로는 해당
+        # 카테고리 상품인데도 제목에 카테고리 단어("에어컨" 등)가 전혀 없는 경우가
+        # 흔하다 — 예전엔 이런 상품을 통째로 걸러냈더니(must_ok만 남기기) 특정 가격대
+        # (예: 50~80만원 삼성 에어컨)가 통째로 사라지는 문제가 있었다. 가격 있고
+        # must 키워드까지 포함한 상품을 "더 믿을만한 진짜 상품"으로 앞쪽에 정렬만 하고,
+        # 키워드 없는 상품도 안전 필터(block/min_price)를 통과했다면 그대로 남긴다 —
+        # 가격 0원 부속품이 앞서 선택되던 문제(및 /api/best-price 등)는 그대로 방지된다.
+        def _has_must(it):
+            return it["price"] > 0 and any(kw in it["title"] for kw in rules["must"])
+        safety.sort(key=lambda it: not _has_must(it))
+        items = safety
 
     if sort == "asc":
         items.sort(key=lambda x: x["price"] if x["price"] > 0 else 10**9)
