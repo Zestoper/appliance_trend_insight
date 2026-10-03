@@ -443,9 +443,9 @@ export default function Compare() {
       `${API_BASE}/api/ai-compare?q1=${encodeURIComponent(filled[0].title)}&q2=${encodeURIComponent(filled[1].title)}`,
       { headers: { Authorization: `Bearer ${token}` } }
     )
-      .then(r => r.json())
+      .then(r => r.ok ? r.json() : Promise.reject())
       .then(data => { setAiCompare(data); setAiCmpLoading(false) })
-      .catch(() => setAiCmpLoading(false))
+      .catch(() => { setAiCompare(null); setAiCmpLoading(false) })
   }, [list, isLoggedIn, token])
 
   // 현재 비교 중인 카테고리 (카테고리 있는 첫 제품 기준)
