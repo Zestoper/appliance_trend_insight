@@ -4,10 +4,10 @@ import re
 import smtplib
 import time
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 
-from app.auth import make_token, hash_password, verify_password
+from app.auth import make_token, hash_password, verify_password, get_current_user
 from app.services.email_service import send_verification_email
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -134,5 +134,34 @@ async def login(body: LoginRequest):
         "user_type": user["user_type"],
         "role":      user.get("role", "user"),
         "status":    user.get("status", "active"),
+        **extra,
+    }
+
+
+@router.get("/me")
+async def get_me(payload: dict = Depends(get_current_user)):
+    """토큰 자체는 유효해도(서명 OK, 만료 전) 그 사이 탈퇴·비활성화됐을 수 있으니
+    매번 DB를 다시 조회한다 — 프론트가 앱 로드 시 이걸 호출해서 localStorage에 남아있는
+    낡은 로그인 상태를 걸러내는 용도."""
+    from app.database import fetchone, get_user_tier
+    user = await fetchone("SELECT * FROM users WHERE user_id = %s", (int(payload["sub"]),))
+    if not user or not user["is_active"]:
+        raise HTTPException(status_code=401, detail="유효하지 않은 사용자입니다")
+
+    extra = {}
+    if user["user_type"] == "b2c":
+        profile = await fetchone("SELECT nickname FROM user_b2c_profiles WHERE user_id = %s", (user["user_id"],))
+        extra["nickname"] = profile["nickname"] if profile else ""
+    else:
+        profile = await fetchone("SELECT company_name FROM user_b2b_profiles WHERE user_id = %s", (user["user_id"],))
+        extra["company_name"] = profile["company_name"] if profile else ""
+        extra["tier"] = await get_user_tier(user["user_id"])
+        extra["tier_expires_at"] = user["tier_expires_at"].isoformat() if user.get("tier_expires_at") else None
+
+    return {
+        "user_type": user["user_type"],
+        "role":      user.get("role", "user"),
+        "status":    user.get("status", "active"),
+        "email":     user["email"],
         **extra,
     }

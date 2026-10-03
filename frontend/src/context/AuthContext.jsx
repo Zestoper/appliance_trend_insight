@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useCallback } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect } from 'react'
+import { API_BASE } from '../config'
 
 const AuthContext = createContext(null)
 
@@ -40,6 +41,20 @@ export function AuthProvider({ children }) {
       localStorage.setItem(USER_KEY, JSON.stringify(next))
       return next
     })
+  }, [])
+
+  // localStorage에 남은 토큰은 서버 검증 없이 복원되므로, 만료·탈퇴 등으로 이미
+  // 무효해진 토큰도 "로그인된 것처럼" 보이다가 실제 API 호출에서만 뒤늦게 401이
+  // 나는 문제가 있었다 — 앱 로드 시 한 번 서버에 확인해 무효하면 바로 로그아웃시킨다.
+  useEffect(() => {
+    if (!initial.token) return
+    fetch(`${API_BASE}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${initial.token}` },
+    })
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(data => updateUser(data))
+      .catch(() => logout())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return (
