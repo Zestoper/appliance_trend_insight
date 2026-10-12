@@ -43,7 +43,7 @@ VITE_API_BASE=https://your-backend-name.onrender.com
 ### B2B 분석 대시보드
 - **시장 현황 분석**: 네이버 검색 관심도 추이, 브랜드 경쟁 구도, 소비자 키워드
 - **외부 환경 신호**: 기상청 기온·습도, 에어코리아 PM2.5, 에너지공단 1등급 비율 기반 수요 신호 (공공데이터)
-- **AI 시장 리포트**: Groq LLM(llama-3.3-70b) → Cerebras 폴백, 매입 전략·타이밍 자동 생성
+- **AI 시장 리포트**: Groq LLM(gpt-oss-120b) → Cerebras 폴백, 매입 전략·타이밍 자동 생성
 
 ### 수요 예측 (Demand Forecast)
 - **Prophet + XGBoost 앙상블**: 2년치 주별 트렌드 학습, RMSE 기반 가중치 자동 조정
@@ -68,7 +68,7 @@ VITE_API_BASE=https://your-backend-name.onrender.com
 | Frontend | React 18, Vite, React Router |
 | Backend | FastAPI, Python 3.11 |
 | DB / 캐시 | Supabase (PostgreSQL + pgvector) |
-| AI / LLM | Groq (llama-3.3-70b-versatile → llama-3.1-8b-instant), Cerebras (gpt-oss-120b) |
+| AI / LLM | Groq (openai/gpt-oss-120b → openai/gpt-oss-20b), Cerebras (gpt-oss-120b) |
 | 임베딩 | HuggingFace Inference API (sentence-transformers/all-MiniLM-L6-v2, 384차원) |
 | 예측 모델 | Prophet, XGBoost, NumPy/Pandas |
 | 외부 데이터 | 네이버 DataLab, 기상청 ASOS, 에어코리아, 한국소비자원, 에너지공단 KEMCO, 통계청 KOSIS |

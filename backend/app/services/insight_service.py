@@ -91,7 +91,7 @@ def _history_messages(history: list[dict] | None) -> list[dict]:
 _EMPTY_REPORT = "RAG 데이터를 준비 중이에요. 잠시 후 다시 시도해주세요.\n\n서버 최초 실행 시 Naver 데이터를 수집하는 데 약 30초가 소요됩니다."
 
 
-_GROQ_MODEL = "llama-3.3-70b-versatile"
+_GROQ_MODEL = "openai/gpt-oss-120b"  # llama-3.3-70b-versatile 2026-08-16 종료
 
 
 _CACHE_TTL_HOURS = 24  # 가격이 매일 바뀌므로 하루만 재사용
