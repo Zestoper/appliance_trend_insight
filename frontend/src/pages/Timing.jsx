@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import Navbar from '../components/common/Navbar'
 import styles from '../styles/Timing.module.css'
 import { API_BASE } from '../config'
+import { ArrowLeft, ArrowRight, Diamond } from 'lucide-react'
 
 const QUICK_EXAMPLES = [
   '삼성 비스포크 냉장고',
@@ -430,7 +431,7 @@ function PriceChart({ data, launchPrice, launchDiscPct }) {
         <span><span style={{ color: '#ef4444', marginRight: '4px' }}>●</span>최고 <b style={{ color: '#ef4444' }}>{maxP.toLocaleString()}원</b></span>
         {launchPrice && (
           <span>
-            <span style={{ color: '#a78bfa', marginRight: '4px' }}>◆</span>
+            <span style={{ color: '#a78bfa', marginRight: '4px' }}><Diamond size="1em" /></span>
             출시가 <b style={{ color: '#a78bfa' }}>{launchPrice.toLocaleString()}원</b>
             {launchDiscPct > 0 && (
               <span style={{ color: '#22c55e', marginLeft: '4px', fontWeight: 600 }}>
@@ -627,7 +628,7 @@ export default function Timing() {
               if (urlPid) setSearchParams({ q: urlQ })
               else setSearchParams({})
             }}>
-              {urlPid ? '← 목록으로' : '다시 검색'}
+              {urlPid ? <><ArrowLeft size="1em" /> 목록으로</> : '다시 검색'}
             </button>
           </div>
         )}
@@ -672,7 +673,7 @@ export default function Timing() {
                     className={styles.pageBtn}
                     onClick={() => setListPage(p => Math.max(1, p - 1))}
                     disabled={listPage === 1}
-                  >←</button>
+                  ><ArrowLeft size="1em" /></button>
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
                     <button
                       key={p}
@@ -684,11 +685,11 @@ export default function Timing() {
                     className={styles.pageBtn}
                     onClick={() => setListPage(p => Math.min(totalPages, p + 1))}
                     disabled={listPage === totalPages}
-                  >→</button>
+                  ><ArrowRight size="1em" /></button>
                 </div>
               )}
               <button className={styles.resetBtn} onClick={() => setSearchParams({})}>
-                ← 다시 검색
+               <ArrowLeft size="1em" /> 다시 검색
               </button>
             </div>
           )
@@ -795,7 +796,7 @@ export default function Timing() {
 
             {/* 뒤로가기 — 브라우저 히스토리 기반 */}
             <button className={styles.resetBtn} onClick={() => setSearchParams({ q: urlQ })}>
-              ← 목록으로
+             <ArrowLeft size="1em" /> 목록으로
             </button>
 
           </div>

@@ -4,6 +4,7 @@ import Navbar from '../components/common/Navbar'
 import styles from '../styles/Chat.module.css'
 import { useAuth } from '../context/AuthContext'
 import { API_BASE } from '../config'
+import { ArrowRight } from 'lucide-react'
 
 // **굵게** 를 <strong>으로 바꾼다 (LLM이 강조 표시를 자주 써서)
 function renderInline(text) {
@@ -226,7 +227,7 @@ export default function Chat() {
             <div className={styles.loginGate}>
               <span>로그인 후 AI 분석을 이용할 수 있어요</span>
               <button className={styles.loginBtn} onClick={() => navigate('/login')}>
-                로그인하기 →
+               로그인하기 <ArrowRight size="1em" />
               </button>
             </div>
           ) : (

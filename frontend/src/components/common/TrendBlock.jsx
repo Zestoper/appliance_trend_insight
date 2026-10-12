@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import styles from '../../styles/TrendBlock.module.css'
 import { API_BASE } from '../../config'
+import { Flame, Package, Star } from 'lucide-react'
 
 export default function TrendBlock({ category }) {
   const navigate = useNavigate()
@@ -27,7 +28,7 @@ export default function TrendBlock({ category }) {
   return (
     <div className={styles.wrap}>
       <div className={styles.label}>
-        <span className={styles.fire}>🔥</span>
+        <span className={styles.fire}><Flame size="1em" /></span>
         <span className={styles.labelText}>{category} 인기 TOP 5</span>
         <span className={styles.liveBadge}>LIVE</span>
       </div>
@@ -52,7 +53,7 @@ export default function TrendBlock({ category }) {
                   <div className={styles.thumb}>
                     {item.image
                       ? <img src={item.image} alt={item.title} />
-                      : <span>📦</span>
+                      : <span><Package size="1em" /></span>
                     }
                   </div>
 
@@ -63,7 +64,7 @@ export default function TrendBlock({ category }) {
                     </p>
                     {item.reviewScore > 0 && (
                       <p className={styles.stars}>
-                        {'★'.repeat(full)}{'☆'.repeat(5 - full)}
+                        {[0, 1, 2, 3, 4].map(i => <Star key={i} size="1em" fill={i < full ? 'currentColor' : 'none'} />)}
                         <span className={styles.starsNum}> {item.reviewScore.toFixed(1)}</span>
                       </p>
                     )}

@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 import styles from '../styles/Login.module.css'
 import s from '../styles/Signup.module.css'
+import { ArrowRight, CircleCheck, Hourglass, Mail, Search } from 'lucide-react'
 
 export default function SignupPending() {
   const { state } = useLocation()
@@ -19,7 +20,7 @@ export default function SignupPending() {
           <span className={styles.logoText}>가전무쌍</span>
         </div>
 
-        <div className={s.pendingIcon}>⏳</div>
+        <div className={s.pendingIcon}><Hourglass size="1em" /></div>
         <h1 className={s.pendingTitle}>가입 신청 완료</h1>
         <p className={s.pendingDesc}>
           <strong style={{ color: 'var(--text)' }}>{state?.company_name || '사업자'}</strong> 계정 신청이 접수됐어요.<br />
@@ -29,12 +30,12 @@ export default function SignupPending() {
 
         <div className={s.pendingSteps}>
           {[
-            { icon: '✅', text: '가입 신청 완료' },
-            { icon: '🔍', text: '관리자 검토 중' },
-            { icon: '📧', text: '이메일로 결과 안내' },
+            { icon: CircleCheck, text: '가입 신청 완료' },
+            { icon: Search, text: '관리자 검토 중' },
+            { icon: Mail, text: '이메일로 결과 안내' },
           ].map((item, i) => (
             <div key={i} className={s.pendingStep}>
-              <span className={s.pendingStepIcon}>{item.icon}</span>
+              <span className={s.pendingStepIcon}><item.icon size="1em" /></span>
               <span className={s.pendingStepText}
                 style={{ color: i === 0 ? 'var(--text)' : 'var(--text-muted)', fontWeight: i === 0 ? 600 : 400 }}>
                 {item.text}
@@ -45,7 +46,7 @@ export default function SignupPending() {
 
         <button className={styles.ctaBtn} style={{ width: '100%', marginTop: 24 }}
           onClick={() => navigate('/')}>
-          홈으로 돌아가기 →
+         홈으로 돌아가기 <ArrowRight size="1em" />
         </button>
       </div>
     </div>

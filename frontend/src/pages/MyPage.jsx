@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import Navbar from '../components/common/Navbar'
 import s from '../styles/MyPage.module.css'
 import { API_BASE, TIER_LABEL } from '../config'
+import { ArrowLeft, ArrowRight, Building2, Lock, User, X } from 'lucide-react'
 
 const API = API_BASE
 
@@ -52,10 +53,10 @@ export default function MyPage() {
   if (!isLoggedIn) {
     return (
       <div className={s.denied}>
-        <div className={s.deniedIcon}>🔒</div>
+        <div className={s.deniedIcon}><Lock size="1em" /></div>
         <h1 className={s.deniedTitle}>로그인이 필요해요</h1>
         <p className={s.deniedSub}>마이페이지는 로그인 후 이용할 수 있어요</p>
-        <button className={s.deniedBtn} onClick={() => navigate('/login')}>로그인하기 →</button>
+        <button className={s.deniedBtn} onClick={() => navigate('/login')}>로그인하기 <ArrowRight size="1em" /></button>
       </div>
     )
   }
@@ -77,7 +78,7 @@ export default function MyPage() {
 
           {/* 프로필 카드 */}
           <div className={s.profileCard}>
-            <div className={s.avatar}>{isB2B ? '🏢' : '👤'}</div>
+            <div className={s.avatar}>{isB2B ? <Building2 size="1em" /> : <User size="1em" />}</div>
             <div className={s.profileInfo}>
               <p className={s.profileName}>
                 {displayName}
@@ -85,7 +86,7 @@ export default function MyPage() {
               </p>
               <p className={s.profileEmail}>{user?.email}</p>
               <span className={isB2B ? `${s.typeBadge} ${s.typeBadgeB2B}` : `${s.typeBadge} ${s.typeBadgeB2C}`}>
-                {isB2B ? '🏢 사업자' : '👤 개인'}
+                {isB2B ? '사업자' : '개인'}
               </span>
             </div>
           </div>
@@ -155,7 +156,7 @@ export default function MyPage() {
                 </span>
               </div>
               <button className={s.homeBtn} style={{ marginTop: 12 }} onClick={() => navigate('/b2b/pricing')}>
-                구독 관리 / 업그레이드 →
+               구독 관리 / 업그레이드 <ArrowRight size="1em" />
               </button>
             </div>
           )}
@@ -183,7 +184,7 @@ export default function MyPage() {
                       disabled={!!alertDeleting[a.alert_id]}
                       onClick={() => deleteAlert(a.alert_id)}
                     >
-                      {alertDeleting[a.alert_id] ? '…' : '✕'}
+                      {alertDeleting[a.alert_id] ? '…' : <X size="1em" />}
                     </button>
                   </div>
                 ))}
@@ -193,7 +194,7 @@ export default function MyPage() {
 
           {/* 버튼 */}
           <div className={s.btnRow}>
-            <button className={s.homeBtn} onClick={() => navigate('/')}>← 홈으로</button>
+            <button className={s.homeBtn} onClick={() => navigate('/')}><ArrowLeft size="1em" /> 홈으로</button>
             <button className={s.logoutBtn} onClick={() => { logout(); navigate('/') }}>로그아웃</button>
           </div>
 

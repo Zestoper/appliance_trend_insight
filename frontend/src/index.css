@@ -193,3 +193,10 @@ body {
   from { width: 0%; }
   to   { width: var(--target-width); }
 }
+
+/* lucide 아이콘이 글자와 같은 높이에 오도록 정렬 */
+.lucide {
+  display: inline-block;
+  vertical-align: -0.125em;
+  flex-shrink: 0;
+}

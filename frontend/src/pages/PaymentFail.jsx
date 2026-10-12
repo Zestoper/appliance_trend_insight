@@ -1,6 +1,7 @@
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Navbar from '../components/common/Navbar'
 import s from '../styles/PaymentResult.module.css'
+import { X } from 'lucide-react'
 
 export default function PaymentFail() {
   const [params] = useSearchParams()
@@ -11,7 +12,7 @@ export default function PaymentFail() {
     <div className={s.page}>
       <Navbar />
       <div className={s.box}>
-        <div className={s.iconFail}>✕</div>
+        <div className={s.iconFail}><X size="1em" /></div>
         <p className={s.title}>결제에 실패했습니다</p>
         <p className={s.sub}>{message}</p>
         <button className={s.btn} onClick={() => navigate('/b2b/pricing')}>요금제로 돌아가기</button>

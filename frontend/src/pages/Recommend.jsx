@@ -4,6 +4,7 @@ import Navbar from '../components/common/Navbar'
 import styles from '../styles/Recommend.module.css'
 import { useAuth } from '../context/AuthContext'
 import { API_BASE } from '../config'
+import { ArrowLeft, ArrowRight, Lock, Medal, Star } from 'lucide-react'
 
 const CATEGORIES = [
   '냉장고', '세탁기', '건조기', '에어컨', '공기청정기',
@@ -223,15 +224,15 @@ export default function Recommend() {
               >
                 {loading
                   ? <><span className={styles.btnSpinner} /> AI 분석 중...</>
-                  : '추천받기 →'
+                  : <>추천받기 <ArrowRight size="1em" /></>
                 }
               </button>
             ) : (
               <div className={styles.loginGate}>
-                <span className={styles.loginGateIcon}>🔒</span>
+                <span className={styles.loginGateIcon}><Lock size="1em" /></span>
                 <p className={styles.loginGateText}>로그인 후 AI 추천을 받을 수 있어요</p>
                 <button className={styles.loginGateBtn} onClick={() => navigate('/login')}>
-                  로그인하기 →
+                 로그인하기 <ArrowRight size="1em" />
                 </button>
               </div>
             )}
@@ -261,7 +262,7 @@ export default function Recommend() {
               <p className={styles.resultsLabel}>
                 <span className={styles.queryChip}>"{result.search_term}"</span> 기준 {result.ai_limited ? '인기순 TOP 3' : 'AI 추천 TOP 3'}
               </p>
-              <button className={styles.resetBtn} onClick={handleReset}>← 다시 선택</button>
+              <button className={styles.resetBtn} onClick={handleReset}><ArrowLeft size="1em" /> 다시 선택</button>
             </div>
             {result.ai_limited && (
               <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>
@@ -275,7 +276,7 @@ export default function Recommend() {
                   key={i}
                   className={`${styles.card} ${i === 0 ? styles.cardFirst : ''}`}
                 >
-                  <div className={styles.rank}>{i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}</div>
+                  <div className={styles.rank}><Medal size="1em" style={{ color: ['#f59e0b', '#94a3b8', '#b45309'][i] ?? '#94a3b8' }} /></div>
 
                   <div className={styles.cardImg}>
                     {item.image
@@ -294,7 +295,7 @@ export default function Recommend() {
                     </p>
                     {item.reviewScore > 0 && (
                       <p className={styles.cardReview}>
-                        ★ {item.reviewScore.toFixed(1)}
+                       <Star size="1em" fill="currentColor" /> {item.reviewScore.toFixed(1)}
                         <span className={styles.reviewCount}> ({item.reviewCount.toLocaleString()}개)</span>
                       </p>
                     )}
@@ -315,7 +316,7 @@ export default function Recommend() {
                         rel="noopener noreferrer"
                         className={styles.buyBtn}
                       >
-                        네이버 구매 →
+                       네이버 구매 <ArrowRight size="1em" />
                       </a>
                     </div>
                   </div>

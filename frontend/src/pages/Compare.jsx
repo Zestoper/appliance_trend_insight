@@ -4,6 +4,7 @@ import Navbar from '../components/common/Navbar'
 import styles from '../styles/Compare.module.css'
 import { useAuth } from '../context/AuthContext'
 import { API_BASE } from '../config'
+import { ArrowRight, ChevronDown, ChevronUp, Crown, Heart, Lock, Newspaper, Play, Star, TriangleAlert, X } from 'lucide-react'
 
 function MiniChart({ data, uid }) {
   if (!data || data.length === 0) return <p className={styles.noData}>데이터 없음</p>
@@ -153,7 +154,7 @@ function SearchSlot({ slotNum, onAdd, alreadyIds, collapsible = false, isOpen = 
         )}
         {!query.trim() && availableFavs.length > 0 && (
           <div className={styles.favSection}>
-            <p className={styles.favTitle}>♥ 즐겨찾기</p>
+            <p className={styles.favTitle}><Heart size="1em" fill="currentColor" /> 즐겨찾기</p>
             <ul className={styles.list}>
               {availableFavs.map(f => (
                 <li key={f.id} className={styles.listItem} onClick={() => pick(f)}>
@@ -171,7 +172,7 @@ function SearchSlot({ slotNum, onAdd, alreadyIds, collapsible = false, isOpen = 
         {!query.trim() && availableFavs.length === 0 && (
           <div className={styles.emptyHint}>
             <span className={styles.emptyPlus}>+</span>
-            <p>검색하거나<br />♥ 즐겨찾기에서 추가</p>
+            <p>검색하거나<br /><Heart size="1em" fill="currentColor" /> 즐겨찾기에서 추가</p>
           </div>
         )}
       </div>
@@ -197,7 +198,7 @@ function ProductCard({ product, report, loading, onRemove, isWinner }) {
 
   return (
     <div className={styles.card}>
-      <button className={styles.removeBtn} onClick={onRemove} title="제거">✕</button>
+      <button className={styles.removeBtn} onClick={onRemove} title="제거"><X size="1em" /></button>
 
       <div className={styles.cardImgWrap}>
         {product.image
@@ -228,7 +229,7 @@ function ProductCard({ product, report, loading, onRemove, isWinner }) {
           </span>
           {trendScore !== null && !loading && (
             <span className={`${styles.trendScore} ${isWinner ? styles.trendScoreWinner : ''}`}>
-              {isWinner && <span className={styles.winnerCrown}>▲</span>}
+              {isWinner && <span className={styles.winnerCrown}><ChevronUp size="1em" /></span>}
               {trendScore}
             </span>
           )}
@@ -249,15 +250,15 @@ function ProductCard({ product, report, loading, onRemove, isWinner }) {
             className={`${styles.metaBtn} ${openSection === 'news' ? styles.metaBtnActive : ''}`}
             onClick={() => toggle('news')}
           >
-            📰 뉴스 {newsItems.length}건
-            <span className={styles.metaCaret}>{openSection === 'news' ? '▲' : '▼'}</span>
+           <Newspaper size="1em" /> 뉴스 {newsItems.length}건
+            <span className={styles.metaCaret}>{openSection === 'news' ? <ChevronUp size="1em" /> : <ChevronDown size="1em" />}</span>
           </button>
           <button
             className={`${styles.metaBtn} ${openSection === 'yt' ? styles.metaBtnActive : ''}`}
             onClick={() => toggle('yt')}
           >
-            ▶ YouTube {ytItems.length}개
-            <span className={styles.metaCaret}>{openSection === 'yt' ? '▲' : '▼'}</span>
+           <Play size="1em" /> YouTube {ytItems.length}개
+            <span className={styles.metaCaret}>{openSection === 'yt' ? <ChevronUp size="1em" /> : <ChevronDown size="1em" />}</span>
           </button>
         </div>
       )}
@@ -730,7 +731,7 @@ export default function Compare() {
                         className={`${styles.cmpCell} ${row.win === i ? styles.winner : ''}`}
                       >
                         {v !== null && v !== undefined ? row.fmt(v) : '—'}
-                        {row.win === i && <span className={styles.winIcon}>★</span>}
+                        {row.win === i && <span className={styles.winIcon}><Star size="1em" fill="currentColor" /></span>}
                       </span>
                     )
                   })}
@@ -789,7 +790,7 @@ export default function Compare() {
                       >
                         <div className={styles.aiCardTop}>
                           {aiCompare.winner === i && (
-                            <span className={styles.crownBadge}>👑 추천</span>
+                            <span className={styles.crownBadge}><Crown size="1em" /> 추천</span>
                           )}
                           <p className={styles.aiProductName}>{filled[i]?.title}</p>
                           <div className={styles.aiScoreRow}>
@@ -825,11 +826,11 @@ export default function Compare() {
             </div>
           ) : (
             <div className={styles.aiGate}>
-              <span className={styles.aiGateIcon}>🔒</span>
+              <span className={styles.aiGateIcon}><Lock size="1em" /></span>
               <p className={styles.aiGateTitle}>AI 비교는 회원 전용이에요</p>
               <p className={styles.aiGateSub}>로그인하면 두 제품을 AI로 비교해볼 수 있어요</p>
               <button className={styles.aiGateBtn} onClick={() => navigate('/login')}>
-                로그인하기 →
+               로그인하기 <ArrowRight size="1em" />
               </button>
             </div>
           )
@@ -841,7 +842,7 @@ export default function Compare() {
       {catMismatch && (
         <div className={styles.modalOverlay} onClick={() => setCatMismatch(null)}>
           <div className={styles.modal} onClick={e => e.stopPropagation()}>
-            <div className={styles.modalIcon}>⚠️</div>
+            <div className={styles.modalIcon}><TriangleAlert size="1em" /></div>
             <h3 className={styles.modalTitle}>카테고리가 맞지 않아요</h3>
             <p className={styles.modalDesc}>
               현재 <strong>{catMismatch.current}</strong> 제품이 비교 중이에요.<br />

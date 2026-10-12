@@ -4,12 +4,13 @@ import { useAuth } from '../context/AuthContext'
 import styles from '../styles/Login.module.css'
 import s from '../styles/Signup.module.css'
 import { API_BASE } from '../config'
+import { ArrowLeft, ArrowRight, Building2, Check, LockKeyhole, User } from 'lucide-react'
 
 const STEPS = [
-  { label: '이메일',   icon: '📧' },
-  { label: '인증코드', icon: '🔑' },
-  { label: '비밀번호', icon: '🔒' },
-  { label: '프로필',   icon: '👤' },
+  { label: '이메일' },
+  { label: '인증코드' },
+  { label: '비밀번호' },
+  { label: '프로필' },
 ]
 
 function EyeIcon({ hidden }) {
@@ -260,7 +261,7 @@ export default function Signup() {
                   color:      done   ? 'white' : active ? '#818cf8' : 'rgba(255,255,255,0.25)',
                   boxShadow:  active ? '0 0 0 4px rgba(99,102,241,0.2)' : 'none',
                 }}>
-                  {done ? '✓' : i + 1}
+                  {done ? <Check size="1em" /> : i + 1}
                 </div>
                 <span className={s.stepLabel} style={{ color: done || active ? 'var(--text)' : 'rgba(255,255,255,0.2)' }}>
                   {st.label}
@@ -363,7 +364,7 @@ export default function Signup() {
               </div>
               {confirmPw && (
                 <p style={{ fontSize: 12, marginTop: 4, color: confirmPw === password ? '#22c55e' : '#ef4444' }}>
-                  {confirmPw === password ? '✓ 비밀번호가 일치합니다' : '✗ 비밀번호가 일치하지 않습니다'}
+                  {confirmPw === password ? '비밀번호가 일치합니다' : '비밀번호가 일치하지 않습니다'}
                 </p>
               )}
             </>
@@ -376,14 +377,14 @@ export default function Signup() {
                 <button type="button"
                   className={`${s.typeBtn} ${userType === 'b2c' ? s.typeBtnActive : ''}`}
                   onClick={() => setUserType('b2c')}>
-                  <span className={s.typeIcon}>👤</span>
+                  <span className={s.typeIcon}><User size="1em" /></span>
                   <span className={s.typeLabel}>일반 소비자</span>
                   <span className={s.typeDesc}>제품 구매·비교</span>
                 </button>
                 <button type="button"
                   className={`${s.typeBtn} ${userType === 'b2b' ? s.typeBtnActive : ''}`}
                   onClick={() => setUserType('b2b')}>
-                  <span className={s.typeIcon}>🏢</span>
+                  <span className={s.typeIcon}><Building2 size="1em" /></span>
                   <span className={s.typeLabel}>사업자</span>
                   <span className={s.typeDesc}>시장 트렌드 분석</span>
                 </button>
@@ -399,7 +400,7 @@ export default function Signup() {
               {userType === 'b2b' && (
                 <>
                   <div className={s.b2bNotice}>
-                    🔐 사업자 계정은 <strong>관리자 승인 후</strong> 이용 가능합니다.<br />
+                   <LockKeyhole size="1em" /> 사업자 계정은 <strong>관리자 승인 후</strong> 이용 가능합니다.<br />
                     가입 후 1~2일 내 검토 결과를 이메일로 안내해드려요.
                   </div>
                   <div className={styles.field}>
@@ -427,17 +428,17 @@ export default function Signup() {
 
         <div className={s.btnRow}>
           <button className={s.prevBtn} onClick={prev} disabled={step === 0}>
-            ← 이전
+           <ArrowLeft size="1em" /> 이전
           </button>
           <button className={styles.submitBtn} onClick={next}
             disabled={!canNext || loading}
             style={{ flex: 1, margin: 0 }}>
             {loading
               ? <span className={styles.spinner} />
-              : step === 0 ? '인증코드 발송 →'
-              : step === 1 ? '인증 확인 →'
-              : step === 3 ? '가입 완료 🎉'
-              : '다음 →'}
+              : step === 0 ? <>인증코드 발송 <ArrowRight size="1em" /></>
+              : step === 1 ? <>인증 확인 <ArrowRight size="1em" /></>
+              : step === 3 ? '가입 완료'
+              : <>다음 <ArrowRight size="1em" /></>}
           </button>
         </div>
 

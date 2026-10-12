@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import s from '../styles/B2BHome.module.css'
 import anim from '../styles/animations.module.css'
 import { useInView } from '../hooks/useInView'
+import { ArrowRight, Building2, Hourglass, Lock } from 'lucide-react'
 
 const TYPING_PHRASES = [
   'AI가 에어컨 매입 전략 수립 중',
@@ -106,7 +107,7 @@ function AccessGate({ user, navigate }) {
   if (user.user_type !== 'b2b' && user.role !== 'admin') {
     return (
       <div className={s.gate}>
-        <div className={s.gateIcon}>🏢</div>
+        <div className={s.gateIcon}><Building2 size="1em" /></div>
         <p className={s.gateTitle}>B2B 계정이 필요합니다</p>
         <p className={s.gateDesc}>현재 계정은 B2C 계정입니다. B2B 서비스를 이용하려면 별도 가입이 필요해요</p>
         <button className={s.gateBtnPrimary} onClick={() => navigate('/signup')}>B2B 가입 신청</button>
@@ -116,7 +117,7 @@ function AccessGate({ user, navigate }) {
   if (user.status === 'pending') {
     return (
       <div className={s.gate}>
-        <div className={s.gateIcon}>⏳</div>
+        <div className={s.gateIcon}><Hourglass size="1em" /></div>
         <p className={s.gateTitle}>승인 대기 중</p>
         <p className={s.gateDesc}>관리자 승인 후 모든 B2B 기능을 이용할 수 있어요. 보통 1~2 영업일이 소요됩니다</p>
       </div>
@@ -198,7 +199,7 @@ export default function B2BHome() {
           </div>
 
           <div className={s.heroContent}>
-            <span className={s.badge}>✦ B2B 가전 시장 인사이트 플랫폼</span>
+            <span className={s.badge}>B2B 가전 시장 인사이트 플랫폼</span>
             <h1 className={s.headline}>
               가전 시장 데이터로
               <span className={s.gradientText}>비즈니스 인사이트를 얻으세요</span>
@@ -210,7 +211,7 @@ export default function B2BHome() {
             {isB2BActive && (
               <div className={s.heroBtns}>
                 <button className={s.btnPrimary} onClick={() => navigate('/products/냉장고')}>
-                  제품 심층 분석 →
+                 제품 심층 분석 <ArrowRight size="1em" />
                 </button>
                 <button className={s.btnSecondary} onClick={() => navigate('/timing')}>
                   구매 타이밍 확인
@@ -223,7 +224,7 @@ export default function B2BHome() {
         {/* ── 워크플로우 ── */}
         <div className={s.workflow}>
           <div className={s.workflowHeader}>
-            <span className={s.workflowBadge}>✦ 어떻게 작동하나요</span>
+            <span className={s.workflowBadge}>어떻게 작동하나요</span>
             <h2 className={s.workflowTitle}>3단계로 시장 인사이트를 얻으세요</h2>
             <p className={s.workflowSub}>복잡한 데이터 수집과 분석을 AI가 자동으로 처리합니다</p>
           </div>
@@ -291,9 +292,9 @@ export default function B2BHome() {
                   <h3 className={s.featureTitle}>{f.title}</h3>
                   <p className={s.featureDesc}>{f.desc}</p>
                   {isB2BActive && (
-                    <span className={s.featureCta}>{f.cta} →</span>
+                    <span className={s.featureCta}>{f.cta} <ArrowRight size="1em" /></span>
                   )}
-                  {!isB2BActive && <span className={s.featureLock}>🔒</span>}
+                  {!isB2BActive && <span className={s.featureLock}><Lock size="1em" /></span>}
                 </div>
               ))}
             </div>

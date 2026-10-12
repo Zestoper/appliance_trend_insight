@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import styles from '../../styles/FilterBar.module.css'
+import { X } from 'lucide-react'
 
 // "LG전자" → "LG" 등 표기 통일
 const BRAND_NORMALIZE = {
@@ -251,7 +252,7 @@ export default function FilterBar({ products, category, onSearchChange, onFilter
 
         {/* 초기화 버튼 */}
         {hasFilter && (
-          <button className={styles.resetBtn} onClick={resetAll}>✕ 초기화</button>
+          <button className={styles.resetBtn} onClick={resetAll}><X size="1em" /> 초기화</button>
         )}
 
       </div>

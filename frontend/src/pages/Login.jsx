@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import styles from '../styles/Login.module.css';
 import { API_BASE } from '../config';
+import { ArrowRight } from 'lucide-react';
 
 function EyeIcon({ hidden }) {
     return (
@@ -153,7 +154,7 @@ export default function Login() {
                 </p>
 
                 <button type="button" className={styles.ctaBtn} onClick={() => navigate('/')}>
-                    뒤로가기 →
+                   뒤로가기 <ArrowRight size="1em" />
                 </button>
             </div>
         </div>

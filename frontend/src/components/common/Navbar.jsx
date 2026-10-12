@@ -3,6 +3,7 @@ import styles from '../../styles/Navbar.module.css'
 import { useTheme } from '../../context/ThemeContext'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import { ArrowRight, Moon, ShieldCheck, Sun } from 'lucide-react'
 
 const SERVICE_ITEMS = [
   {
@@ -370,7 +371,7 @@ export default function Navbar() {
               aria-label="테마 전환"
             >
               <span className={`${styles.themeThumb} ${isDark ? '' : styles.themeThumbRight}`}>
-                {isDark ? '🌙' : '☀️'}
+                {isDark ? <Moon size="1em" /> : <Sun size="1em" />}
               </span>
             </button>
 
@@ -378,7 +379,7 @@ export default function Navbar() {
               <div className={styles.userWrap}>
                 {user?.role === 'admin' && (
                   <button className={styles.adminBtn} onClick={() => navigate('/admin')}>
-                    🛡️ 관리자
+                   <ShieldCheck size="1em" /> 관리자
                   </button>
                 )}
                 <span className={styles.userName} onClick={() => navigate('/mypage')} style={{ cursor: 'pointer' }}>
@@ -388,7 +389,7 @@ export default function Navbar() {
               </div>
             ) : (
               <button className={styles.ctaBtn} onClick={() => navigate('/login')}>
-                시작하기 →
+               시작하기 <ArrowRight size="1em" />
               </button>
             )}
           </div>
@@ -500,7 +501,7 @@ export default function Navbar() {
                   onClick={toggle}
                 >
                   <span className={`${styles.themeThumb} ${isDark ? '' : styles.themeThumbRight}`}>
-                    {isDark ? '🌙' : '☀️'}
+                    {isDark ? <Moon size="1em" /> : <Sun size="1em" />}
                   </span>
                 </button>
                 {isLoggedIn ? (
@@ -513,7 +514,7 @@ export default function Navbar() {
                   </>
                 ) : (
                   <button className={styles.ctaBtn} onClick={() => { setMenuOpen(false); navigate('/login') }}>
-                    시작하기 →
+                   시작하기 <ArrowRight size="1em" />
                   </button>
                 )}
               </div>

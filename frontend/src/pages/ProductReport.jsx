@@ -4,6 +4,7 @@ import Navbar from '../components/common/Navbar'
 import styles from '../styles/ProductReport.module.css'
 import { useAuth } from '../context/AuthContext'
 import { API_BASE } from '../config'
+import { ArrowLeft, ArrowRight, Bell, Check, CircleCheck, CirclePause, CircleX, Heart, Inbox, Info, Lock, MoveRight, Play, Share2, Star, TrendingDown, TrendingUp, TriangleAlert, User, X } from 'lucide-react'
 
 function fmtDate(str) {
   try {
@@ -27,9 +28,9 @@ function getTrendMessage(data) {
   const half = Math.floor(data.length / 2)
   const avg = arr => arr.reduce((s, d) => s + d.ratio, 0) / arr.length
   const diff = avg(data.slice(half)) - avg(data.slice(0, half))
-  if (diff > 8) return { icon: '↑', label: '관심도 상승 중', desc: '최근 검색량이 늘고 있어요', type: 'up' }
-  if (diff < -8) return { icon: '↓', label: '관심도 하락 중', desc: '지금 구매하면 가격 협상에 유리해요', type: 'down' }
-  return { icon: '→', label: '관심도 안정적', desc: '꾸준한 인기 제품이에요', type: 'stable' }
+  if (diff > 8) return { icon: TrendingUp, label: '관심도 상승 중', desc: '최근 검색량이 늘고 있어요', type: 'up' }
+  if (diff < -8) return { icon: TrendingDown, label: '관심도 하락 중', desc: '지금 구매하면 가격 협상에 유리해요', type: 'down' }
+  return { icon: MoveRight, label: '관심도 안정적', desc: '꾸준한 인기 제품이에요', type: 'stable' }
 }
 
 function TrendChart({ data }) {
@@ -134,7 +135,7 @@ function YtList({ items }) {
         >
           <div className={styles.ytThumb}>
             <img src={item.thumbnail} alt={item.title} className={styles.ytThumbImg} />
-            <span className={styles.ytPlay}>▶</span>
+            <span className={styles.ytPlay}><Play size="1em" /></span>
           </div>
           <div className={styles.ytInfo}>
             <p className={styles.ytTitle}>{item.title}</p>
@@ -211,7 +212,7 @@ function AiAnalysis({ data, loading }) {
 
         {analysis.recall && (
           <div className={styles.recallBanner}>
-            ⚠️ 리콜 이력 있음 — 최신 뉴스를 확인해주세요
+           <TriangleAlert size="1em" /> 리콜 이력 있음 — 최신 뉴스를 확인해주세요
           </div>
         )}
 
@@ -249,7 +250,7 @@ function AiAnalysis({ data, loading }) {
         {/* 추천 대상 */}
         {analysis.suitable_for && (
           <div className={styles.suitableFor}>
-            <span className={styles.suitableIcon}>👤</span>
+            <span className={styles.suitableIcon}><User size="1em" /></span>
             <div>
               <p className={styles.suitableLabel}>이런 분께 추천</p>
               <p className={styles.suitableText}>{analysis.suitable_for}</p>
@@ -369,9 +370,9 @@ function ProductPriceIntel({ title, token }) {
     signal_type === 'wait' ? styles.ptWait :
     styles.ptNeutral
 
-  const icon =
-    signal_type === 'buy'  ? '✅' :
-    signal_type === 'wait' ? '⏸️' : 'ℹ️'
+  const SignalIcon =
+    signal_type === 'buy'  ? CircleCheck :
+    signal_type === 'wait' ? CirclePause : Info
 
   return (
     <div className={`${styles.section} ${styles.sectionPt}`}>
@@ -439,14 +440,14 @@ function ProductPriceIntel({ title, token }) {
 
       {/* 구매 신호 */}
       <div className={styles.ptReason}>
-        <span>{icon}</span>
+        <span><SignalIcon size="1em" /></span>
         <p>{reason}</p>
       </div>
 
       {cheapest_link && (
         <a href={cheapest_link} target="_blank" rel="noopener noreferrer"
           className={styles.ptBuyLink}>
-          {cheapest_mall}에서 {fmtP(min_price)}에 구매하기 →
+          {cheapest_mall}에서 {fmtP(min_price)}에 구매하기 <ArrowRight size="1em" />
         </a>
       )}
 
@@ -465,10 +466,10 @@ function AiLoginGate({ onLogin }) {
         <div className={styles.aiGateFakeRow}><span /><span /><span /><span /></div>
       </div>
       <div className={styles.aiGateOverlay}>
-        <div className={styles.aiGateIcon}>🔒</div>
+        <div className={styles.aiGateIcon}><Lock size="1em" /></div>
         <p className={styles.aiGateTitle}>로그인 후 AI 리포트를 볼 수 있어요</p>
         <p className={styles.aiGateSub}>장점 · 단점 · 추천도를 AI가 분석해드려요</p>
-        <button className={styles.aiGateBtn} onClick={onLogin}>로그인하기 →</button>
+        <button className={styles.aiGateBtn} onClick={onLogin}>로그인하기 <ArrowRight size="1em" /></button>
       </div>
     </div>
   )
@@ -527,7 +528,7 @@ export default function ProductReport() {
         <Navbar />
         <div className={styles.notFound}>
           <p>제품 정보를 찾을 수 없습니다.</p>
-          <button className={styles.backBtn} onClick={() => navigate(-1)}>← 돌아가기</button>
+          <button className={styles.backBtn} onClick={() => navigate(-1)}><ArrowLeft size="1em" /> 돌아가기</button>
         </div>
       </div>
     )
@@ -622,10 +623,10 @@ export default function ProductReport() {
                   onClick={toggleFav}
                   title={isFav ? '저장 취소' : '관심 제품 저장'}
                 >
-                  {isFav ? '♥' : '♡'}
+                  <Heart size="1em" fill={isFav ? 'currentColor' : 'none'} />
                 </button>
                 <button className={styles.actionBtn} onClick={handleShare} title="링크 복사">
-                  {copied ? '✓' : '⎙'}
+                  {copied ? <Check size="1em" /> : <Share2 size="1em" />}
                 </button>
               </div>
             </div>
@@ -634,7 +635,7 @@ export default function ProductReport() {
             {product.reviewScore > 0 && (
               <div className={styles.reviewRow}>
                 <span className={styles.stars}>
-                  {'★'.repeat(Math.round(product.reviewScore))}{'☆'.repeat(5 - Math.round(product.reviewScore))}
+                  {[0, 1, 2, 3, 4].map(i => <Star key={i} size="1em" fill={i < Math.round(product.reviewScore) ? 'currentColor' : 'none'} />)}
                 </span>
                 <span className={styles.reviewScore}>{product.reviewScore.toFixed(1)}</span>
                 {product.reviewCount > 0 && (
@@ -656,7 +657,7 @@ export default function ProductReport() {
                     onClick={() => { setAlertOpen(true); setAlertDone(false); setAlertPrice('') }}
                     title="가격 알림 설정"
                   >
-                    🔔 가격 알림
+                   <Bell size="1em" /> 가격 알림
                   </button>
                 )}
               </div>
@@ -699,7 +700,7 @@ export default function ProductReport() {
             <TrendChart data={trendData} />
             {trendMsg && (
               <div className={`${styles.trendMsg} ${styles[`trendMsg_${trendMsg.type}`]}`}>
-                <span className={styles.trendMsgIcon}>{trendMsg.icon}</span>
+                <span className={styles.trendMsgIcon}><trendMsg.icon size="1em" /></span>
                 <div>
                   <p className={styles.trendMsgLabel}>{trendMsg.label}</p>
                   <p className={styles.trendMsgDesc}>{trendMsg.desc}</p>
@@ -734,7 +735,7 @@ export default function ProductReport() {
         {/* 로딩 완료 후 모든 섹션이 비어있을 때 */}
         {!reportLoading && trendData.length < 2 && newsItems.length === 0 && ytItems.length === 0 && ppomppuItems.length === 0 && (
           <div className={styles.emptyState}>
-            <p className={styles.emptyIcon}>📭</p>
+            <p className={styles.emptyIcon}><Inbox size="1em" /></p>
             <p className={styles.emptyTitle}>아직 분석 데이터가 없는 제품이에요</p>
             <p className={styles.emptyDesc}>검색량이 적거나 출시 초기 제품은 데이터가 수집되지 않을 수 있어요</p>
           </div>
@@ -758,7 +759,7 @@ export default function ProductReport() {
               onClick={() => effectiveLink && window.open(effectiveLink, '_blank')}
               disabled={!effectiveLink}
             >
-              {effectiveSource}에서 최저가로 구매하기 →
+              {effectiveSource}에서 최저가로 구매하기 <ArrowRight size="1em" />
             </button>
           </div>
         </div>
@@ -769,8 +770,8 @@ export default function ProductReport() {
       {alertOpen && (
         <div className={styles.modalOverlay} onClick={() => setAlertOpen(false)}>
           <div className={styles.modalBox} onClick={e => e.stopPropagation()}>
-            <button className={styles.modalClose} onClick={() => setAlertOpen(false)}>✕</button>
-            <p className={styles.modalTitle}>🔔 가격 알림 설정</p>
+            <button className={styles.modalClose} onClick={() => setAlertOpen(false)}><X size="1em" /></button>
+            <p className={styles.modalTitle}><Bell size="1em" /> 가격 알림 설정</p>
             <p className={styles.modalSub}>현재가: <strong>{effectivePrice.toLocaleString()}원</strong></p>
 
             {!alertDone ? (
@@ -800,9 +801,9 @@ export default function ProductReport() {
               </>
             ) : (
               <div className={styles.modalResult}>
-                {alertDone === 'ok'  && <><p className={styles.modalResultIcon}>✅</p><p>알림이 등록됐습니다!<br/><span>마이페이지에서 확인할 수 있어요</span></p></>}
-                {alertDone === 'dup' && <><p className={styles.modalResultIcon}>⚠️</p><p>이미 등록된 알림이에요</p></>}
-                {alertDone === 'err' && <><p className={styles.modalResultIcon}>❌</p><p>오류가 발생했습니다. 다시 시도해주세요</p></>}
+                {alertDone === 'ok'  && <><p className={styles.modalResultIcon}><CircleCheck size="1em" /></p><p>알림이 등록됐습니다!<br/><span>마이페이지에서 확인할 수 있어요</span></p></>}
+                {alertDone === 'dup' && <><p className={styles.modalResultIcon}><TriangleAlert size="1em" /></p><p>이미 등록된 알림이에요</p></>}
+                {alertDone === 'err' && <><p className={styles.modalResultIcon}><CircleX size="1em" /></p><p>오류가 발생했습니다. 다시 시도해주세요</p></>}
                 <button className={styles.modalBtn} onClick={() => setAlertOpen(false)}>닫기</button>
               </div>
             )}

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/common/Navbar'
 import styles from '../styles/Trend.module.css'
 import { API_BASE } from '../config'
+import { ArrowDown, ArrowUp, MoveRight, Star } from 'lucide-react'
 
 const CATEGORIES = [
   "전체", "냉장고", "세탁기", "건조기", "에어컨",
@@ -27,18 +28,18 @@ function Stars({ score }) {
   const full = Math.round(score)
   return (
     <span className={styles.stars}>
-      <span className={styles.starsFilled}>{'★'.repeat(full)}</span>
-      <span className={styles.starsEmpty}>{'☆'.repeat(5 - full)}</span>
+      <span className={styles.starsFilled}>{Array.from({ length: full }, (_, i) => <Star key={i} size="1em" fill="currentColor" />)}</span>
+      <span className={styles.starsEmpty}>{Array.from({ length: 5 - full }, (_, i) => <Star key={i} size="1em" />)}</span>
       <span className={styles.starsNum}>{score.toFixed(1)}</span>
     </span>
   )
 }
 
 function TrendBadge({ diff }) {
-  if (diff > 8)  return <span className={`${styles.trendBadge} ${styles.up}`}>↑↑ 급상승</span>
-  if (diff > 2)  return <span className={`${styles.trendBadge} ${styles.up}`}>↑ 상승세</span>
-  if (diff < -5) return <span className={`${styles.trendBadge} ${styles.down}`}>↓ 하락세</span>
-  return              <span className={`${styles.trendBadge} ${styles.stable}`}>→ 안정적</span>
+  if (diff > 8)  return <span className={`${styles.trendBadge} ${styles.up}`}><ArrowUp size="1em" /><ArrowUp size="1em" /> 급상승</span>
+  if (diff > 2)  return <span className={`${styles.trendBadge} ${styles.up}`}><ArrowUp size="1em" /> 상승세</span>
+  if (diff < -5) return <span className={`${styles.trendBadge} ${styles.down}`}><ArrowDown size="1em" /> 하락세</span>
+  return              <span className={`${styles.trendBadge} ${styles.stable}`}><MoveRight size="1em" /> 안정적</span>
 }
 
 function HotKeywords({ items, onCatClick }) {
@@ -137,7 +138,7 @@ function RankRow({ item, rank, onClick }) {
         </div>
         {item.reason && (
           <p className={styles.reason}>
-            <span className={styles.reasonDot}>✦</span>{item.reason}
+            <span className={styles.reasonDot}></span>{item.reason}
           </p>
         )}
       </div>
