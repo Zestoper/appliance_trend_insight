@@ -3,6 +3,7 @@ import styles from '../../styles/ReportPreview.module.css'
 import anim from '../../styles/animations.module.css'
 import { useInView } from '../../hooks/useInView'
 import { API_BASE } from '../../config'
+import { ArrowRight, Check, Star, TriangleAlert } from 'lucide-react'
 
 const DEMO_QUERY = '비스포크 냉장고 RF85C9141AP'
 const CACHE_KEY  = 'rp_preview_v1'
@@ -82,7 +83,7 @@ export default function ReportPreview() {
   const animatedScore    = useCounter(data?.score    ?? 0, 1800, rightCard.inView && data != null)
 
   const rating = data?.rating ?? 4.6
-  const stars  = '★'.repeat(Math.floor(rating)) + (rating % 1 >= 0.5 ? '★' : '☆') + '☆'.repeat(5 - Math.ceil(rating))
+  const filledStars = Math.floor(rating) + (rating % 1 >= 0.5 ? 1 : 0)
 
   if (!data) return (
     <section className={styles.section}>
@@ -116,13 +117,13 @@ export default function ReportPreview() {
           ref={leftCard.ref}
           className={`${styles.productCard} ${anim.hiddenLeft} ${leftCard.inView ? anim.visibleLeft : ''}`}
         >
-          <span className={styles.productBadge}>✓ 분석 완료</span>
+          <span className={styles.productBadge}><Check size="1em" /> 분석 완료</span>
           <p className={styles.productName}>{title}</p>
           <p className={styles.productBrand}>{brand}</p>
           <p className={styles.productPrice}>{price}</p>
 
           <div className={styles.ratingRow}>
-            <span className={styles.stars}>{stars}</span>
+            <span className={styles.stars}>{[0, 1, 2, 3, 4].map(i => <Star key={i} size="1em" fill={i < filledStars ? 'currentColor' : 'none'} />)}</span>
             <span className={styles.ratingNum}>{rating}</span>
             <span className={styles.reviewCount}>({reviewCount}개 리뷰)</span>
           </div>
@@ -164,8 +165,8 @@ export default function ReportPreview() {
           <div className={styles.analysisRow}>
             <p className={styles.analysisTitle} style={{ color: 'var(--text-muted)' }}>리콜 여부</p>
             {recall
-              ? <span className={styles.recallWarning}>⚠ 리콜 이력 있음</span>
-              : <span className={styles.recallSafe}>✓ 리콜 이력 없음 · 안전</span>
+              ? <span className={styles.recallWarning}><TriangleAlert size="1em" /> 리콜 이력 있음</span>
+              : <span className={styles.recallSafe}><Check size="1em" /> 리콜 이력 없음 · 안전</span>
             }
           </div>
 
@@ -175,18 +176,18 @@ export default function ReportPreview() {
               <span className={styles.scoreBig}>{animatedScore}</span>
               <p className={styles.scoreDesc}>
                 {suitableFor}에 적합<br />
-                {caution && <span style={{ color: '#f59e0b', fontSize: '11px' }}>⚠ {caution}</span>}
+                {caution && <span style={{ color: '#f59e0b', fontSize: '11px' }}><TriangleAlert size="1em" /> {caution}</span>}
               </p>
             </div>
           </div>
 
-          <button className={styles.buyBtn}>네이버 쇼핑에서 구매하기 →</button>
+          <button className={styles.buyBtn}>네이버 쇼핑에서 구매하기 <ArrowRight size="1em" /></button>
 
         </div>
       </div>
 
       <p className={styles.aiNote}>
-        ✦ 실제 쇼핑 데이터 · 검색 트렌드 · 리뷰를 통합 분석한 결과입니다
+        실제 쇼핑 데이터 · 검색 트렌드 · 리뷰를 통합 분석한 결과입니다
       </p>
 
     </section>

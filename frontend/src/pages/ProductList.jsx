@@ -5,6 +5,7 @@ import FilterBar from '../components/common/FilterBar'
 import TrendBlock from '../components/common/TrendBlock'
 import styles from '../styles/ProductList.module.css'
 import { API_BASE } from '../config'
+import { ArrowLeft, ArrowRight, House, Package } from 'lucide-react'
 
 const PAGE_SIZE = 15
 
@@ -108,7 +109,7 @@ export default function ProductList() {
         <Navbar />
         <div className={styles.container}>
           <div className={styles.invalidCategory}>
-            <span style={{ fontSize: 40 }}>🏠</span>
+            <span style={{ fontSize: 40 }}><House size="1em" /></span>
             <p className={styles.invalidTitle}>가전제품 카테고리만 조회할 수 있습니다</p>
             <p className={styles.invalidDesc}>에어컨, 냉장고, 세탁기 등 가전제품 키워드로 검색해주세요</p>
             <button className={styles.invalidBtn} onClick={() => navigate('/')}>홈으로 돌아가기</button>
@@ -165,7 +166,7 @@ export default function ProductList() {
                 <div className={styles.imgWrap}>
                   {product.image
                     ? <img src={product.image} alt={product.title} className={styles.productImg} />
-                    : <div className={styles.imgFallback}>📦</div>
+                    : <div className={styles.imgFallback}><Package size="1em" /></div>
                   }
                 </div>
 
@@ -179,7 +180,7 @@ export default function ProductList() {
                   <span className={styles.price}>
                     {product.price > 0 ? `${product.price.toLocaleString()}원` : '가격 미정'}
                   </span>
-                  <span className={styles.analyzeBtn}>분석 보기 →</span>
+                  <span className={styles.analyzeBtn}>분석 보기 <ArrowRight size="1em" /></span>
                 </div>
               </div>
             ))}
@@ -193,7 +194,7 @@ export default function ProductList() {
               onClick={() => handlePage(page - 1)}
               disabled={page === 1}
             >
-              ←
+             <ArrowLeft size="1em" />
             </button>
 
             {pageStart > 1 && (
@@ -219,7 +220,7 @@ export default function ProductList() {
               onClick={() => handlePage(page + 1)}
               disabled={page === totalPages}
             >
-              →
+              <ArrowRight size="1em" />
             </button>
           </div>
         )}

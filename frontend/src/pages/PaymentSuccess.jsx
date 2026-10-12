@@ -4,6 +4,7 @@ import Navbar from '../components/common/Navbar'
 import { useAuth } from '../context/AuthContext'
 import { API_BASE, TIER_LABEL } from '../config'
 import s from '../styles/PaymentResult.module.css'
+import { Check, X } from 'lucide-react'
 
 export default function PaymentSuccess() {
   const [params] = useSearchParams()
@@ -57,7 +58,7 @@ export default function PaymentSuccess() {
         )}
         {status === 'done' && (
           <>
-            <div className={s.iconOk}>✓</div>
+            <div className={s.iconOk}><Check size="1em" /></div>
             <p className={s.title}>{TIER_LABEL[tier]} 등급 구독이 완료됐습니다</p>
             <p className={s.sub}>이제 해당 등급의 모든 기능을 이용할 수 있어요</p>
             <button className={s.btn} onClick={() => navigate('/b2b')}>B2B 홈으로 이동</button>
@@ -65,7 +66,7 @@ export default function PaymentSuccess() {
         )}
         {status === 'error' && (
           <>
-            <div className={s.iconFail}>✕</div>
+            <div className={s.iconFail}><X size="1em" /></div>
             <p className={s.title}>결제 승인에 실패했습니다</p>
             <p className={s.sub}>{error}</p>
             <button className={s.btn} onClick={() => navigate('/b2b/pricing')}>요금제로 돌아가기</button>

@@ -58,7 +58,7 @@ export default function Hero() {
       <div className={styles.content}>
 
         {/* 상단 뱃지 */}
-        <span className={styles.badge}>✦ 실시간 가전 트렌드 분석</span>
+        <span className={styles.badge}>실시간 가전 트렌드 분석</span>
 
         {/* 메인 헤드라인 - 두 번째 줄에 그라디언트 텍스트 */}
         <h1 className={styles.headline}>

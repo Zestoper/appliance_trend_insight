@@ -4,18 +4,19 @@ import Navbar from '../components/common/Navbar'
 import { useAuth } from '../context/AuthContext'
 import s from '../styles/B2BAnalysis.module.css'
 import { API_BASE } from '../config'
+import { ChartBar, CircleCheck, Hourglass, OctagonX, Scale, ThumbsDown, ThumbsUp, TrendingDown, TrendingUp, Wallet } from 'lucide-react'
 
 const SIGNAL_STYLE = {
-  buy:     { icon: '✅', color: '#22c55e', bg: 'rgba(34,197,94,0.12)',  border: 'rgba(34,197,94,0.3)'  },
-  wait:    { icon: '⏳', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.3)' },
-  avoid:   { icon: '⛔', color: '#f87171', bg: 'rgba(248,113,113,0.12)', border: 'rgba(248,113,113,0.3)' },
-  neutral: { icon: '📊', color: '#818cf8', bg: 'rgba(99,102,241,0.12)', border: 'rgba(99,102,241,0.3)' },
+  buy:     { icon: CircleCheck, color: '#22c55e', bg: 'rgba(34,197,94,0.12)',  border: 'rgba(34,197,94,0.3)'  },
+  wait:    { icon: Hourglass, color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.3)' },
+  avoid:   { icon: OctagonX, color: '#f87171', bg: 'rgba(248,113,113,0.12)', border: 'rgba(248,113,113,0.3)' },
+  neutral: { icon: ChartBar, color: '#818cf8', bg: 'rgba(99,102,241,0.12)', border: 'rgba(99,102,241,0.3)' },
 }
 
 const FAIRNESS_STYLE = {
-  cheap:     { label: '저렴한 편', icon: '💰', color: '#22c55e', bg: 'rgba(34,197,94,0.12)',  border: 'rgba(34,197,94,0.3)'  },
-  fair:      { label: '적정 가격', icon: '⚖️', color: '#818cf8', bg: 'rgba(99,102,241,0.12)', border: 'rgba(99,102,241,0.3)' },
-  expensive: { label: '비싼 편',   icon: '📈', color: '#f87171', bg: 'rgba(248,113,113,0.12)', border: 'rgba(248,113,113,0.3)' },
+  cheap:     { label: '저렴한 편', icon: Wallet, color: '#22c55e', bg: 'rgba(34,197,94,0.12)',  border: 'rgba(34,197,94,0.3)'  },
+  fair:      { label: '적정 가격', icon: Scale, color: '#818cf8', bg: 'rgba(99,102,241,0.12)', border: 'rgba(99,102,241,0.3)' },
+  expensive: { label: '비싼 편',   icon: TrendingUp, color: '#f87171', bg: 'rgba(248,113,113,0.12)', border: 'rgba(248,113,113,0.3)' },
 }
 
 function fmtP(p) {
@@ -491,7 +492,7 @@ export default function B2BAnalysis() {
                     </div>
                     {sig && (
                       <span className={s.signalBadge} style={{ color: sig.color, background: sig.bg, border: `1px solid ${sig.border}` }}>
-                        {sig.icon} {report.conclusion_label}
+                        <sig.icon size="1em" /> {report.conclusion_label}
                       </span>
                     )}
                   </div>
@@ -500,7 +501,7 @@ export default function B2BAnalysis() {
                     : <div className={s.noData}>리포트를 생성하는 데 필요한 데이터가 부족합니다</div>}
                   {report?.conclusion_reason && (
                     <div className={s.reasonBox} style={{ borderColor: sig?.border }}>
-                      <span style={{ marginRight: 6 }}>{sig?.icon}</span>
+                      <span style={{ marginRight: 6 }}>{sig?.icon && <sig.icon size="1em" />}</span>
                       {report.conclusion_reason}
                     </div>
                   )}
@@ -526,7 +527,7 @@ export default function B2BAnalysis() {
                   />
                   {data.interest_forecast?.reason && (
                     <div className={s.reasonBox}>
-                      <span style={{ marginRight: 6 }}>📈</span>
+                      <span style={{ marginRight: 6 }}><TrendingUp size="1em" /></span>
                       {data.interest_forecast.reason}
                     </div>
                   )}
@@ -551,7 +552,7 @@ export default function B2BAnalysis() {
                   <PriceHistoryChart history={priceChg?.history} />
                   {priceChg?.reason && (
                     <div className={s.reasonBox}>
-                      <span style={{ marginRight: 6 }}>📉</span>
+                      <span style={{ marginRight: 6 }}><TrendingDown size="1em" /></span>
                       {priceChg.reason}
                     </div>
                   )}
@@ -567,7 +568,7 @@ export default function B2BAnalysis() {
                     </div>
                     {fairSig && (
                       <span className={s.signalBadge} style={{ color: fairSig.color, background: fairSig.bg, border: `1px solid ${fairSig.border}` }}>
-                        {fairSig.icon} {fairness.label}
+                        <fairSig.icon size="1em" /> {fairness.label}
                       </span>
                     )}
                   </div>
@@ -746,13 +747,13 @@ export default function B2BAnalysis() {
                         <div className={s.sentSummaryWrap}>
                           {sentiment.positive_summary && (
                             <div className={s.sentSummaryBox} style={{ borderColor: 'rgba(34,197,94,0.3)' }}>
-                              <p className={s.sentSummaryTitle} style={{ color: '#22c55e' }}>👍 긍정 의견 요약</p>
+                              <p className={s.sentSummaryTitle} style={{ color: '#22c55e' }}><ThumbsUp size="1em" /> 긍정 의견 요약</p>
                               <p className={s.sentSummaryText}>{sentiment.positive_summary}</p>
                             </div>
                           )}
                           {sentiment.negative_summary && (
                             <div className={s.sentSummaryBox} style={{ borderColor: 'rgba(248,113,113,0.3)' }}>
-                              <p className={s.sentSummaryTitle} style={{ color: '#f87171' }}>👎 부정 의견 요약</p>
+                              <p className={s.sentSummaryTitle} style={{ color: '#f87171' }}><ThumbsDown size="1em" /> 부정 의견 요약</p>
                               <p className={s.sentSummaryText}>{sentiment.negative_summary}</p>
                             </div>
                           )}
