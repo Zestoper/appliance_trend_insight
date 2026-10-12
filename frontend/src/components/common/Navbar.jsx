@@ -3,7 +3,7 @@ import styles from '../../styles/Navbar.module.css'
 import { useTheme } from '../../context/ThemeContext'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { ArrowRight, Moon, ShieldCheck, Sun } from 'lucide-react'
+import { ArrowRight, ChevronDown, Moon, ShieldCheck, Sun } from 'lucide-react'
 
 const SERVICE_ITEMS = [
   {
@@ -253,14 +253,14 @@ export default function Navbar() {
               onClick={() => toggleDropdown('product')}
             >
               제품
-              <span className={`${styles.navCaret} ${openDropdown === 'product' ? styles.navCaretOpen : ''}`}>▾</span>
+              <span className={`${styles.navCaret} ${openDropdown === 'product' ? styles.navCaretOpen : ''}`}><ChevronDown size="1em" /></span>
             </li>
             <li
               className={`${styles.navItem} ${openDropdown === 'service' ? styles.navItemActive : ''}`}
               onClick={() => toggleDropdown('service')}
             >
               서비스
-              <span className={`${styles.navCaret} ${openDropdown === 'service' ? styles.navCaretOpen : ''}`}>▾</span>
+              <span className={`${styles.navCaret} ${openDropdown === 'service' ? styles.navCaretOpen : ''}`}><ChevronDown size="1em" /></span>
             </li>
             <li
               className={styles.navItem}
@@ -420,7 +420,7 @@ export default function Navbar() {
                   onClick={() => setMobileAccordion(a => a === 'product' ? null : 'product')}
                 >
                   제품 카테고리
-                  <span className={mobileAccordion === 'product' ? styles.mobileCaretOpen : styles.mobileCaret}>▾</span>
+                  <span className={mobileAccordion === 'product' ? styles.mobileCaretOpen : styles.mobileCaret}><ChevronDown size="1em" /></span>
                 </button>
                 {mobileAccordion === 'product' && (
                   <div className={styles.mobileAccordionBody}>
@@ -448,7 +448,7 @@ export default function Navbar() {
                   onClick={() => setMobileAccordion(a => a === 'service' ? null : 'service')}
                 >
                   서비스
-                  <span className={mobileAccordion === 'service' ? styles.mobileCaretOpen : styles.mobileCaret}>▾</span>
+                  <span className={mobileAccordion === 'service' ? styles.mobileCaretOpen : styles.mobileCaret}><ChevronDown size="1em" /></span>
                 </button>
                 {mobileAccordion === 'service' && (
                   <div className={styles.mobileAccordionBody}>

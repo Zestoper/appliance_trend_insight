@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import styles from '../../styles/FilterBar.module.css'
-import { X } from 'lucide-react'
+import { ChevronDown, X } from 'lucide-react'
 
 // "LG전자" → "LG" 등 표기 통일
 const BRAND_NORMALIZE = {
@@ -185,7 +185,7 @@ export default function FilterBar({ products, category, onSearchChange, onFilter
             onClick={() => setOpenPanel(prev => prev === 'sort' ? null : 'sort')}
           >
             {selectedSort.label}
-            <span className={`${styles.caret} ${openPanel === 'sort' ? styles.caretOpen : ''}`}>▾</span>
+            <span className={`${styles.caret} ${openPanel === 'sort' ? styles.caretOpen : ''}`}><ChevronDown size="1em" /></span>
           </button>
           {openPanel === 'sort' && (
             <div className={styles.panel}>
@@ -209,7 +209,7 @@ export default function FilterBar({ products, category, onSearchChange, onFilter
           >
             제조사
             {selectedBrands.length > 0 && <span className={styles.badge}>{selectedBrands.length}</span>}
-            <span className={`${styles.caret} ${openPanel === 'brand' ? styles.caretOpen : ''}`}>▾</span>
+            <span className={`${styles.caret} ${openPanel === 'brand' ? styles.caretOpen : ''}`}><ChevronDown size="1em" /></span>
           </button>
           {openPanel === 'brand' && (
             <div className={styles.panel}>
@@ -234,7 +234,7 @@ export default function FilterBar({ products, category, onSearchChange, onFilter
             onClick={() => setOpenPanel(prev => prev === 'price' ? null : 'price')}
           >
             {selectedPrice.label === '전체' ? '가격' : selectedPrice.label}
-            <span className={`${styles.caret} ${openPanel === 'price' ? styles.caretOpen : ''}`}>▾</span>
+            <span className={`${styles.caret} ${openPanel === 'price' ? styles.caretOpen : ''}`}><ChevronDown size="1em" /></span>
           </button>
           {openPanel === 'price' && (
             <div className={styles.panel}>
