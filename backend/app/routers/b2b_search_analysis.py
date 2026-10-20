@@ -7,12 +7,11 @@ from app.routers.b2b_utils import *
 from app.services.price_service import get_danawa_price_history
 from app.routers.naver import search_products
 
-try:
-    import pandas as _pd
-    from prophet import Prophet as _Prophet
-    _PROPHET_AVAILABLE = True
-except ImportError:
-    _PROPHET_AVAILABLE = False
+import importlib.util as _ilu
+
+# prophet · pandas · matplotlib는 불러오기만 해도 메모리를 100MB 가까이 쓴다.
+# Render 무료(512MB)에서 메모리 초과로 서버가 죽지 않도록 서버 시작 때가 아니라 예측할 때만 불러온다.
+_PROPHET_AVAILABLE = _ilu.find_spec("prophet") is not None and _ilu.find_spec("pandas") is not None
 
 router = APIRouter()
 
@@ -106,6 +105,8 @@ def _run_prophet_sync(train_data: list[dict], periods: int = 22, freq: str = "W"
     """Prophet 기반 예측 — CPU 바운드라 asyncio.to_thread로 호출해야 한다.
     freq="W"(주간, 검색량) 또는 "MS"(월간, 쇼핑인사이트 판매량)."""
     import logging as _logging
+    import pandas as _pd
+    from prophet import Prophet as _Prophet
     _logging.getLogger("prophet").setLevel(_logging.ERROR)
     _logging.getLogger("cmdstanpy").setLevel(_logging.ERROR)
 

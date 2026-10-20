@@ -81,23 +81,36 @@ def _clean(text: str) -> str:
 
 def _extract_products_json(html: str) -> list[dict]:
     """2026-10 개편된 다나와 검색 페이지(Next.js)에서 상품 목록 JSON을 꺼낸다.
-    화면 HTML의 class 이름은 자주 바뀌지만 페이지에 함께 실려 오는 데이터(products 배열)는 구조가 안정적이다."""
-    chunks = []
-    for m in _NEXT_PUSH_RE.finditer(html):
-        try:
-            chunks.append(json.loads(m.group(1)))
-        except ValueError:
-            continue
-    full = "".join(chunks)
-    key = '"products":['
-    start = full.find(key)
+    화면 HTML의 class 이름은 자주 바뀌지만 페이지에 함께 실려 오는 데이터(products 배열)는 구조가 안정적이다.
+
+    페이지가 1.7MB라 전체 데이터 조각을 다 풀면 파싱 한 번에 수십 MB를 쓴다 (Render 무료 512MB에서 메모리 초과).
+    그래서 products가 들어 있는 조각부터 필요한 만큼만 풀어서 읽는다."""
+    pos = html.find('\\"products\\":[')
+    if pos == -1:
+        return []
+    start = html.rfind("self.__next_f.push([1,", 0, pos)
     if start == -1:
         return []
-    try:
-        products, _ = json.JSONDecoder().raw_decode(full, start + len(key) - 1)
-    except ValueError:
-        return []
-    return products if isinstance(products, list) else []
+    key = '"products":['
+    buf = ""
+    for i, m in enumerate(_NEXT_PUSH_RE.finditer(html, start)):
+        if i >= 20:  # 상품 목록은 많아야 몇 조각에 걸쳐 있다
+            break
+        try:
+            buf += json.loads(m.group(1))
+        except ValueError:
+            continue
+        k = buf.find(key)
+        if k == -1:
+            continue
+        if k:
+            buf = buf[k:]  # 앞부분은 버려서 메모리를 아낀다
+        try:
+            products, _ = json.JSONDecoder().raw_decode(buf, len(key) - 1)
+        except ValueError:
+            continue  # 배열이 다음 조각까지 이어진다
+        return products if isinstance(products, list) else []
+    return []
 
 
 def _item_from_json(p: dict) -> dict | None:
