@@ -120,6 +120,23 @@ def _linear_trend_fit(history: list[dict]):
     return fitted, slope
 
 
+def _rescale_to(base: list[dict], other: list[dict]) -> list[dict]:
+    """네이버 DataLab · 쇼핑인사이트는 '요청한 기간의 최댓값 = 100'으로 값을 정규화해서 돌려준다.
+    그래서 화면에 그리는 짧은 기간(90일) 데이터와 예측 학습용 긴 기간(2년) 데이터는 같은 주라도
+    숫자가 다르다 (2년치는 더 큰 과거 피크가 100이라 값이 작게 나옴) → 그대로 이어 그리면 예측이
+    실제보다 뚝 떨어져 보인다. 두 데이터가 겹치는 기간의 비율로 긴 기간 데이터를 짧은 기간 기준에 맞춘다."""
+    if not base or not other:
+        return other
+    base_map = {d["period"]: float(d["ratio"]) for d in base}
+    common = [(base_map[d["period"]], float(d["ratio"])) for d in other if d["period"] in base_map]
+    num = sum(b for b, _ in common)
+    den = sum(o for _, o in common)
+    if len(common) < 3 or den <= 0:
+        return other
+    factor = num / den
+    return [{**d, "ratio": round(float(d["ratio"]) * factor, 2)} for d in other]
+
+
 def _add_months(d: date, n: int) -> date:
     y, m = divmod(d.month - 1 + n, 12)
     return date(d.year + y, m + 1, 1)
@@ -655,6 +672,10 @@ async def get_search_analysis(
         if _sel_capacity_for_filter:
             return f"{_sel_capacity_for_filter}L" in combined or f"{_sel_capacity_for_filter}리터" in combined
         return True
+
+    # 학습용 긴 기간 데이터를 화면에 그리는 짧은 기간 데이터와 같은 기준으로 맞춘다 (_rescale_to 참고)
+    train_data = _rescale_to(trend_data, train_data)
+    sales_train_data = _rescale_to(sales_trend_data, sales_train_data)
 
     reviews = product_reviews + [
         r for r in category_reviews if r not in product_reviews and _is_relevant_category_review(r)
