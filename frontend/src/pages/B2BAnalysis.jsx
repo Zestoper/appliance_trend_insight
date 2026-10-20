@@ -45,7 +45,7 @@ function YAxis({ minV, maxV, pX, pY, H, W, axisLabel, tickFormat }) {
   )
 }
 
-// ── 관심도 추세 + 예측 차트 (실제 데이터 · 선형회귀 추세선 · Prophet 예측) ──
+// ── 관심도 추세 + 예측 차트 (실제 데이터 · 선형회귀 추세선 · Holt-Winters 예측) ──
 function ForecastChart({ history, linearTrend, prophetForecast, axisLabel = '관심도 지수' }) {
   if (!history || history.length < 2) return <div className={s.noData}>예측에 필요한 데이터가 부족합니다</div>
   const forecast = prophetForecast || []
@@ -83,7 +83,7 @@ function ForecastChart({ history, linearTrend, prophetForecast, axisLabel = '관
       <div className={s.chartLegend}>
         <span className={s.dot} style={{ background: '#ef4444' }} /> 실제 데이터
         <span className={s.dot} style={{ background: '#9ca3af', marginLeft: 10 }} /> 선형회귀 추세선
-        <span className={s.dot} style={{ background: '#22c55e', marginLeft: 10 }} /> Prophet 예측
+        <span className={s.dot} style={{ background: '#22c55e', marginLeft: 10 }} /> Holt-Winters 예측
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: '100%', height: 260 }}>
         <YAxis minV={minV} maxV={maxV} pX={pX} pY={pY} H={H} W={W} axisLabel={axisLabel} />
@@ -513,7 +513,7 @@ export default function B2BAnalysis() {
                     <div>
                       <h2 className={s.cardTitle}>검색량 추이 · 예측</h2>
                       <p className={s.cardSub}>
-                        &apos;{data.trend_keyword || data.category || '카테고리'}&apos; 검색 관심도 · week 단위 · DataLab + Prophet
+                        &apos;{data.trend_keyword || data.category || '카테고리'}&apos; 검색 관심도 · week 단위 · DataLab + Holt-Winters
                       </p>
                     </div>
                     {data.interest_forecast?.rag_enhanced && (
