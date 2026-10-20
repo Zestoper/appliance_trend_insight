@@ -317,3 +317,45 @@
     .blobIndigo { width: 220px; height: 220px; }
     .blobPurple { width: 180px; height: 180px; }
 }
+
+/* 비밀번호 찾기 · 재설정 */
+.findRow {
+    margin-top: -4px;
+    text-align: right;
+    font-size: 12px;
+}
+.findLink {
+    color: var(--text-muted);
+    text-decoration: none;
+}
+.findLink:hover {
+    color: #a5b4fc;
+    text-decoration: underline;
+}
+.successMsg {
+    font-size: 12px;
+    color: #34d399;
+    background: rgba(52, 211, 153, 0.1);
+    border: 1px solid rgba(52, 211, 153, 0.25);
+    border-radius: 8px;
+    padding: 8px 12px;
+    text-align: center;
+}
+.sentBox {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 4px 4px;
+    text-align: center;
+    color: #a5b4fc;
+}
+.sentBox p {
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.7;
+}
+.sentBox .sentSub {
+    color: var(--text-muted);
+    font-size: 12px;
+}

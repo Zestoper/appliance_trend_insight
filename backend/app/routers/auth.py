@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 
 from app.auth import make_token, hash_password, verify_password, get_current_user
-from app.services.email_service import send_verification_email
+from app.services.email_service import send_verification_email, send_password_reset_email
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -165,3 +165,110 @@ async def get_me(payload: dict = Depends(get_current_user)):
         "email":     user["email"],
         **extra,
     }
+
+
+# ── 비밀번호 재설정 ─────────────────────────────────────────────────────────
+# - 가입 여부를 알 수 없도록 이메일이 있든 없든 같은 응답을 준다
+# - 링크 토큰 원문은 메일로만 보내고 DB에는 SHA-256 해시만 저장 (DB가 새도 링크를 만들 수 없음)
+# - 30분 만료 · 1회용 · 새 요청 시 이전 링크 무효 · 같은 이메일로 15분에 3번까지만 요청
+import hashlib
+import secrets
+from datetime import datetime, timedelta, timezone
+
+_RESET_TTL = timedelta(minutes=30)
+_reset_hits: dict[str, list[float]] = {}
+_RESET_MESSAGE = "가입된 이메일이면 비밀번호 재설정 링크를 보냈어요. 메일함과 스팸함을 확인해 주세요."
+
+
+class ResetRequest(BaseModel):
+    email: str
+
+
+class ResetConfirm(BaseModel):
+    token: str
+    new_password: str
+    new_password_confirm: str
+
+
+def _token_hash(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def _reset_allowed(key: str) -> bool:
+    now = time.time()
+    hits = [t for t in _reset_hits.get(key, []) if now - t < 15 * 60]
+    if len(hits) >= 3:
+        _reset_hits[key] = hits
+        return False
+    _reset_hits[key] = hits + [now]
+    return True
+
+
+async def _ensure_reset_table():
+    from app.database import execute
+    await execute(
+        "CREATE TABLE IF NOT EXISTS password_resets ("
+        " token_hash VARCHAR(64) PRIMARY KEY,"
+        " user_id BIGINT NOT NULL,"
+        " expires_at TIMESTAMPTZ NOT NULL,"
+        " created_at TIMESTAMPTZ DEFAULT NOW())"
+    )
+
+
+async def _send_reset_mail(email: str, token: str):
+    try:
+        await asyncio.to_thread(send_password_reset_email, email, token)
+    except Exception as e:
+        print(f"[email] 비밀번호 재설정 메일 실패: {type(e).__name__}: {e}")
+
+
+@router.post("/password-reset/request")
+async def password_reset_request(body: ResetRequest):
+    from app.database import execute, get_user_by_email
+    email = body.email.strip()
+    if not email or not _reset_allowed(email.lower()):
+        return {"message": _RESET_MESSAGE}
+    user = await get_user_by_email(email)
+    if not user or not user.get("is_active", True):
+        return {"message": _RESET_MESSAGE}
+    await _ensure_reset_table()
+    now = datetime.now(timezone.utc)
+    await execute("DELETE FROM password_resets WHERE user_id = %s OR expires_at < %s", (user["user_id"], now))
+    token = secrets.token_urlsafe(32)
+    await execute(
+        "INSERT INTO password_resets (token_hash, user_id, expires_at) VALUES (%s, %s, %s)",
+        (_token_hash(token), user["user_id"], now + _RESET_TTL),
+    )
+    asyncio.create_task(_send_reset_mail(user["email"], token))  # 응답은 메일 발송을 기다리지 않음
+    return {"message": _RESET_MESSAGE}
+
+
+@router.get("/password-reset/check")
+async def password_reset_check(token: str = ""):
+    from app.database import fetchone
+    await _ensure_reset_table()
+    row = await fetchone(
+        "SELECT 1 AS ok FROM password_resets WHERE token_hash = %s AND expires_at > %s",
+        (_token_hash(token), datetime.now(timezone.utc)),
+    )
+    return {"valid": bool(row)}
+
+
+@router.post("/password-reset/confirm")
+async def password_reset_confirm(body: ResetConfirm):
+    from app.database import execute, fetchone
+    if body.new_password != body.new_password_confirm:
+        raise HTTPException(status_code=400, detail="새 비밀번호가 서로 다릅니다")
+    if len(body.new_password) < 8:
+        raise HTTPException(status_code=400, detail="비밀번호는 8자 이상으로 입력해주세요")
+    await _ensure_reset_table()
+    row = await fetchone(
+        "DELETE FROM password_resets WHERE token_hash = %s AND expires_at > %s RETURNING user_id",
+        (_token_hash(body.token), datetime.now(timezone.utc)),
+    )  # 지우면서 확인 — 같은 링크로 동시에 두 번 눌러도 한 번만 성공
+    if not row:
+        raise HTTPException(status_code=400, detail="링크가 만료됐거나 이미 사용됐어요. 다시 요청해 주세요")
+    await execute("UPDATE users SET password_hash = %s WHERE user_id = %s",
+                  (hash_password(body.new_password), row["user_id"]))
+    await execute("DELETE FROM password_resets WHERE user_id = %s", (row["user_id"],))
+    return {"message": "비밀번호를 바꿨어요"}

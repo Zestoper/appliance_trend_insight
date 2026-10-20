@@ -3,6 +3,8 @@ import { ThemeProvider } from './context/ThemeContext'
 import { AuthProvider } from './context/AuthContext'
 import Home from './pages/Home'
 import Login from './pages/Login'
+import FindPassword from './pages/FindPassword'
+import ResetPassword from './pages/ResetPassword'
 import Signup from './pages/SignUp'
 import SignupPending from './pages/SignupPending'
 import ProductList from './pages/ProductList'
@@ -30,6 +32,8 @@ export default function App() {
             <Route path="/home"              element={<Home />} />
             <Route path="/login"             element={<Login />} />
             <Route path="/signup"            element={<Signup />} />
+            <Route path="/find-password"     element={<FindPassword />} />
+            <Route path="/reset-password"    element={<ResetPassword />} />
             <Route path="/signup/pending"   element={<SignupPending />} />
             <Route path="/products/:category" element={<ProductList />} />
             <Route path="/report/:productId" element={<ProductReport />} />

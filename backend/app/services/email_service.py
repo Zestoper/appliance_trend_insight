@@ -45,8 +45,28 @@ def _send_sendgrid(to_email: str, subject: str, html: str):
     resp.raise_for_status()
 
 
+def _send_brevo(to_email: str, subject: str, html: str):
+    resp = httpx.post(
+        "https://api.brevo.com/v3/smtp/email",
+        headers={"api-key": os.getenv("BREVO_API_KEY", ""), "accept": "application/json"},
+        json={
+            "sender": {"email": os.getenv("MAIL_FROM") or SMTP_USER, "name": "가전무쌍"},
+            "to": [{"email": to_email}],
+            "subject": subject,
+            "htmlContent": html,
+        },
+        timeout=15,
+    )
+    if resp.status_code >= 400:
+        print(f"[EMAIL] Brevo 발송 실패 {resp.status_code}: {resp.text[:300]}")
+    resp.raise_for_status()
+
+
 def _send_email(to_email: str, subject: str, html: str):
-    """Resend 우선 → SendGrid → SMTP 순으로 폴백"""
+    """Brevo 우선 → Resend → SendGrid → SMTP 순으로 폴백 (Render 무료 플랜은 SMTP 포트가 막혀 있음)"""
+    if os.getenv("BREVO_API_KEY"):
+        _send_brevo(to_email, subject, html)
+        return
     if os.getenv("RESEND_API_KEY"):
         _send_resend(to_email, subject, html)
         return
@@ -384,3 +404,44 @@ def send_price_alert_email(to_email: str, company_name: str, category: str,
         _send_email(to_email, subject, html)
     except Exception as e:
         print(f"[email] 가격 알림 발송 실패 → {to_email}: {e}")
+
+
+def _make_reset_html(reset_url: str) -> str:
+    return f"""
+<!DOCTYPE html>
+<html lang="ko">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#0f0f18;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f0f18;padding:40px 16px;">
+    <tr><td align="center">
+      <table width="480" cellpadding="0" cellspacing="0"
+        style="background:#1a1a2e;border-radius:20px;border:1px solid rgba(99,102,241,0.25);overflow:hidden;max-width:480px;width:100%;">
+        <tr><td style="background:linear-gradient(135deg,#6366f1,#a855f7);padding:32px 40px;text-align:center;">
+          <span style="font-size:20px;font-weight:800;color:white;letter-spacing:-0.5px;">가전무쌍</span>
+        </td></tr>
+        <tr><td style="padding:40px 40px 32px;">
+          <p style="margin:0 0 8px;font-size:22px;font-weight:800;color:white;letter-spacing:-0.5px;">비밀번호 재설정</p>
+          <p style="margin:0 0 28px;font-size:14px;color:#a0a0b8;line-height:1.7;">
+            아래 버튼을 눌러 새 비밀번호를 정해 주세요.<br>
+            링크는 <strong style="color:#c4b5fd;">30분 동안 한 번만</strong> 쓸 수 있어요.
+          </p>
+          <a href="{reset_url}" style="display:inline-block;padding:14px 32px;border-radius:12px;
+             background:linear-gradient(135deg,#6366f1,#a855f7);color:white;text-decoration:none;
+             font-size:15px;font-weight:700;">비밀번호 재설정하기</a>
+          <p style="margin:28px 0 0;font-size:12px;color:#6b6b80;line-height:1.6;">
+            본인이 요청하지 않았다면 이 메일을 무시하세요. 비밀번호는 바뀌지 않습니다.
+          </p>
+        </td></tr>
+        <tr><td style="padding:20px 40px 28px;border-top:1px solid rgba(255,255,255,0.06);">
+          <p style="margin:0;font-size:11px;color:#4a4a60;text-align:center;">© 2026 가전무쌍 · 국내 가전 트렌드 인사이트</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"""
+
+
+def send_password_reset_email(to_email: str, token: str):
+    url = f"{FRONTEND_URL.rstrip('/')}/reset-password?token={token}"
+    _send_email(to_email, "[가전무쌍] 비밀번호 재설정", _make_reset_html(url))
