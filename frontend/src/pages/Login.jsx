@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import styles from '../styles/Login.module.css';
 import { API_BASE } from '../config';
@@ -43,6 +43,7 @@ export default function Login() {
 
     const { login } = useAuth();
     const navigate = useNavigate();
+    const notice = useLocation().state?.message || '';
 
     async function handleSubmit(e) {
         e.preventDefault();
@@ -139,6 +140,11 @@ export default function Login() {
                         </button>
                     </div>
 
+                    <p className={styles.findRow}>
+                        <Link to="/find-password" className={styles.findLink}>비밀번호를 잊으셨나요?</Link>
+                    </p>
+
+                    {notice && !error && <p className={styles.successMsg}>{notice}</p>}
                     {error && <p className={styles.errorMsg}>{error}</p>}
 
                     <button type="submit" className={styles.submitBtn} disabled={loading || !email || !password}>
