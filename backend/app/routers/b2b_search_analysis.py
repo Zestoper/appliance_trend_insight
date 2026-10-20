@@ -175,7 +175,7 @@ def _run_forecast_sync(train_data: list[dict], periods: int = 22, freq: str = "W
 
 
 def _linear_forecast(history: list[dict], n_forecast: int = 8, step_days: int = 7):
-    """단순 선형회귀 예측 (Prophet 사용 불가/실패 시 대체용). step_days=7(주간) 또는 30(월간)."""
+    """단순 선형회귀 예측 (Holt-Winters 예측 실패 시 대체용). step_days=7(주간) 또는 30(월간)."""
     ys = [h["ratio"] for h in history]
     n = len(ys)
     if n < 4:
@@ -639,7 +639,7 @@ async def get_search_analysis(
     ]
     reviews = [r for r in reviews if not any(k in r["text"] or k in r["title"] for k in _PROMO_KW)]
 
-    # ── 관심도(검색량) 추세 — 가격 신호와 결합해 종합 결론에 사용 — + Prophet 미래 예측 ──
+    # ── 관심도(검색량) 추세 — 가격 신호와 결합해 종합 결론에 사용 — + Holt-Winters 미래 예측 ──
     linear_trend_pts, slope = _linear_trend_fit(trend_data) if trend_data else ([], 0.0)
 
     prophet_forecast = []
@@ -647,7 +647,7 @@ async def get_search_analysis(
         try:
             prophet_forecast = await asyncio.to_thread(_run_forecast_sync, train_data, 22)
         except Exception as e:
-            logger.warning("[search-analysis] Prophet 예측 실패: %s", e)
+            logger.warning("[search-analysis] Holt-Winters 예측 실패: %s", e)
     if not prophet_forecast and trend_data:
         prophet_forecast, _ = _linear_forecast(trend_data)
 
@@ -670,7 +670,7 @@ async def get_search_analysis(
         else:
             interest_reason = f"최근 관심도는 최저 {lo_v}~최고 {hi_v} 사이에서 등락(변동폭 {swing_pct}%)했습니다."
 
-    # ── 판매량(쇼핑인사이트 클릭 동향) 추세 — 검색 관심도와는 별개 지표 — + Prophet 예측 ──
+    # ── 판매량(쇼핑인사이트 클릭 동향) 추세 — 검색 관심도와는 별개 지표 — + Holt-Winters 예측 ──
     sales_linear_trend_pts, sales_slope = _linear_trend_fit(sales_trend_data) if sales_trend_data else ([], 0.0)
 
     sales_prophet_forecast = []
@@ -678,7 +678,7 @@ async def get_search_analysis(
         try:
             sales_prophet_forecast = await asyncio.to_thread(_run_forecast_sync, sales_train_data, 8, "MS")
         except Exception as e:
-            logger.warning("[search-analysis] 판매량 Prophet 예측 실패: %s", e)
+            logger.warning("[search-analysis] 판매량 Holt-Winters 예측 실패: %s", e)
     if not sales_prophet_forecast and sales_trend_data:
         sales_prophet_forecast, _ = _linear_forecast(sales_trend_data, 8, step_days=30)
 
@@ -1199,7 +1199,7 @@ async def get_search_analysis(
             "conclusion_reason": conclusion_reason,
         },
 
-        # 3. 판매량/검색량 추이 (기존 Prophet 차트 재사용)
+        # 3. 판매량/검색량 추이 (예측 차트 재사용 — 응답 키 이름 prophet_forecast는 프런트 호환 위해 유지)
         "interest_forecast": {
             "history":          trend_data,
             "linear_trend":     linear_trend_pts,

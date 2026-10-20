@@ -38,7 +38,7 @@ const PLANS = [
     features: [
       '실버 등급의 모든 기능',
       'AI 전략 리포트 생성 (매입·재고 의사결정)',
-      'Prophet + XGBoost 수요 예측',
+      'Holt-Winters 시계열 수요 예측',
       '가격 인텔리전스 · AI 가격 인사이트',
     ],
   },

@@ -46,8 +46,9 @@ VITE_API_BASE=https://your-backend-name.onrender.com
 - **AI 시장 리포트**: Groq LLM(gpt-oss-120b) → Cerebras 폴백, 매입 전략·타이밍 자동 생성
 
 ### 수요 예측 (Demand Forecast)
-- **Prophet + XGBoost 앙상블**: 2년치 주별 트렌드 학습, RMSE 기반 가중치 자동 조정
-- **공공데이터 외부 변수**: 기온·습도·PM2.5·소비자물가지수를 Prophet `add_regressor` / XGBoost feature로 주입
+- **Holt-Winters 시계열 예측**: 감쇠 추세 지수평활 — 주간 검색량은 2년치 이상이면 52주 연간 계절성까지 반영, 월간 판매 지수는 추세만 사용 (과적합 방지)
+  - 평활 계수(α·β·γ·φ)는 1스텝 예측 오차가 가장 작은 조합을 자동 선택, 과거 오차로 신뢰구간 계산
+  - 처음엔 Prophet을 썼으나 Render 무료 인스턴스(512MB)에서 메모리 초과로 서버가 재시작되어 순수 파이썬 구현으로 교체 (예측 1회 0.05초 · 추가 메모리 거의 없음)
 - **계절성 분석**: 월별 영향도, 선형회귀 기울기, 피크 타이밍 자동 탐지
 - **매입 타이밍 신호**: 수요 피크 D-N일 알림, 변곡점 탐지
 
@@ -70,7 +71,7 @@ VITE_API_BASE=https://your-backend-name.onrender.com
 | DB / 캐시 | Supabase (PostgreSQL + pgvector) |
 | AI / LLM | Groq (openai/gpt-oss-120b → openai/gpt-oss-20b), Cerebras (gpt-oss-120b) |
 | 임베딩 | HuggingFace Inference API (sentence-transformers/all-MiniLM-L6-v2, 384차원) |
-| 예측 모델 | Prophet, XGBoost, NumPy/Pandas |
+| 예측 모델 | Holt-Winters 지수평활 (순수 파이썬 구현), 선형회귀 추세선 |
 | 외부 데이터 | 네이버 DataLab, 기상청 ASOS, 에어코리아, 한국소비자원, 에너지공단 KEMCO, 통계청 KOSIS |
 | 배포 | Render (Backend), Vercel (Frontend) |
 
@@ -216,9 +217,11 @@ python -m scripts.refresh_naver_cache --periods 1m 3m 6m 1y
 
 ## 공공데이터 활용 상세
 
-### 1. 수요 예측 모델 외부 변수 (Prophet · XGBoost)
+### 1. 카테고리별 외부 환경 변수
 
 `backend/app/services/public_data.py` → `get_ext_dataframe(category, ds_dates)`
+
+> 현재 수요 예측(Holt-Winters)은 검색량·판매 지수만으로 예측합니다. 아래 외부 변수는 예측 모델 입력이 아니라 외부 환경 신호와 AI 리포트 컨텍스트에 쓰이며, 변수를 넣는 회귀 모델로 확장할 때를 위해 수집 함수를 남겨두었습니다.
 
 | 카테고리 | 외부 변수 | 데이터 출처 |
 |----------|-----------|-------------|
@@ -231,7 +234,7 @@ python -m scripts.refresh_naver_cache --periods 1m 3m 6m 1y
 | TV | 수입 물량(kg), CPI | 관세청, KOSIS |
 | 로봇청소기·식기세척기·에어프라이어·전기밥솥 | CPI | KOSIS |
 
-미래 예측 구간은 월별 역사 평균값(month_avg)으로 외부 변수를 채워 과거 계절 패턴을 반영합니다.
+미래 구간은 월별 역사 평균값(month_avg)으로 외부 변수를 채우도록 되어 있습니다.
 
 ### 2. AI 리포트 프롬프트 컨텍스트
 
