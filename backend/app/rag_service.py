@@ -59,10 +59,12 @@ class _Provider:
 
 
 GEMINI = _Provider("gemini", "embedding_gemini", 768)
+_BACKFILL_BATCH = 50
+_BACKFILL_SLEEP = 31.0  # 50개씩 31초 간격 → 분당 약 100개 (무료 한도 안쪽)
 HF = _Provider("huggingface", "embedding", 384)
 PROVIDERS = [GEMINI, HF]  # 검색 · 저장 우선순위
 
-_PAUSE_FOR = {401: 3600, 402: 3600, 403: 3600, 429: 600}
+_PAUSE_FOR = {401: 3600, 402: 3600, 403: 3600, 429: 65}  # 429는 분당 한도라 1분 뒤 풀린다
 
 
 async def _post_with_retry(client: httpx.AsyncClient, provider: _Provider, url: str, **kw) -> httpx.Response:
@@ -240,26 +242,37 @@ class RAGService:
                 except Exception as e:
                     print(f"[RAG] {p.name} 벡터 저장 실패: {e}")
 
-    async def backfill_embeddings(self, limit: int = 1000) -> dict:
-        """모델별 칸이 비어 있는 문서를 채운다 (서버가 켜질 때 백그라운드로 실행)."""
+    async def backfill_embeddings(self, limit: int = 3000, max_minutes: float = 40) -> dict:
+        """모델별 칸이 비어 있는 문서를 채운다 (서버가 켜질 때 백그라운드로 실행).
+        무료 한도(분당 요청 수)에 걸리면(429) 멈추지 않고 1분 쉬었다가 이어서 채운다."""
         from app.database import execute, fetchall
         await self._ensure_schema()
         filled: dict[str, int] = {}
+        deadline = time.monotonic() + max_minutes * 60
         for p in PROVIDERS:
-            if not p.available():
+            if not p.key():
                 continue
             done = 0
-            while done < limit:
+            while done < limit and time.monotonic() < deadline:
+                if not p.available():
+                    wait = p.off_until - time.monotonic()
+                    if wait > _PAUSE_FOR[429] + 5:   # 크레딧 · 권한 문제(402 등)는 기다려도 안 풀린다
+                        print(f"[RAG] {p.name} 빈칸 채우기 중단 — 사용 불가 상태")
+                        break
+                    await asyncio.sleep(max(wait, 1))
+                    continue
                 rows = await fetchall(
                     f"SELECT id, text FROM rag_documents WHERE {p.column} IS NULL LIMIT %s",
-                    (min(50, limit - done),),
+                    (min(_BACKFILL_BATCH, limit - done),),
                 )
                 if not rows:
                     break
                 try:
                     vecs = await embed(p, [r["text"] for r in rows])
+                except EmbeddingUnavailable:
+                    continue   # 위에서 기다리거나 중단 여부를 판단한다
                 except Exception as e:
-                    print(f"[RAG] {p.name} 빈칸 채우기 중단: {e}")
+                    print(f"[RAG] {p.name} 빈칸 채우기 중단: {e!r}")
                     break
                 for r, v in zip(rows, vecs):
                     await execute(
@@ -267,7 +280,9 @@ class RAGService:
                         (_vec_str(v), r["id"]),
                     )
                 done += len(rows)
-                await asyncio.sleep(1.0)  # 무료 한도(분당 요청 수) 여유
+                if done % 500 < _BACKFILL_BATCH:
+                    print(f"[RAG] {p.name} 임베딩 빈칸 채우는 중… {done}개")
+                await asyncio.sleep(_BACKFILL_SLEEP)  # 무료 한도(분당 요청 수) 여유
             if done:
                 filled[p.name] = done
                 print(f"[RAG] {p.name} 임베딩 빈칸 {done}개 채움")
