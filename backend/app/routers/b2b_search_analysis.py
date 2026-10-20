@@ -7,11 +7,8 @@ from app.routers.b2b_utils import *
 from app.services.price_service import get_danawa_price_history
 from app.routers.naver import search_products
 
-import importlib.util as _ilu
-
-# prophet · pandas · matplotlib는 불러오기만 해도 메모리를 100MB 가까이 쓴다.
-# Render 무료(512MB)에서 메모리 초과로 서버가 죽지 않도록 서버 시작 때가 아니라 예측할 때만 불러온다.
-_PROPHET_AVAILABLE = _ilu.find_spec("prophet") is not None and _ilu.find_spec("pandas") is not None
+# 예측은 순수 파이썬 Holt-Winters로 한다 (_run_forecast_sync) — 항상 사용 가능
+_FORECAST_AVAILABLE = True
 
 router = APIRouter()
 
@@ -101,46 +98,78 @@ def _linear_trend_fit(history: list[dict]):
     return fitted, slope
 
 
-def _run_prophet_sync(train_data: list[dict], periods: int = 22, freq: str = "W"):
-    """Prophet 기반 예측 — CPU 바운드라 asyncio.to_thread로 호출해야 한다.
-    freq="W"(주간, 검색량) 또는 "MS"(월간, 쇼핑인사이트 판매량)."""
-    import logging as _logging
-    import pandas as _pd
-    from prophet import Prophet as _Prophet
-    _logging.getLogger("prophet").setLevel(_logging.ERROR)
-    _logging.getLogger("cmdstanpy").setLevel(_logging.ERROR)
+def _add_months(d: date, n: int) -> date:
+    y, m = divmod(d.month - 1 + n, 12)
+    return date(d.year + y, m + 1, 1)
 
-    df = _pd.DataFrame({
-        "ds": _pd.to_datetime([d["period"] for d in train_data]),
-        "y":  [float(d["ratio"]) for d in train_data],
-    })
-    n_pts = len(df)
-    # 월 단위(MS, 쇼핑인사이트 판매량)는 실무상 최대 24개월 남짓만 쌓여 연간 주기를
-    # 1~2번밖에 못 본다 — 이 상태에서 yearly_seasonality를 켜면 과적합으로 특정 월에
-    # 예측치가 0 근처로 급락했다가 급등하는 등 비현실적인 예측이 나온다. 그래서 월
-    # 단위는 계절성 없이 추세(trend)만으로 예측하고, 데이터가 훨씬 많은 주 단위(검색
-    # 관심도)만 연간 계절성을 사용한다.
-    m = _Prophet(
-        yearly_seasonality=(n_pts >= 52 if freq == "W" else False),
-        weekly_seasonality=False,
-        daily_seasonality=False,
-        interval_width=0.80,
-        seasonality_mode="additive",
-        changepoint_prior_scale=0.1,
-    )
-    m.fit(df)
-    future = m.make_future_dataframe(periods=periods, freq=freq)
-    fc = m.predict(future)
-    last_ds = df["ds"].max()
-    future_rows = fc[fc["ds"] > last_ds]
+
+def _holt_winters_fit(ys: list[float], season: int, a: float, b: float, phi: float, g: float):
+    """감쇠 추세 Holt(-Winters) 한 번 적합 → (마지막 수준, 추세, 계절 성분, 1스텝 오차 제곱합, 잔차)."""
+    n = len(ys)
+    if season:
+        first = sum(ys[:season]) / season
+        second = sum(ys[season:2 * season]) / season
+        level, trend = first, (second - first) / season
+        seas = [ys[i] - first for i in range(season)]
+    else:
+        level, trend, seas = ys[0], ys[1] - ys[0], []
+    start = season if season else 1
+    sse, resid = 0.0, []
+    for t in range(start, n):
+        s_t = seas[t % season] if season else 0.0
+        pred = level + phi * trend + s_t
+        err = ys[t] - pred
+        sse += err * err
+        resid.append(err)
+        new_level = a * (ys[t] - s_t) + (1 - a) * (level + phi * trend)
+        trend = b * (new_level - level) + (1 - b) * phi * trend
+        if season:
+            seas[t % season] = g * (ys[t] - new_level) + (1 - g) * s_t
+        level = new_level
+    return level, trend, seas, sse, resid
+
+
+def _run_forecast_sync(train_data: list[dict], periods: int = 22, freq: str = "W"):
+    """감쇠 추세 Holt-Winters 예측 (순수 파이썬).
+
+    예전에는 Prophet을 썼는데 prophet · pandas · matplotlib를 불러오고 학습하는 데만 수백 MB가 들어
+    Render 무료(512MB)에서 이 기능을 쓰면 서버가 메모리 초과로 죽었다. 같은 역할(추세 + 연간 계절성 +
+    신뢰구간)을 가벼운 지수평활로 대신한다.
+    - 주간(W): 2년치(104주) 이상이면 52주 연간 계절성 사용
+    - 월간(MS): 데이터가 짧아 과적합되므로 계절성 없이 추세만 (예전 Prophet 설정과 동일)
+    - 추세는 감쇠(phi)시켜 먼 미래로 갈수록 직선으로 폭주하지 않게 한다"""
+    ys = [float(d["ratio"]) for d in train_data]
+    n = len(ys)
+    if n < 8:
+        return []
+    season = 52 if (freq == "W" and n >= 104) else 0
+
+    best = None
+    for a in (0.1, 0.2, 0.3, 0.5, 0.7):
+        for b in (0.01, 0.05, 0.1, 0.2):
+            for phi in (0.85, 0.9, 0.95, 0.98):
+                for g in ((0.05, 0.1, 0.3) if season else (0.0,)):
+                    fit = _holt_winters_fit(ys, season, a, b, phi, g)
+                    if best is None or fit[3] < best[0][3]:
+                        best = (fit, phi)
+    (level, trend, seas, _sse, resid), phi = best
+    std = math.sqrt(sum(r * r for r in resid) / max(len(resid) - 1, 1)) if resid else 0.0
+
+    last = date.fromisoformat(train_data[-1]["period"][:10])
     rows = []
-    for row in future_rows.itertuples():
-        ratio = max(0.0, round(float(row.yhat), 1))
+    damp = 0.0
+    for h in range(1, periods + 1):
+        damp += phi ** h
+        s_h = seas[(n - 1 + h) % season] if season else 0.0
+        yhat = level + damp * trend + s_h
+        band = _CI_MULTIPLIER * std * math.sqrt(h)
+        ratio = max(0.0, round(yhat, 1))
+        label = (last + timedelta(days=7 * h)) if freq == "W" else _add_months(last, h)
         rows.append({
-            "period": row.ds.strftime("%Y-%m-%d"),
+            "period": label.isoformat(),
             "ratio":  ratio,
-            "lower":  max(0.0, round(float(row.yhat_lower), 1)),
-            "upper":  max(ratio, round(float(row.yhat_upper), 1)),
+            "lower":  max(0.0, round(yhat - band, 1)),
+            "upper":  max(ratio, round(yhat + band, 1)),
         })
     return rows
 
@@ -577,7 +606,7 @@ async def get_search_analysis(
      product_reviews, category_reviews, release_snippets, danawa_result) = await asyncio.gather(
         _fetch_product_items(),
         _fetch_category_items(),
-        _fetch_search_trend(trend_keyword, 730) if _PROPHET_AVAILABLE else asyncio.sleep(0, result=[]),
+        _fetch_search_trend(trend_keyword, 730) if _FORECAST_AVAILABLE else asyncio.sleep(0, result=[]),
         _fetch_shopping_trend(365),
         _fetch_shopping_trend(730),
         # sort="sim"(정확도순)으로 바꿔야 "단점" 키워드와 실제로 관련된 글이 우선 잡힌다 —
@@ -614,9 +643,9 @@ async def get_search_analysis(
     linear_trend_pts, slope = _linear_trend_fit(trend_data) if trend_data else ([], 0.0)
 
     prophet_forecast = []
-    if _PROPHET_AVAILABLE and len(train_data) >= 8:
+    if _FORECAST_AVAILABLE and len(train_data) >= 8:
         try:
-            prophet_forecast = await asyncio.to_thread(_run_prophet_sync, train_data, 22)
+            prophet_forecast = await asyncio.to_thread(_run_forecast_sync, train_data, 22)
         except Exception as e:
             logger.warning("[search-analysis] Prophet 예측 실패: %s", e)
     if not prophet_forecast and trend_data:
@@ -645,9 +674,9 @@ async def get_search_analysis(
     sales_linear_trend_pts, sales_slope = _linear_trend_fit(sales_trend_data) if sales_trend_data else ([], 0.0)
 
     sales_prophet_forecast = []
-    if _PROPHET_AVAILABLE and len(sales_train_data) >= 8:
+    if _FORECAST_AVAILABLE and len(sales_train_data) >= 8:
         try:
-            sales_prophet_forecast = await asyncio.to_thread(_run_prophet_sync, sales_train_data, 8, "MS")
+            sales_prophet_forecast = await asyncio.to_thread(_run_forecast_sync, sales_train_data, 8, "MS")
         except Exception as e:
             logger.warning("[search-analysis] 판매량 Prophet 예측 실패: %s", e)
     if not sales_prophet_forecast and sales_trend_data:

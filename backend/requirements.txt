@@ -12,5 +12,3 @@ python-jose[cryptography]
 asyncpg
 numpy<2.5
 pandas<3
-xgboost
-prophet
