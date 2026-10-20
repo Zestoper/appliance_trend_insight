@@ -10,7 +10,7 @@
 | 구분 | URL | 플랫폼 |
 |------|-----|--------|
 | **서비스 (Frontend)** | https://appliance-trend-insight-henna.vercel.app | Vercel |
-| **API (Backend)** | https://appliance-trend-insight-yn71.onrender.com | Render (Docker) |
+| **API (Backend)** | https://appliance-trend-insight.onrender.com | Render (Docker) |
 | **DB** | Supabase (PostgreSQL + pgvector) | Supabase |
 
 > Render 무료 플랜은 15분 비활동 시 서버가 슬립되며, 첫 요청 시 30~50초 대기가 발생할 수 있습니다.
