@@ -11,6 +11,9 @@ if sys.platform == "win32":
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+# Render는 터미널이 아니라서 print 출력이 버퍼에 쌓였다가 한참 뒤에 로그에 찍힌다 → 줄마다 바로 내보내기
+sys.stdout.reconfigure(line_buffering=True)
+
 from app.database import get_pool, close_pool
 import app.dependencies as deps
 from app.services.price_service import _init_tables, price_snapshot_loop, price_alert_loop
