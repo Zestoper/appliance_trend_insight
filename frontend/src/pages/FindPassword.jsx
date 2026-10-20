@@ -78,8 +78,8 @@ export default function FindPassword() {
                 )}
 
                 <p className={styles.signupRow}>
-                    <Link to="/login" className={styles.signupLink}>
-                        <ArrowLeft size="1em" style={{ verticalAlign: '-0.125em' }} /> 로그인으로 돌아가기
+                    <Link to="/login" className={styles.signupLink} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem' }}>
+                        <ArrowLeft size={16} /> 로그인으로 돌아가기
                     </Link>
                 </p>
             </div>
