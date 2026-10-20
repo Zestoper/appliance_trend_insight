@@ -39,6 +39,11 @@ async def _seed_rag(rag) -> None:
         await seed(rag)
     except Exception as e:
         print(f"[RAG] seed error: {e}")
+    try:
+        # 모델별 임베딩 칸 중 비어 있는 곳 채우기 (예: Gemini 키를 새로 넣었을 때 기존 문서)
+        await rag.backfill_embeddings()
+    except Exception as e:
+        print(f"[RAG] 빈칸 채우기 오류: {e}")
 
 
 @asynccontextmanager
