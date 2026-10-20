@@ -6,6 +6,7 @@ from bs4 import BeautifulSoup
 from app.routers.b2b_utils import *
 from app.services.price_service import get_danawa_price_history
 from app.routers.naver import search_products
+from app.config import CATEGORY_RULES
 
 # 예측은 순수 파이썬 Holt-Winters로 한다 (_run_forecast_sync) — 항상 사용 가능
 _FORECAST_AVAILABLE = True
@@ -27,6 +28,27 @@ _SHOPPING_CAT_MAP = {
 }
 
 _CAPACITY_RE = re.compile(r'(\d{2,4})\s*[Ll리]')
+
+
+def _clean_product_items(items: list[dict], category: str | None, ref_price: int | None) -> list[dict]:
+    """모델명으로 쇼핑 검색하면 본체가 아니라 그 모델용 필터 · 부품 · 소모품이 같이 잡힌다.
+    (예: 냉장고 RS84DB5002CW 검색 → 3만원짜리 정품필터가 '최저가'로 잡혀 가격 분석과 경쟁 제품 비교가 전부 틀어짐)
+    1) 카테고리별 부품 키워드(CATEGORY_RULES block)가 들어간 상품 제외
+    2) 카테고리 최소 가격(min_price) 미만 제외
+    3) 다나와 가격 이력이 있으면 최근 가격의 0.5~1.8배 범위만 남김
+    거르고 나서 하나도 안 남으면 원래 목록을 그대로 쓴다 (빈 결과보다는 낫다)."""
+    rule = CATEGORY_RULES.get(category or "", {})
+    block = rule.get("block", [])
+    min_price = rule.get("min_price", 0)
+    out = [
+        it for it in items
+        if not any(k in it.get("title", "") for k in block) and it["price"] >= min_price
+    ]
+    if ref_price:
+        near = [it for it in out if ref_price * 0.5 <= it["price"] <= ref_price * 1.8]
+        if near:
+            out = near
+    return out or items
 
 
 def _extract_capacity(title: str):
@@ -701,6 +723,9 @@ async def get_search_analysis(
         sales_reason = f"최근 판매(쇼핑 클릭) 추세는 {direction}세입니다."
 
     # ── 제품 단위 가격 인텔리전스 (#1 기본정보, #4 가격변동, #5 가격적정성의 토대) ──
+    _danawa_hist = (danawa_result or {}).get("history") or []
+    danawa_ref_price = max(_danawa_hist, key=lambda h: h["period"])["price"] if _danawa_hist else None
+    product_items = _clean_product_items(product_items, detected_category, danawa_ref_price)
     price_block = None
     product_image = None
     product_brand = None
@@ -841,7 +866,12 @@ async def get_search_analysis(
                     query_brand = b
                     break
         ref_price = price_block["min_price"] if price_block else (cat_price["avg"] if cat_price else None)
+        # 검색어가 모델명뿐이면(예: RS84DB5002CW) 용량이 없으니 실제 상품명에서 가장 많이 나온 용량을 쓴다
         selected_capacity = _extract_capacity(q)
+        if not selected_capacity and product_items:
+            caps = [c for c in (_extract_capacity(it["title"]) for it in product_items) if c]
+            if caps:
+                selected_capacity = max(set(caps), key=caps.count)
         candidates = [it for it in category_items if it["brand"] and it["brand"] != query_brand]
 
         if selected_capacity:
@@ -859,9 +889,11 @@ async def get_search_analysis(
                     competitor = {**best, "matched_capacity": cap}
 
         if not competitor and ref_price:
-            candidates.sort(key=lambda it: abs(it["price"] - ref_price))
-            if candidates:
-                competitor = candidates[0]
+            # 가격으로 고를 때도 너무 동떨어진 가격대(절반 미만 · 2배 초과)는 비교 대상으로 보지 않는다
+            near = [it for it in candidates if ref_price * 0.5 <= it["price"] <= ref_price * 2]
+            near.sort(key=lambda it: abs(it["price"] - ref_price))
+            if near:
+                competitor = near[0]
 
         if competitor:
             competitor = {**competitor, "model_number": _extract_model_broad(competitor["title"])}
