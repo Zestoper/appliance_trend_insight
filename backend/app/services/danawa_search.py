@@ -1,4 +1,5 @@
 import asyncio
+import json
 import re
 import time
 
@@ -70,7 +71,69 @@ def _parse_item(li) -> dict | None:
     }
 
 
+_NEXT_PUSH_RE = re.compile(r'self\.__next_f\.push\(\[1,("(?:[^"\\]|\\.)*")\]\)')
+_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def _clean(text: str) -> str:
+    return _TAG_RE.sub("", text or "").strip()
+
+
+def _extract_products_json(html: str) -> list[dict]:
+    """2026-10 개편된 다나와 검색 페이지(Next.js)에서 상품 목록 JSON을 꺼낸다.
+    화면 HTML의 class 이름은 자주 바뀌지만 페이지에 함께 실려 오는 데이터(products 배열)는 구조가 안정적이다."""
+    chunks = []
+    for m in _NEXT_PUSH_RE.finditer(html):
+        try:
+            chunks.append(json.loads(m.group(1)))
+        except ValueError:
+            continue
+    full = "".join(chunks)
+    key = '"products":['
+    start = full.find(key)
+    if start == -1:
+        return []
+    try:
+        products, _ = json.JSONDecoder().raw_decode(full, start + len(key) - 1)
+    except ValueError:
+        return []
+    return products if isinstance(products, list) else []
+
+
+def _item_from_json(p: dict) -> dict | None:
+    pid = str(p.get("productSeq") or "")
+    title = _clean(p.get("productName", ""))
+    if not pid or not title:
+        return None
+    image = p.get("imageUrl") or ""
+    if image.startswith("//"):
+        image = "https:" + image
+    try:
+        score = float(p.get("cmpnyWriteDisplayScore") or 0)
+    except (TypeError, ValueError):
+        score = 0.0
+    return {
+        "id":          pid,
+        "title":       title,
+        "brand":       _clean(p.get("makerName", "")),
+        "price":       int(p.get("minPrice") or 0),
+        "image":       image,
+        "link":        p.get("linkUrl") or f"https://prod.danawa.com/info/?pcode={pid}",
+        "mallName":    "다나와 최저가비교",
+        "reviewCount": int(p.get("writeCount") or 0),
+        "reviewScore": score,
+    }
+
+
 def _parse_html(html: str) -> list[dict]:
+    products = _extract_products_json(html)
+    if products:
+        items = [it for it in (_item_from_json(p) for p in products if isinstance(p, dict)) if it]
+        return [it for it in items if not any(kw in it["title"] for kw in _RENTAL_KW)]
+    return _parse_legacy_html(html)
+
+
+def _parse_legacy_html(html: str) -> list[dict]:
     """CPU/메모리 바운드(대용량 HTML 파싱)라 asyncio.to_thread로 호출해 이벤트 루프를 막지 않는다.
     다나와 검색 페이지는 2~3MB인데 실제 필요한 상품 목록 영역은 20% 안팎이라, 전체를
     BeautifulSoup 트리로 만들면 Render 같은 메모리 제한 환경에서 OOM이 난다 — 상품 목록
@@ -96,9 +159,9 @@ async def _fetch_raw_items(query: str) -> list[dict]:
     last_err: Exception | None = None
     for attempt in range(2):
         try:
-            async with httpx.AsyncClient(timeout=12.0) as client:
+            async with httpx.AsyncClient(timeout=12.0, follow_redirects=True) as client:
                 resp = await client.get(
-                    "https://search.danawa.com/dsearch.php",
+                    "https://search.danawa.com/",
                     params={"query": query, "tab": "goods"},
                     headers=_DANAWA_HEADERS,
                 )

@@ -16,11 +16,17 @@ _DANAWA_HEADERS = {
 
 
 async def _danawa_search_pcode(query: str) -> str | None:
-    url = "https://search.danawa.com/dsearch.php"
+    # 2026-10 다나와 개편: dsearch.php는 새 주소(/?query=)로 307 리디렉트된다
+    url = "https://search.danawa.com/"
     params = {"query": query, "tab": "goods"}
     try:
-        async with httpx.AsyncClient(timeout=8.0) as client:
+        async with httpx.AsyncClient(timeout=12.0, follow_redirects=True) as client:
             resp = await client.get(url, params=params, headers=_DANAWA_HEADERS)
+        from app.services.danawa_search import _extract_products_json
+        products = await asyncio.to_thread(_extract_products_json, resp.text)
+        for p in products:
+            if isinstance(p, dict) and p.get("productSeq"):
+                return str(p["productSeq"])
         pcodes = re.findall(r'pcode=(\d+)', resp.text)
         return pcodes[0] if pcodes else None
     except Exception:
