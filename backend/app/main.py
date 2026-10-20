@@ -80,7 +80,12 @@ app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    # 우리 프런트(배포 · Vercel 미리보기 · 로컬)만 허용. 다른 주소는 CORS_ORIGINS 환경변수에 쉼표로 추가
+    allow_origins=[o.strip() for o in os.getenv(
+        "CORS_ORIGINS",
+        "https://appliance-trend-insight.vercel.app,http://localhost:5173,http://localhost:3000",
+    ).split(",") if o.strip()],
+    allow_origin_regex=r"https://appliance-trend-insight[a-z0-9-]*\.vercel\.app",
     allow_methods=["*"],
     allow_headers=["*"],
 )

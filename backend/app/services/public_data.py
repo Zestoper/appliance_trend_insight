@@ -357,7 +357,7 @@ async def fetch_kemco_model_grades(category: str, max_rows: int = 1500) -> dict[
 
         await set_db_cache(cache_key, {"map": grade_map}, ttl_hours=168)
     except Exception as e:
-        logger.warning("[KEMCO] %s 모델별 등급 조회 실패: %s", category, e)
+        logger.warning("[KEMCO] %s 모델별 등급 조회 실패: %s", category, repr(e))
     return grade_map
 
 
@@ -385,8 +385,18 @@ async def fetch_kemco_efficiency(category: str) -> dict:
     params = {"serviceKey": PUBLIC_DATA_KEY, "numOfRows": 100, "pageNo": 1}
     try:
         from xml.etree import ElementTree as ET
-        async with httpx.AsyncClient(timeout=30.0) as c:
-            r = await c.get(url, params=params)
+        # 정부 API가 느려서 30초 안에 응답이 없을 때가 많다 → 60초 · 최대 3번 시도
+        r = None
+        async with httpx.AsyncClient(timeout=60.0) as c:
+            for attempt in range(3):
+                try:
+                    r = await c.get(url, params=params)
+                    r.raise_for_status()
+                    break
+                except (httpx.TimeoutException, httpx.TransportError, httpx.HTTPStatusError):
+                    if attempt == 2:
+                        raise
+                    await asyncio.sleep(3 * (attempt + 1))
         root = ET.fromstring(r.text)
         total_count = int(root.findtext(".//totalCount") or 0)
         items = root.findall(".//item")
@@ -398,7 +408,8 @@ async def fetch_kemco_efficiency(category: str) -> dict:
             "fetched_at":     date.today().isoformat(),
         }
     except Exception as e:
-        logger.warning("[KEMCO] %s 효율등급 수집 실패: %s", category, e)
+        # 타임아웃 예외는 메시지가 비어 있어서 예외 종류까지 남긴다
+        logger.warning("[KEMCO] %s 효율등급 수집 실패: %s", category, repr(e))
         return {}
 
 
