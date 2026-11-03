@@ -70,8 +70,16 @@ def _pct(new: float, old: float) -> float | None:
     return round((new - old) / old * 100, 1)
 
 
-def _signed(p: float | None) -> str:
-    return "데이터 없음" if p is None else f"{p:+.1f}%"
+def _signed(p: float | None, unreliable: bool = False) -> str:
+    if unreliable:
+        return "수집 표본이 달라 비교 생략"
+    if p is None:
+        return "데이터 없음"
+    return "±0.0%" if abs(p) < 0.05 else f"{p:+.1f}%"
+
+
+# 한 달 · 석 달 사이 카테고리 중앙가격이 이보다 크게 바뀌면 시장 변화보다 수집 표본 변화일 가능성이 높다
+MAX_PLAUSIBLE_CHANGE = 60
 
 
 async def _collect_products(category: str, rag) -> list[dict]:
@@ -150,17 +158,35 @@ async def _price_trend(category: str) -> dict | None:
     latest = rows[0]
     latest_date = latest["snapshot_date"]
 
-    def near(days: int):
-        target = latest_date - timedelta(days=days)
-        cands = [r for r in rows if r["snapshot_date"] <= target]
-        return cands[0] if cands else None
+    # 카테고리 평균가는 그날 검색 상위 상품 구성에 따라 출렁인다 (부품·액세서리 섞임, 수집 초기 기준 변경 등).
+    # 하루 값끼리 비교하면 '90일 전 대비 +150%'처럼 실제 시장과 무관한 숫자가 나와서
+    # 앞뒤 3일 중앙가격(median_price)의 중앙값끼리 비교하고, 변화가 너무 크면 표본이 달라진 것으로 보고 생략한다.
+    def price_of(r):
+        return r.get("median_price") or r.get("avg_price") or 0
 
-    r30, r90 = near(30), near(90)
+    def window(center, half=3):
+        vals = sorted(price_of(r) for r in rows
+                      if abs((r["snapshot_date"] - center).days) <= half and price_of(r) > 0)
+        return vals[len(vals) // 2] if vals else None
+
+    now_p = window(latest_date)
+
+    def change(days: int):
+        target = latest_date - timedelta(days=days)
+        if not any(r["snapshot_date"] <= target for r in rows):
+            return None, False
+        old_p = window(target)
+        chg = _pct(now_p, old_p) if now_p and old_p else None
+        if chg is not None and abs(chg) > MAX_PLAUSIBLE_CHANGE:
+            return None, True
+        return chg, False
+
+    (c30, u30), (c90, u90) = change(30), change(90)
     return {
         "latest_date": str(latest_date),
         "latest_avg": int(latest["avg_price"] or 0),
-        "chg_30": _pct(latest["avg_price"], r30["avg_price"]) if r30 else None,
-        "chg_90": _pct(latest["avg_price"], r90["avg_price"]) if r90 else None,
+        "chg_30": c30, "chg_30_unreliable": u30,
+        "chg_90": c90, "chg_90_unreliable": u90,
         "days": len(rows),
     }
 
@@ -186,7 +212,7 @@ async def _search_trend(category: str) -> dict | None:
 async def build_market_stats(category: str, rag) -> dict | None:
     """시장 숫자를 계산한다 (6시간 캐시 — 다나와 수집이 무거워서)."""
     from app.services.naver_cache import get_db_cache, set_db_cache
-    key = f"market_stats:v1:{category}"
+    key = f"market_stats:v2:{category}"   # v2: 중앙가격 기반 추이로 바뀌어 예전 캐시 무시
     try:
         cached = await get_db_cache(key)
         if cached:
@@ -235,7 +261,8 @@ def render_stats(stats: dict, cond: QueryConditions) -> str:
     for b in stats["brands"]:
         mark = "👉 " if cond.brand and b["brand"] == cond.brand else ""
         gap = _pct(b["avg"], d["avg"])
-        gap_txt = f" (시장 평균 대비 {gap:+.0f}%)" if gap is not None else ""
+        gap_txt = (f" (시장 평균 대비 {'±0' if round(gap) == 0 else f'{round(gap):+d}'}%)"
+                   if gap is not None else "")
         lines.append(f"- {mark}{b['brand']}: {b['count']}개 · 비중 {b['share']}% · 평균 {_won(b['avg'])}{gap_txt}")
     if cond.brand and not any(b["brand"] == cond.brand for b in stats["brands"]):
         lines.append(f"- {cond.brand}: 수집된 상위 상품에서 비중이 낮아 목록에 없어요")
@@ -245,7 +272,8 @@ def render_stats(stats: dict, cond: QueryConditions) -> str:
     pt = stats.get("price_trend")
     if pt and pt.get("latest_avg"):
         lines.append(f"- 최근 평균가 {_won(pt['latest_avg'])} ({pt['latest_date']} 기준)")
-        lines.append(f"- 30일 전 대비 {_signed(pt['chg_30'])} · 90일 전 대비 {_signed(pt['chg_90'])}")
+        lines.append(f"- 30일 전 대비 {_signed(pt['chg_30'], pt.get('chg_30_unreliable'))} · "
+                     f"90일 전 대비 {_signed(pt['chg_90'], pt.get('chg_90_unreliable'))} (카테고리 중앙가격 기준)")
     else:
         lines.append("- 가격 이력 데이터가 아직 충분히 쌓이지 않았어요")
     lines.append("")
@@ -270,7 +298,7 @@ def stats_for_llm(stats: dict) -> str:
     parts.append("브랜드: " + " / ".join(f"{b['brand']} 비중 {b['share']}% 평균 {_won(b['avg'])}" for b in stats["brands"]))
     pt = stats.get("price_trend")
     if pt and pt.get("latest_avg"):
-        parts.append(f"평균가 추이: 최근 {_won(pt['latest_avg'])}, 30일 대비 {_signed(pt['chg_30'])}, 90일 대비 {_signed(pt['chg_90'])}")
+        parts.append(f"평균가 추이: 최근 {_won(pt['latest_avg'])}, 30일 대비 {_signed(pt['chg_30'], pt.get('chg_30_unreliable'))}, 90일 대비 {_signed(pt['chg_90'], pt.get('chg_90_unreliable'))}")
     st = stats.get("search_trend")
     if st:
         parts.append(f"검색 관심도: 최근 7일 이전 7일 대비 {_signed(st['chg_7d'])}")

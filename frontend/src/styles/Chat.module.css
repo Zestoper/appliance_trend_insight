@@ -92,9 +92,10 @@
 }
 
 .targetBtnActive {
-  background: linear-gradient(135deg, rgba(99,102,241,0.22), rgba(139,92,246,0.18));
-  color: #c4b5fd;
-  box-shadow: 0 1px 6px rgba(99,102,241,0.18);
+  /* 연한 보라 글자(#c4b5fd)는 라이트 모드 배경에서 거의 안 보였다 → 진한 배경 + 흰 글자로 두 모드 모두 대비 확보 */
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff;
+  box-shadow: 0 1px 6px rgba(99,102,241,0.28);
 }
 
 /* ── 메시지 영역 ── */
