@@ -137,6 +137,39 @@ function Sparkline({ data }) {
   )
 }
 
+// ── 날씨 · 미세먼지와 검색량 (두 값의 단위가 달라 각각 0~1로 맞춰 겹쳐 그림) ──
+function WeatherChart({ series, label, unit }) {
+  if (!series || series.length < 2) return null
+  const W = 500, H = 150, pX = 8, pY = 12
+  const norm = key => {
+    const v = series.map(d => d[key])
+    const lo = Math.min(...v), hi = Math.max(...v, lo + 1e-6)
+    return v.map(x => (x - lo) / (hi - lo))
+  }
+  const toX = i => pX + (i / (series.length - 1)) * (W - pX * 2)
+  const toY = t => pY + (H - pY * 2) * (1 - t)
+  const line = arr => arr.map((t, i) => `${toX(i)},${toY(t)}`).join(' ')
+  const vals = series.map(d => d.value)
+  return (
+    <div>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 150 }}>
+        <polyline points={line(norm('ratio'))} fill="none" stroke="#818cf8" strokeWidth="2" strokeLinejoin="round" />
+        <polyline points={line(norm('value'))} fill="none" stroke="#f59e0b" strokeWidth="2" strokeDasharray="5 4" strokeLinejoin="round" />
+      </svg>
+      <div className={s.dualLegend}>
+        <span><i style={{ background: '#818cf8' }} />검색량</span>
+        <span><i style={{ background: '#f59e0b' }} />{label} ({Math.min(...vals)}~{Math.max(...vals)}{unit})</span>
+        <span>{series[0].period} ~ {series.at(-1).period}</span>
+      </div>
+    </div>
+  )
+}
+
+function energyText(p) {
+  if (!p?.energy_grade) return null
+  return `에너지 ${p.energy_grade}등급` + (p.monthly_cost ? ` · 월 전기료 약 ${p.monthly_cost.toLocaleString()}원` : '')
+}
+
 // ── 가격 변동 그래프 (실제 이력 축적분만 표시) ────────────────────────────
 function PriceHistoryChart({ history }) {
   if (!history || history.length < 2) {
@@ -384,6 +417,7 @@ export default function B2BAnalysis() {
                           {p.brand && <span className={s.pickBrand}>{p.brand}</span>}
                           <span className={s.pickTitle}>{p.title}</span>
                           <span className={s.pickPrice}>{fmtP(p.price)}</span>
+                          {energyText(p) && <span className={s.pickEnergy}>{energyText(p)}</span>}
                         </div>
                       </button>
                     ))}
@@ -406,6 +440,11 @@ export default function B2BAnalysis() {
               <div className={s.selectedInfo}>
                 {selected.brand && <span className={s.pickBrand}>{selected.brand}</span>}
                 <span className={s.selectedTitle}>{selected.title}</span>
+                {energyText(selected) && (
+                  <span className={s.pickEnergy} title="에너지공단 월간 소비전력량 × 한전 주택용 2단계 요금(kWh당 214.6원) · 기본요금과 세금 제외">
+                    {energyText(selected)}
+                  </span>
+                )}
               </div>
               {data && !data.unsupported && (
                 <>
@@ -533,6 +572,45 @@ export default function B2BAnalysis() {
                     </div>
                   )}
                 </div>
+
+                {/* 3-2. 날씨 · 미세먼지와 검색량 (기상청 · 에어코리아) */}
+                {data.weather_signal && (
+                  <div className={s.card}>
+                    <div className={s.cardHead}>
+                      <div>
+                        <h2 className={s.cardTitle}>{data.weather_signal.title}</h2>
+                        <p className={s.cardSub}>
+                          {data.weather_signal.variable === 'pm25' ? '에어코리아 종로구 측정소' : '기상청 서울 관측소'} · 주 평균 · 최근 {data.weather_signal.weeks}주
+                        </p>
+                      </div>
+                    </div>
+                    <WeatherChart series={data.weather_signal.series} label={data.weather_signal.label} unit={data.weather_signal.unit} />
+                    <div className={s.reasonBox}>{data.weather_signal.text}</div>
+                  </div>
+                )}
+
+                {/* 3-3. 소비자원 안전사고 접수 TOP 3 */}
+                {data.safety_top && (
+                  <div className={s.card}>
+                    <div className={s.cardHead}>
+                      <div>
+                        <h2 className={s.cardTitle}>안전사고 접수 TOP 3</h2>
+                        <p className={s.cardSub}>한국소비자원 위해정보 · {data.category} {data.safety_top.total}건 기준</p>
+                      </div>
+                    </div>
+                    <div className={s.safetyList}>
+                      {data.safety_top.top.map((t, i) => (
+                        <div key={t.label} className={s.safetyRow}>
+                          <span className={s.safetyRank}>{i + 1}</span>
+                          <span className={s.safetyLabel}>{t.label}</span>
+                          <div className={s.safetyBarWrap}><div className={s.safetyBar} style={{ width: `${t.pct}%` }} /></div>
+                          <span className={s.safetyPct}>{t.count}건 · {t.pct}%</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className={s.reasonBox}>{data.safety_top.text} 구매 전 이 부분의 안전 기능을 확인해 보세요.</div>
+                  </div>
+                )}
 
                 {/* 4. 가격 변동 분석 */}
                 <div className={s.card}>
