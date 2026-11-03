@@ -152,9 +152,9 @@ function WeatherChart({ series, label, unit, keyword }) {
   const vals = series.map(d => d.value)
   return (
     <div>
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 150 }}>
-        <polyline points={line(norm('ratio'))} fill="none" stroke="#818cf8" strokeWidth="2" strokeLinejoin="round" />
-        <polyline points={line(norm('value'))} fill="none" stroke="#f59e0b" strokeWidth="2" strokeDasharray="5 4" strokeLinejoin="round" />
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: '100%', height: 150 }}>
+        <polyline points={line(norm('ratio'))} fill="none" stroke="#818cf8" strokeWidth="2" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+        <polyline points={line(norm('value'))} fill="none" stroke="#f59e0b" strokeWidth="2" strokeDasharray="5 4" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
       </svg>
       <div className={s.dualLegend}>
         <span><i style={{ background: '#818cf8' }} />&apos;{keyword}&apos; 검색량</span>
