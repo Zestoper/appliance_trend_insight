@@ -186,6 +186,12 @@ async def get_timing(category: str = Query(..., min_length=1), product_id: str =
             await upsert_price(product_key, product_name, cur_price, today_str, cur_slot)
         except Exception as e:
             logger.warning("가격 upsert 실패 [%s]: %s", product_key, e)
+        if product_key.isdigit():   # 다나와 제품번호만 매일 가격 수집 대상으로 기록
+            try:
+                from app.services.tracking import touch_product
+                await touch_product(product_key, product_name)
+            except Exception as e:
+                logger.warning("추적 제품 기록 실패 [%s]: %s", product_key, e)
 
         rows = list(rows)
 

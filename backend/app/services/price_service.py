@@ -238,6 +238,9 @@ async def _collect_daily_prices():
             (category, today_str, avg_p, min_p, max_p, median_p, n, brand_json),
         )
 
+    done_today: set[str] = set()   # 카테고리 단계에서 이미 오늘 가격을 저장한 제품 (아래 제품 단계에서 다시 검색하지 않음)
+    completed = True
+
     for cat in CATEGORY_RULES:
         try:
             products_data = await search_products(
@@ -285,29 +288,48 @@ async def _collect_daily_prices():
                 )[:8]
                 await _upsert_price_history(cat, avg_p, min_p, max_p, median_p, _json.dumps(brand_list, ensure_ascii=False), len(prices))
 
-            # 상위 5개 개별 제품도 추적
-            for it in valid_items[:5]:
-                if it.get("id") and it["price"] > 0:
+            # 개별 제품 가격: 관련도 상위 5개 + 출시년월이 가장 최근인 3개 (사용자가 안 봐도 최신 제품 이력이 쌓이도록)
+            newest = sorted([it for it in valid_items if it.get("release")],
+                            key=lambda it: it["release"], reverse=True)[:3]
+            picks = {str(it["id"]): it for it in valid_items[:5] + newest if it.get("id") and it["price"] > 0}
+            for pid, it in picks.items():
+                try:
+                    await upsert_price(pid, it["title"], it["price"], today_str, slot)
+                    done_today.add(pid)
+                except Exception:
+                    pass
+            if newest:
+                from app.services.tracking import touch_product
+                for it in newest:
                     try:
-                        await upsert_price(str(it["id"]), it["title"], it["price"], today_str, slot)
+                        await touch_product(str(it["id"]), it["title"])
                     except Exception:
                         pass
+                print(f"[snapshot]   {cat} 최신 제품: " + ", ".join(f"{it['title'][:18]}({it['release']})" for it in newest))
         except Exception as e:
             print(f"[snapshot]   {cat} 실패: {e}")
         from app.utils.memory import trim
-        trim()   # 카테고리마다 다나와 페이지를 파싱하므로 쌓인 메모리를 바로 돌려준다
+        # 카테고리마다 다나와 페이지를 파싱하므로 쌓인 메모리를 바로 돌려준다
+        if trim() > MEMORY_LIMIT_MB:
+            print(f"[snapshot]   메모리 {trim()}MB — 서버 보호를 위해 카테고리 수집 중단 (다음에 서버가 깨어나면 다시 수집)")
+            completed = False
+            break
         await asyncio.sleep(1.2)
 
-    tracked = await fetchall(
-        """
-        SELECT DISTINCT product_key, product_name
-        FROM product_price_history
-        WHERE product_key ~ '^[0-9]+$' AND snapshot_date >= %s
-        """,
-        (seven_days_ago,),
-    )
+    # 사용자가 최근 7일 안에 구매 타이밍 화면에서 본 제품만 (최대 100개) — services/tracking.py 참고
+    try:
+        from app.services.tracking import recent_products
+        tracked = await recent_products()
+    except Exception as e:
+        print(f"[snapshot]   추적 목록 조회 실패 → 제품 수집 생략: {e}")
+        tracked = []
     from app.utils.memory import rss_mb, trim
+    tracked = [r for r in tracked if r["product_key"] not in done_today]
     for n, row in enumerate(tracked, 1):
+        if trim() > MEMORY_LIMIT_MB:
+            print(f"[snapshot]   메모리 {rss_mb()}MB — 서버 보호를 위해 제품 수집 중단 ({n - 1}/{len(tracked)}) · 다음에 서버가 깨어나면 다시 수집")
+            completed = False
+            break
         pid = row["product_key"]
         pname = row["product_name"] or ""
         try:
@@ -344,6 +366,7 @@ async def _collect_daily_prices():
 
     # ── 매입 적기 알림 이메일 발송 ───────────────────────────────────────────
     await _send_buy_signal_emails(today_str)
+    return completed
 
 
 async def _send_buy_signal_emails(today_str: str):
@@ -400,6 +423,10 @@ async def _send_buy_signal_emails(today_str: str):
         print(f"[email] 매입 알림 처리 실패: {e}")
 
 
+# 백그라운드 수집이 이 이상 메모리를 쓰고 있으면 멈춘다 (Render 무료 512MB — 사용자 요청 몫을 남겨둔다)
+MEMORY_LIMIT_MB = 300
+
+
 async def run_once_per_day(key: str, job, hours: int = 20) -> None:
     """Render 무료 서버는 15분 동안 요청이 없으면 잠들고 요청이 오면 새로 뜬다.
     예전에는 뜰 때마다 하루치 수집을 처음부터 다시 돌려서 사용자 요청과 겹치면
@@ -413,7 +440,13 @@ async def run_once_per_day(key: str, job, hours: int = 20) -> None:
             return
     except Exception as e:
         print(f"[{key}] 실행 기록 확인 실패 (그냥 실행): {e}")
-    await job()
+    try:
+        completed = await job()
+    finally:
+        from app.utils.memory import trim
+        trim()
+    if completed is False:   # 메모리 보호로 중간에 멈췄으면 완료 기록을 남기지 않아 다음에 다시 돈다
+        return
     try:
         await set_db_cache(marker, {"at": datetime.utcnow().isoformat()}, ttl_hours=hours)
     except Exception as e:

@@ -1,0 +1,37 @@
+# 매일 데이터 수집 (가격 · 최신 제품 · 데이터랩 · 공공데이터)
+# Render 무료 서버는 15분 동안 요청이 없으면 잠들고, 수집은 서버가 깨어날 때 시작된다.
+# 실사용자가 없어도 매일 수집되도록 GitHub Actions가 서버를 깨우고, 수집이 끝날 때까지
+# 5분마다 요청을 보내 잠들지 않게 붙잡아 둔다 (백그라운드 작업은 Render가 '활동'으로 보지 않는다).
+name: Daily data collection
+
+on:
+  schedule:
+    # UTC 18:23 = 한국 시간 03:23 (사용자가 거의 없는 새벽)
+    - cron: "23 18 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  wake:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      API: https://appliance-trend-insight.onrender.com
+    steps:
+      - name: Wake up server
+        run: |
+          for i in $(seq 1 20); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 "$API/" || true)
+            echo "wake $i: $code"
+            if [ "$code" = "200" ]; then exit 0; fi
+            sleep 15
+          done
+          echo "서버가 깨어나지 않았습니다" && exit 1
+
+      - name: Keep awake while collecting (35 min)
+        run: |
+          # 가격 수집(카테고리 24개 + 제품 최대 150개)과 공공데이터 갱신이 끝날 때까지
+          for i in $(seq 1 7); do
+            sleep 300
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 "$API/" || true)
+            echo "keep-alive $i: $code"
+          done

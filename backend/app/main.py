@@ -109,15 +109,23 @@ _HEAVY_PATHS = ("/api/b2b/search-analysis", "/api/trend", "/api/report", "/api/a
                 "/api/timing", "/api/b2b/", "/api/insights")
 
 
+# 무거운 API(외부 페이지 여러 개 수집 + 파싱 + LLM)는 동시에 2개까지만 처리하고 나머지는 줄을 세운다.
+# 여러 개가 한꺼번에 돌면 각자 수십 MB씩 써서 512MB를 넘을 수 있다.
+_HEAVY_SEM = asyncio.Semaphore(2)
+
+
 @app.middleware("http")
 async def _memory_guard(request, call_next):
-    response = await call_next(request)
     path = request.url.path
-    if path.startswith(_HEAVY_PATHS):
-        from app.utils.memory import rss_mb, trim
+    if request.method == "OPTIONS" or not path.startswith(_HEAVY_PATHS):
+        return await call_next(request)
+    from app.utils.memory import rss_mb, trim
+    async with _HEAVY_SEM:
+        trim()
+        response = await call_next(request)
         before = rss_mb()
         after = trim()
-        print(f"[mem] {path} 끝 {before}MB → 정리 후 {after}MB")
+    print(f"[mem] {path} 끝 {before}MB → 정리 후 {after}MB")
     return response
 
 app.add_middleware(

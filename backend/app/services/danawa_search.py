@@ -140,7 +140,14 @@ def _item_from_json(p: dict) -> dict | None:
         "mallName":    "다나와 최저가비교",
         "reviewCount": int(p.get("writeCount") or 0),
         "reviewScore": score,
+        # 다나와 출시(제조)년월 "25.06" → "2025-06" — 최신 제품을 고를 때 쓴다
+        "release":     _release_ym(p.get("makeDate")),
     }
+
+
+def _release_ym(v) -> str | None:
+    m = re.fullmatch(r"(\d{2})\.(\d{2})", str(v or "").strip())
+    return f"20{m.group(1)}-{m.group(2)}" if m else None
 
 
 def _parse_html(html: str) -> list[dict]:
