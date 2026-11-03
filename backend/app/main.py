@@ -82,6 +82,13 @@ async def lifespan(app: FastAPI):
     else:
         print("[snapshot] disabled by ENABLE_PRICE_SNAPSHOT")
 
+    async def _mem_log_loop():
+        from app.utils.memory import rss_mb
+        while True:
+            await asyncio.sleep(30)
+            print(f"[mem] {rss_mb()}MB")
+    mem_task = asyncio.create_task(_mem_log_loop())
+
     alert_task = asyncio.create_task(price_alert_loop())
     ext_data_task = asyncio.create_task(ext_data_refresh_loop())
 
@@ -91,10 +98,27 @@ async def lifespan(app: FastAPI):
         snapshot_task.cancel()
     alert_task.cancel()
     ext_data_task.cancel()
+    mem_task.cancel()
     await close_pool()
 
 
 app = FastAPI(lifespan=lifespan)
+
+# 무거운 API가 끝나면 메모리를 운영체제에 돌려주고 사용량을 로그로 남긴다 (메모리 초과 원인 추적용)
+_HEAVY_PATHS = ("/api/b2b/search-analysis", "/api/trend", "/api/report", "/api/ai-analysis",
+                "/api/timing", "/api/b2b/", "/api/insights")
+
+
+@app.middleware("http")
+async def _memory_guard(request, call_next):
+    response = await call_next(request)
+    path = request.url.path
+    if path.startswith(_HEAVY_PATHS):
+        from app.utils.memory import rss_mb, trim
+        before = rss_mb()
+        after = trim()
+        print(f"[mem] {path} 끝 {before}MB → 정리 후 {after}MB")
+    return response
 
 app.add_middleware(
     CORSMiddleware,
