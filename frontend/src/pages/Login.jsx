@@ -55,6 +55,8 @@ export default function Login() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, password }),
+                // 서버가 재시작·배포 중이면 응답이 안 와서 버튼이 끝없이 돌았다 → 30초 뒤 오류 안내
+                signal: AbortSignal.timeout(30000),
             });
             const data = await res.json();
             if (!res.ok) {
@@ -77,7 +79,7 @@ export default function Login() {
             });
             navigate(data.role === 'admin' ? '/admin' : '/');
         } catch {
-            setError('서버에 연결할 수 없습니다');
+            setError('서버에 연결할 수 없습니다. 서버가 깨어나는 중일 수 있으니 잠시 후 다시 시도해주세요.');
         } finally {
             setLoading(false);
         }
