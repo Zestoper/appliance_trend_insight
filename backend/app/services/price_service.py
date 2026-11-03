@@ -19,16 +19,20 @@ async def _danawa_search_pcode(query: str) -> str | None:
     # 2026-10 다나와 개편: dsearch.php는 새 주소(/?query=)로 307 리디렉트된다
     url = "https://search.danawa.com/"
     params = {"query": query, "tab": "goods"}
+    from app.services.danawa_search import _FETCH_SEM, _extract_products_json
     try:
-        async with httpx.AsyncClient(timeout=12.0, follow_redirects=True) as client:
-            resp = await client.get(url, params=params, headers=_DANAWA_HEADERS)
-        from app.services.danawa_search import _extract_products_json
-        products = await asyncio.to_thread(_extract_products_json, resp.text)
-        for p in products:
-            if isinstance(p, dict) and p.get("productSeq"):
-                return str(p["productSeq"])
-        pcodes = re.findall(r'pcode=(\d+)', resp.text)
-        return pcodes[0] if pcodes else None
+        # 다나와 검색 페이지(2~3MB)는 동시에 2개까지만 받아 파싱한다 (메모리 초과 방지 — danawa_search 참고)
+        async with _FETCH_SEM:
+            async with httpx.AsyncClient(timeout=12.0, follow_redirects=True) as client:
+                resp = await client.get(url, params=params, headers=_DANAWA_HEADERS)
+            html = resp.text
+            del resp
+            products = await asyncio.to_thread(_extract_products_json, html)
+            for p in products:
+                if isinstance(p, dict) and p.get("productSeq"):
+                    return str(p["productSeq"])
+            pcodes = re.findall(r'pcode=(\d+)', html)
+            return pcodes[0] if pcodes else None
     except Exception:
         return None
 
@@ -388,12 +392,31 @@ async def _send_buy_signal_emails(today_str: str):
         print(f"[email] 매입 알림 처리 실패: {e}")
 
 
+async def run_once_per_day(key: str, job, hours: int = 20) -> None:
+    """Render 무료 서버는 15분 동안 요청이 없으면 잠들고 요청이 오면 새로 뜬다.
+    예전에는 뜰 때마다 하루치 수집을 처음부터 다시 돌려서 사용자 요청과 겹치면
+    메모리 512MB를 넘겨 서버가 죽었다(Render 'Ran out of memory'). 마지막 실행 시각을 DB에 남겨
+    hours 안에 이미 돌았으면 건너뛴다."""
+    from app.services.naver_cache import get_db_cache, set_db_cache
+    marker = f"job:{key}:last_run"
+    try:
+        if await get_db_cache(marker):
+            print(f"[{key}] 최근 {hours}시간 안에 이미 실행됨 → 건너뜀")
+            return
+    except Exception as e:
+        print(f"[{key}] 실행 기록 확인 실패 (그냥 실행): {e}")
+    await job()
+    try:
+        await set_db_cache(marker, {"at": datetime.utcnow().isoformat()}, ttl_hours=hours)
+    except Exception as e:
+        print(f"[{key}] 실행 기록 저장 실패: {e}")
+
+
 async def price_snapshot_loop():
     await asyncio.sleep(5)
-    await _collect_daily_prices()
     while True:
-        await asyncio.sleep(24 * 3600)  # 하루 1회 수집 (네이버 API 쿼터 절약)
-        await _collect_daily_prices()
+        await run_once_per_day("snapshot", _collect_daily_prices)
+        await asyncio.sleep(6 * 3600)  # 서버가 계속 깨어 있으면 6시간마다 확인 (실제 수집은 하루 1회)
 
 
 async def backfill_category_price_history(category: str, today: date) -> None:

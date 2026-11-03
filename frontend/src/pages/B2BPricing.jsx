@@ -64,21 +64,10 @@ export default function B2BPricing() {
   const isB2BActive = (user?.user_type === 'b2b' && user?.status === 'active') || user?.role === 'admin'
   const currentTier = user?.tier ?? 'free'
 
-  if (!isB2BActive) {
-    return (
-      <div className={s.page}>
-        <Navbar />
-        <div className={s.denied}>
-          <p className={s.deniedTitle}>
-            {!user ? '로그인이 필요합니다' : user.user_type !== 'b2b' ? 'B2B 계정 전용입니다' : '승인 대기 중입니다'}
-          </p>
-          <button className={s.deniedBtn} onClick={() => navigate(!user ? '/login' : '/b2b')}>
-            {!user ? '로그인' : 'B2B 홈으로'}
-          </button>
-        </div>
-      </div>
-    )
-  }
+  // 요금제는 누구나 볼 수 있게 하고 구독 버튼에서만 로그인 · B2B 승인 여부를 확인한다
+  const gate = !user ? { label: '로그인 후 구독', to: '/login' }
+    : !isB2BActive ? { label: user.user_type !== 'b2b' ? 'B2B 계정 전용' : '승인 대기 중', to: '/b2b' }
+    : null
 
   async function handleSubscribe(tier, price, name) {
     if (!SKIP_PAYMENT_VERIFICATION && !window.TossPayments) {
@@ -135,7 +124,7 @@ export default function B2BPricing() {
           <p className={s.eyebrow}>B2B 요금제</p>
           <h1 className={s.title}>등급을 선택하세요</h1>
           <p className={s.sub}>
-            현재 등급: <strong>{TIER_LABEL[currentTier]}</strong>
+            {user ? <>현재 등급: <strong>{TIER_LABEL[currentTier]}</strong></> : '시장 분석 · 수요 예측 · AI 전략 리포트를 등급별로 이용할 수 있어요'}
             {user?.tier_expires_at && currentTier !== 'free' && (
               <> · {new Date(user.tier_expires_at).toLocaleDateString('ko-KR')}까지</>
             )}
@@ -162,11 +151,11 @@ export default function B2BPricing() {
               ))}
             </ul>
             <button className={`${s.subscribeBtn} ${s.subscribeBtnCurrent}`} disabled>
-              {currentTier === 'free' ? '이용 중' : '기본 제공'}
+              {user && currentTier === 'free' ? '이용 중' : '기본 제공'}
             </button>
           </div>
           {PLANS.map(plan => {
-            const isCurrent = currentTier === plan.tier
+            const isCurrent = !gate && currentTier === plan.tier
             return (
               <div key={plan.tier} className={`${s.card} ${plan.highlight ? s.cardHighlight : ''}`}>
                 {plan.highlight && <span className={s.badge}>가장 많이 선택</span>}
@@ -185,13 +174,19 @@ export default function B2BPricing() {
                     </li>
                   ))}
                 </ul>
-                <button
-                  className={`${s.subscribeBtn} ${isCurrent ? s.subscribeBtnCurrent : ''}`}
-                  disabled={isCurrent || loadingTier === plan.tier}
-                  onClick={() => handleSubscribe(plan.tier, plan.price, plan.name)}
-                >
-                  {isCurrent ? '이용 중' : loadingTier === plan.tier ? '결제창 여는 중...' : '구독하기'}
-                </button>
+                {gate ? (
+                  <button className={s.subscribeBtn} onClick={() => navigate(gate.to)}>
+                    {gate.label}
+                  </button>
+                ) : (
+                  <button
+                    className={`${s.subscribeBtn} ${isCurrent ? s.subscribeBtnCurrent : ''}`}
+                    disabled={isCurrent || loadingTier === plan.tier}
+                    onClick={() => handleSubscribe(plan.tier, plan.price, plan.name)}
+                  >
+                    {isCurrent ? '이용 중' : loadingTier === plan.tier ? '결제창 여는 중...' : '구독하기'}
+                  </button>
+                )}
               </div>
             )
           })}

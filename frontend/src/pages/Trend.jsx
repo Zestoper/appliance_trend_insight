@@ -146,7 +146,7 @@ function RankRow({ item, rank, onClick }) {
       <div className={styles.scoreWrap}>
         {item.tag && <span className={styles.aiTag}>{item.tag}</span>}
         <span className={styles.scoreNum}>
-          {item.trend_score > 0 ? Math.round(item.trend_score) : '—'}
+          {item.rank_score != null ? item.rank_score : item.trend_score > 0 ? Math.round(item.trend_score) : '—'}
         </span>
         <span className={styles.scoreLabel}>트렌드 지수</span>
       </div>

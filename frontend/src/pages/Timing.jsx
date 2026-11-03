@@ -369,20 +369,23 @@ function PriceChart({ data, launchPrice, launchDiscPct }) {
     )
   }
 
-  // 데이터 첫날 ~ 오늘 기준으로 그리드 생성 (최소 7일, 최대 30일)
+  // 데이터 첫날 ~ 오늘 기준으로 그리드 생성 (최대 31일 = 서버가 주는 30일 전 ~ 오늘)
+  // 날짜는 브라우저 현지(한국) 기준 문자열로 만든다. toISOString()은 UTC라 새벽에 하루 밀리고
+  // 30일 제한 때문에 첫날(대개 최저가가 찍힌 날)이 그래프에서 잘려 나갔다
+  const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   const today = new Date()
-  const todayStr = today.toISOString().slice(0, 10)
+  const todayStr = ymd(today)
   const firstDay = actual.reduce((a, b) => a.period < b.period ? a : b).period
   const msPerDay = 86400000
   const diffDays = Math.round((new Date(todayStr) - new Date(firstDay)) / msPerDay)
-  const gridDays = Math.min(diffDays + 1, 30)
+  const gridDays = Math.min(diffDays + 1, 31)
   const gridStart = new Date(today)
   gridStart.setDate(today.getDate() - (gridDays - 1))
 
   const grid = Array.from({ length: gridDays }, (_, i) => {
     const d = new Date(gridStart)
     d.setDate(gridStart.getDate() + i)
-    return d.toISOString().slice(0, 10)
+    return ymd(d)
   })
   const priceMap = Object.fromEntries(actual.map(d => [d.period, d.price]))
   const gridData = grid.map(day => ({ day, price: priceMap[day] ?? null }))
@@ -786,7 +789,7 @@ export default function Timing() {
                     &nbsp;·&nbsp;
                     30일 평균: {analysis.search_summary.avg90}
                     &nbsp;·&nbsp;
-                    평균 대비: {analysis.search_summary.diff_pct > 0 ? '+' : ''}{analysis.search_summary.diff_pct}%
+                    최근 7일 평균은 30일 평균 대비 {analysis.search_summary.diff_pct > 0 ? '+' : ''}{analysis.search_summary.diff_pct}%
                     &nbsp;·&nbsp;
                     최고점: {analysis.search_summary.peak_day}
                   </p>

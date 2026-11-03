@@ -6,6 +6,13 @@ import { useAuth } from '../context/AuthContext'
 import { API_BASE } from '../config'
 import { ArrowRight, ChevronDown, ChevronUp, Crown, Heart, Lock, Newspaper, Play, Star, TriangleAlert, X } from 'lucide-react'
 
+// 받침 유무에 맞춰 주격 조사 붙이기 (LG전자가 / 삼성전자가 / 쿠쿠가 / 위닉스가)
+function withSubject(word) {
+  const last = word?.charCodeAt(word.length - 1) ?? 0
+  if (last < 0xac00 || last > 0xd7a3) return `${word}이(가)`
+  return (last - 0xac00) % 28 ? `${word}이` : `${word}가`
+}
+
 function MiniChart({ data, uid }) {
   if (!data || data.length === 0) return <p className={styles.noData}>데이터 없음</p>
   if (data.length === 1) return (
@@ -184,7 +191,7 @@ function ProductCard({ product, report, loading, onRemove, isWinner }) {
   const [openSection, setOpenSection] = useState(null)
 
   const trendData = report?.datalab?.data ?? []
-  const recentData = trendData.slice(-4)
+  const recentData = trendData.slice(-28)   // 일별 데이터 → 최근 4주(28일)
   const trendScore = recentData.length > 0
     ? Math.round(recentData.reduce((s, d) => s + d.ratio, 0) / recentData.length)
     : null
@@ -480,7 +487,7 @@ export default function Compare() {
 
   function getTrendScore(r) {
     const data = r?.datalab?.data ?? []
-    const recent = data.slice(-4)
+    const recent = data.slice(-28)   // 일별 데이터 → 최근 4주(28일)
     return recent.length > 0
       ? Math.round(recent.reduce((s, d) => s + d.ratio, 0) / recent.length)
       : null
@@ -747,7 +754,7 @@ export default function Compare() {
               const diff     = maxOther - cheapest.price
               return diff > 0 ? (
                 <p className={styles.priceDiff}>
-                  {cheapest.brand || `제품 ${priceWin + 1}`}이 가장 저렴해요 —
+                  {withSubject(cheapest.brand || `제품 ${priceWin + 1}`)} 가장 저렴해요 —
                   최대 {diff.toLocaleString()}원 차이
                 </p>
               ) : null
