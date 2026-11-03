@@ -777,10 +777,15 @@ async def get_search_analysis(
     if product_items:
         prices = sorted(it["price"] for it in product_items)
         med = prices[len(prices) // 2]
-        filt = [it for it in product_items if med * 0.2 <= it["price"] <= med * 5]
+        # 예전엔 중앙값의 0.2~5배까지 받아서 부품 · 다른 모델(70만원)이나 묶음 상품(286만원)이 섞였다
+        # → 다나와 최근 가격이 있으면 그 기준 0.5~1.6배 · 없으면 중앙값 기준 0.5~2배만 쓴다
+        ref = danawa_ref_price or med
+        lo_k, hi_k = (0.5, 1.6) if danawa_ref_price else (0.5, 2.0)
+        filt = [it for it in product_items if ref * lo_k <= it["price"] <= ref * hi_k]
         if filt:
-            fp = [it["price"] for it in filt]
-            min_p, max_p, avg_p = min(fp), max(fp), int(sum(fp) / len(fp))
+            fp = sorted(it["price"] for it in filt)
+            # 평균가는 튀는 값에 끌려가지 않게 중앙값으로 저장한다
+            min_p, max_p, avg_p = fp[0], fp[-1], fp[len(fp) // 2]
             mall_map: dict[str, int] = {}
             for it in filt:
                 m = it["mall"]
@@ -823,6 +828,14 @@ async def get_search_analysis(
                 d = str(r["snapshot_date"])
                 merged_history[d] = {"date": d, "min_price": r["min_price"], "avg_price": r["avg_price"]}
             price_history = [merged_history[k] for k in sorted(merged_history.keys())]
+            # 예전에 저장된 튀는 값(묶음 상품 평균 · 다른 모델 최저가)은 그래프와 계산에서 뺀다
+            if len(price_history) >= 4:
+                _avgs = sorted(r["avg_price"] for r in price_history)
+                _mh = _avgs[len(_avgs) // 2]
+                _kept = [r for r in price_history
+                         if _mh * 0.6 <= r["avg_price"] <= _mh * 1.6 and r["min_price"] >= _mh * 0.5]
+                if len(_kept) >= 2:
+                    price_history = _kept
 
             # "역대 평균가"는 오늘 이전의 진짜 과거 이력만으로 계산해야 한다 — 위에서 오늘
             # 스냅샷을 이미 DB에 저장한 뒤 이 history_rows를 다시 읽어오기 때문에, 필터링
@@ -1185,12 +1198,13 @@ async def get_search_analysis(
     demand_headline = None
     demand_reason = None
     if price_block and len(price_block["price_history"]) >= 2:
-        _price_pts = [{"period": r["date"], "ratio": r["avg_price"]} for r in price_block["price_history"]]
-        _, _price_slope = _linear_trend_fit(_price_pts)
-        _p_dir = "하락" if _price_slope < 0 else ("상승" if _price_slope > 0 else "보합")
         price_trend_pct = price_block["price_change_pct"]
+        # 방향은 숫자(순변동)와 같은 기준으로 정한다 — 예전엔 회귀 기울기로 정해서
+        # "상승세인데 순변동 -2.7%"처럼 한 문장 안에서 모순이 생겼다 (±1% 안은 보합)
+        _p_dir = "하락" if price_trend_pct <= -1 else ("상승" if price_trend_pct >= 1 else "보합")
         demand_headline = (
-            f"이 제품의 실제 가격은 최근 {_p_dir}세이며, 이력 기간 순변동은 "
+            f"이 제품의 실제 가격은 이력 기간 동안 "
+            f"{ {'하락': '내렸으며', '상승': '올랐으며'}.get(_p_dir, '거의 변하지 않았으며') } 순변동은 "
             f"{'+' if price_trend_pct >= 0 else ''}{price_trend_pct}%입니다."
         )
         # demand_reason은 AI에 맡기지 않고 항상 규칙 기반으로 만든다 — AI가 여기서도
