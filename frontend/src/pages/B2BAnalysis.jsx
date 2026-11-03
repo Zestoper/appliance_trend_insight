@@ -138,7 +138,7 @@ function Sparkline({ data }) {
 }
 
 // ── 날씨 · 미세먼지와 검색량 (두 값의 단위가 달라 각각 0~1로 맞춰 겹쳐 그림) ──
-function WeatherChart({ series, label, unit }) {
+function WeatherChart({ series, label, unit, keyword }) {
   if (!series || series.length < 2) return null
   const W = 500, H = 150, pX = 8, pY = 12
   const norm = key => {
@@ -157,7 +157,7 @@ function WeatherChart({ series, label, unit }) {
         <polyline points={line(norm('value'))} fill="none" stroke="#f59e0b" strokeWidth="2" strokeDasharray="5 4" strokeLinejoin="round" />
       </svg>
       <div className={s.dualLegend}>
-        <span><i style={{ background: '#818cf8' }} />검색량</span>
+        <span><i style={{ background: '#818cf8' }} />&apos;{keyword}&apos; 검색량</span>
         <span><i style={{ background: '#f59e0b' }} />{label} ({Math.min(...vals)}~{Math.max(...vals)}{unit})</span>
         <span>{series[0].period} ~ {series.at(-1).period}</span>
       </div>
@@ -584,7 +584,7 @@ export default function B2BAnalysis() {
                         </p>
                       </div>
                     </div>
-                    <WeatherChart series={data.weather_signal.series} label={data.weather_signal.label} unit={data.weather_signal.unit} />
+                    <WeatherChart series={data.weather_signal.series} label={data.weather_signal.label} unit={data.weather_signal.unit} keyword={data.weather_signal.keyword} />
                     <div className={s.reasonBox}>{data.weather_signal.text}</div>
                   </div>
                 )}
@@ -595,7 +595,7 @@ export default function B2BAnalysis() {
                     <div className={s.cardHead}>
                       <div>
                         <h2 className={s.cardTitle}>안전사고 접수 TOP 3</h2>
-                        <p className={s.cardSub}>한국소비자원 위해정보 · {data.category} {data.safety_top.total}건 기준</p>
+                        <p className={s.cardSub}>한국소비자원 위해정보 · {data.category} {data.safety_top.total}건 · {data.safety_top.basis}별</p>
                       </div>
                     </div>
                     <div className={s.safetyList}>

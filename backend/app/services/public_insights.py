@@ -80,7 +80,7 @@ def _corr(xs: list[float], ys: list[float]) -> float | None:
     return sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / math.sqrt(sxx * syy)
 
 
-async def weather_signal(category: str | None, weekly_search: list[dict]) -> dict | None:
+async def weather_signal(category: str | None, weekly_search: list[dict], keyword: str | None = None) -> dict | None:
     """검색량(주별)과 날씨가 같이 움직인 정도를 계산해 화면용으로 돌려준다."""
     if not weekly_search:
         return None
@@ -121,6 +121,7 @@ async def weather_signal(category: str | None, weekly_search: list[dict]) -> dic
 
     return {
         "variable": key,
+        "keyword": keyword or category,
         "label": label,
         "title": f"{_josa(label, '과', '와')} 검색량",
         "unit": unit,
@@ -140,19 +141,25 @@ async def safety_top(category: str | None) -> dict | None:
         return None
     cached = await get_db_cache_stale(f"ext:kca:{category}")
     items = (cached or {}).get("items") or []
-    labels = []
-    for it in items:
-        v = (it.get("content") or "").strip() or (it.get("injury") or "").strip()
-        if v and v not in ("-", "기타", "None", "null"):
-            labels.append(v)
-    if len(labels) < 3:
+    skip = {"", "-", "기타", "해당없음", "해당 없음", "불명", "없음", "미상", "None", "null"}
+    basis, labels = None, []
+    # 원인(예: 화재 · 감전)이 있으면 원인으로, 없으면 증상(예: 화상)으로 센다
+    for field, name in (("cause", "원인"), ("content", "증상"), ("injury", "다친 부위")):
+        vals = [(it.get(field) or "").strip() for it in items]
+        vals = [v for v in vals if v not in skip]
+        if len(vals) >= 3:
+            basis, labels = name, vals
+            break
+    if not labels:
         return None
     total = len(labels)
     top = [{"label": k, "count": c, "pct": round(c / total * 100)} for k, c in Counter(labels).most_common(3)]
     return {
         "total": total,
+        "basis": basis,
         "top": top,
-        "text": f"소비자원에 접수된 {category} 안전사고 {total}건 중 가장 많은 건 '{top[0]['label']}'({top[0]['pct']}%)예요.",
+        "text": f"소비자원에 접수된 {category} 안전사고 {total}건을 {basis}별로 보면 '{top[0]['label']}'"
+                f"{_josa(top[0]['label'], '이', '가')[len(top[0]['label']):]} 가장 많아요({top[0]['pct']}%).",
     }
 
 

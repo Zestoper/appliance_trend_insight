@@ -500,12 +500,20 @@ async def fetch_kca_complaints(category: str, rows: list[dict] | None = None) ->
         i for i in rows
         if any(kw in (i.get("itemMinor") or "") or kw in (i.get("itemMiddle") or "") for kw in keywords)
     ]
+    def _pick(item: dict, word: str) -> str:
+        # 위해 원인 필드 이름이 문서에 없어(이미지 명세) 'cause'가 들어간 필드를 찾아 쓴다
+        for k, v in item.items():
+            if word in k.lower() and isinstance(v, str) and v.strip():
+                return v.strip()
+        return ""
+
     return [
         {
             "date":     (item.get("receiveDay") or "")[:10],
             "content":  item.get("injurySymptoms", ""),
             "product":  item.get("itemMinor", ""),
             "injury":   item.get("injuryPart", ""),
+            "cause":    _pick(item, "cause"),
         }
         for item in filtered
     ]
@@ -680,6 +688,8 @@ async def _refresh_ext_data_once() -> None:
     try:
         kca_rows = await fetch_kca_rows()
         logger.info("[PublicData] KCA 원자료 %d건", len(kca_rows))
+        if kca_rows:
+            await _set("ext:kca:_fields", {"keys": sorted(kca_rows[0].keys())}, ttl_hours=168)
     except Exception as e:
         kca_rows = []
         logger.warning("[PublicData] KCA 수집 실패: %s", e)
