@@ -376,6 +376,14 @@ async def _collect_daily_prices():
         except Exception as e:
             print(f"[snapshot]   DataLab {cat} 실패: {e}")
 
+    # 품목별 예측 모델 선택 (백테스트) — 숫자 몇백 개라 메모리 부담 없음
+    try:
+        from app.routers.b2b_search_analysis import refresh_model_choice
+        picked = await refresh_model_choice()
+        print("[snapshot]   예측 모델 선택: " + ", ".join(f"{c}={v['label']}" for c, v in picked.items()))
+    except Exception as e:
+        print(f"[snapshot]   예측 모델 선택 실패: {e}")
+
     print(f"[snapshot] {today_str} {slot:02d}h 완료")
 
     # ── 매입 적기 알림 이메일 발송 ───────────────────────────────────────────

@@ -699,11 +699,14 @@ async def get_search_analysis(
     linear_trend_pts, slope = _linear_trend_fit(trend_data) if trend_data else ([], 0.0)
 
     prophet_forecast = []
+    # 품목별 백테스트로 골라둔 모델로 예측 (없으면 Holt-Winters) — services/forecast_models.py
+    forecast_model, forecast_label = await get_model_choice(detected_category)
     if _FORECAST_AVAILABLE and len(train_data) >= 8:
         try:
-            prophet_forecast = await asyncio.to_thread(_run_forecast_sync, train_data, 22)
+            from app.services.forecast_models import forecast_rows
+            prophet_forecast = await asyncio.to_thread(forecast_rows, forecast_model, train_data, 22, _run_forecast_sync)
         except Exception as e:
-            logger.warning("[search-analysis] Holt-Winters 예측 실패: %s", e)
+            logger.warning("[search-analysis] 예측 실패(%s): %s", forecast_model, e)
     if not prophet_forecast and trend_data:
         prophet_forecast, _ = _linear_forecast(trend_data)
 
@@ -1270,6 +1273,7 @@ async def get_search_analysis(
             "history":          trend_data,
             "linear_trend":     linear_trend_pts,
             "prophet_forecast": prophet_forecast,
+            "model":            forecast_label,
             "rag_enhanced":     rag_enhanced,
             "reason":           interest_reason,
         },
@@ -1336,75 +1340,83 @@ async def get_search_analysis(
     return result
 
 
-# ── 예측 정확도 백테스트 (관리자 전용) ─────────────────────────────────────────
+# ── 예측 모델 품목별 자동 선택 (백테스트) ───────────────────────────────────────
 _BACKTEST_CATEGORIES = ["냉장고", "세탁기", "건조기", "에어컨", "공기청정기",
                         "로봇청소기", "식기세척기", "TV", "제습기", "가습기"]
+MODEL_CHOICE_KEY = "forecast_model_choice:v1"
 
 
 def _mape(actual: list[float], pred: list[float]) -> float | None:
-    pairs = [(a, p) for a, p in zip(actual, pred) if a > 0]
-    if not pairs:
-        return None
-    return round(sum(abs(a - p) / a for a, p in pairs) / len(pairs) * 100, 1)
+    from app.services.forecast_models import mape
+    m = mape(actual, pred)
+    return round(m, 1) if m is not None else None
+
+
+async def _fetch_weekly(keyword: str, days: int) -> list[dict]:
+    today = date.today()
+    body = {
+        "startDate": (today - timedelta(days=days)).strftime("%Y-%m-%d"),
+        "endDate":   today.strftime("%Y-%m-%d"),
+        "timeUnit":  "week",
+        "keywordGroups": [{"groupName": keyword, "keywords": [keyword]}],
+    }
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        resp = await client.post("https://openapi.naver.com/v1/datalab/search", json=body,
+                                 headers={**NAVER_HEADERS, "Content-Type": "application/json"})
+    res = resp.json().get("results", [])
+    return res[0]["data"][:-1] if res else []   # 이번 주는 아직 덜 쌓여 제외
+
+
+async def refresh_model_choice() -> dict:
+    """품목마다 후보 모델을 과거 4개 시점에서 백테스트해 오차가 가장 작은 모델을 골라 캐시에 저장한다.
+    하루 1번 새벽 수집 때 실행 — 사용자 요청 중에는 저장된 선택만 꺼내 쓴다."""
+    from app.services.forecast_models import MODEL_LABELS, best_model, evaluate
+    from app.services.naver_cache import set_db_cache
+    choice = {}
+    for cat in _BACKTEST_CATEGORIES:
+        try:
+            data = await _fetch_weekly(cat, FORECAST_TRAIN_DAYS)
+        except Exception as e:
+            logger.warning("[model-select] %s 데이터 조회 실패: %s", cat, e)
+            continue
+        if len(data) < 60:
+            continue
+        scores = await asyncio.to_thread(evaluate, data, _run_forecast_sync)
+        if not scores:
+            continue
+        m = best_model(scores)
+        choice[cat] = {"model": m, "label": MODEL_LABELS[m], "scores": scores}
+        await asyncio.sleep(0.3)
+    if choice:
+        await set_db_cache(MODEL_CHOICE_KEY, {"choice": choice, "updated": date.today().isoformat()}, ttl_hours=24 * 8)
+    return choice
+
+
+async def get_model_choice(category: str | None) -> tuple[str, str]:
+    from app.services.forecast_models import MODEL_LABELS
+    from app.services.naver_cache import get_db_cache_stale
+    try:
+        cached = await get_db_cache_stale(MODEL_CHOICE_KEY)
+        c = ((cached or {}).get("choice") or {}).get(category or "")
+        if c and c.get("model") in MODEL_LABELS:
+            return c["model"], MODEL_LABELS[c["model"]]
+    except Exception:
+        pass
+    return "hw", MODEL_LABELS["hw"]
 
 
 @router.get("/backtest")
-async def backtest_forecast(
-    holdout: int = Query(8, ge=4, le=26, description="마지막 몇 주를 가려두고 맞혀볼지"),
-    _: dict = Depends(require_admin),
-):
-    """수요 예측(감쇠 추세 Holt-Winters)이 실제로 얼마나 맞는지 확인한다.
-    카테고리별 데이터랩 주간 검색량 4년치에서 마지막 holdout주를 가리고 그 앞까지만으로 예측한 뒤
-    실제 값과 비교한다 (MAPE). 기준선으로 '마지막 주 값이 그대로 이어진다'는 단순 예측(naive)과 비교한다."""
-    today = date.today()
-    results = []
-    for cat in _BACKTEST_CATEGORIES:
-        body = {
-            "startDate": (today - timedelta(days=FORECAST_TRAIN_DAYS)).strftime("%Y-%m-%d"),
-            "endDate":   today.strftime("%Y-%m-%d"),
-            "timeUnit":  "week",
-            "keywordGroups": [{"groupName": cat, "keywords": [cat]}],
-        }
-        try:
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                resp = await client.post("https://openapi.naver.com/v1/datalab/search", json=body,
-                                         headers={**NAVER_HEADERS, "Content-Type": "application/json"})
-            res = resp.json().get("results", [])
-            data = res[0]["data"][:-1] if res else []   # 이번 주는 아직 덜 쌓여 제외
-        except Exception as e:
-            results.append({"category": cat, "error": str(e)[:100]})
-            continue
-        if len(data) < holdout + 20:
-            results.append({"category": cat, "error": f"데이터 부족 ({len(data)}주)"})
-            continue
-        train, test = data[:-holdout], data[-holdout:]
-        actual = [float(d["ratio"]) for d in test]
-        fc = await asyncio.to_thread(_run_forecast_sync, train, holdout, "W")
-        pred = [r["ratio"] for r in fc][:holdout]
-        naive = [float(train[-1]["ratio"])] * holdout
-        # 계절 기준선: 1년 전 같은 주 값 (계절 가전에 더 공정한 비교 대상)
-        snaive = [float(data[len(data) - holdout + i - 52]["ratio"]) for i in range(holdout)] if len(data) >= holdout + 52 else None
-        within = sum(1 for a, r in zip(actual, fc) if r["lower"] <= a <= r["upper"])
-        results.append({
-            "category": cat,
-            "weeks": len(data),
-            "mape": _mape(actual, pred),
-            "naive_mape": _mape(actual, naive),
-            "seasonal_naive_mape": _mape(actual, snaive) if snaive else None,
-            "seasonal": len(train) >= 104,
-            "in_interval_pct": round(within / holdout * 100),
-        })
-        await asyncio.sleep(0.3)
-
-    ok = [r for r in results if r.get("mape") is not None and r.get("naive_mape") is not None]
-    avg = lambda k: round(sum(r[k] for r in ok) / len(ok), 1) if ok else None
+async def backtest_forecast(_: dict = Depends(require_admin)):
+    """품목별로 후보 모델의 백테스트 오차(MAPE %)를 비교하고 선택 결과를 갱신한다 (관리자 전용)."""
+    choice = await refresh_model_choice()
+    def avg(model):
+        vals = [c["scores"][model] for c in choice.values() if model in c["scores"]]
+        return round(sum(vals) / len(vals), 1) if vals else None
+    from app.services.forecast_models import MODEL_LABELS
+    selected = [c["scores"][c["model"]] for c in choice.values()]
     return {
-        "holdout_weeks": holdout,
-        "model": "감쇠 추세 Holt-Winters (주간 검색량)",
-        "avg_mape": avg("mape"),
-        "avg_naive_mape": avg("naive_mape"),
-        "avg_seasonal_naive_mape": round(sum(r["seasonal_naive_mape"] for r in ok if r.get("seasonal_naive_mape") is not None)
-                                         / max(1, sum(1 for r in ok if r.get("seasonal_naive_mape") is not None)), 1),
-        "avg_in_interval_pct": avg("in_interval_pct"),
-        "categories": results,
+        "method": "품목마다 끝에서 8 · 16 · 24 · 32주 전 4개 시점에서 8주를 가리고 예측해 평균 오차 비교",
+        "avg_mape_by_model": {MODEL_LABELS[m]: avg(m) for m in MODEL_LABELS},
+        "avg_mape_selected": round(sum(selected) / len(selected), 1) if selected else None,
+        "categories": choice,
     }
