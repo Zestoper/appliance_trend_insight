@@ -1255,8 +1255,12 @@ async def get_search_analysis(
     # 공공데이터: 날씨 · 미세먼지와 검색량 / 소비자원 안전사고 TOP 3 (services/public_insights.py)
     from app.services.public_insights import safety_top, weather_signal
     try:
+        # 날씨와의 관계는 제품 라인('삼성 비스포크 AI')보다 품목('에어컨') 검색량이 정확하다
+        #   — 제품 라인은 신제품 · 광고 때문에 튀어서 날씨와 상관이 흐려진다
+        cat_weekly = await _fetch_weekly_cached(detected_category)
         weather_info, safety_info = await asyncio.gather(
-            weather_signal(detected_category, train_data or trend_data),
+            weather_signal(detected_category, cat_weekly or train_data or trend_data,
+                           detected_category if cat_weekly else trend_keyword),
             safety_top(detected_category),
         )
     except Exception as e:
@@ -1388,6 +1392,26 @@ async def _fetch_weekly(keyword: str, days: int) -> list[dict]:
     return res[0]["data"][:-1] if res else []   # 이번 주는 아직 덜 쌓여 제외
 
 
+_WEEKLY_CACHE: dict[tuple[str, str], list[dict]] = {}
+
+
+async def _fetch_weekly_cached(keyword: str | None) -> list[dict]:
+    """품목 검색량 4년치 — 하루 동안 메모리에 둔다 (품목 10여 개 × 200주라 작음)."""
+    if not keyword:
+        return []
+    key = (keyword, date.today().isoformat())
+    if key not in _WEEKLY_CACHE:
+        try:
+            data = await _fetch_weekly(keyword, FORECAST_TRAIN_DAYS)
+        except Exception as e:
+            logger.warning("[weather] %s 검색량 조회 실패: %s", keyword, e)
+            return []
+        for k in [k for k in _WEEKLY_CACHE if k[1] != key[1]]:
+            _WEEKLY_CACHE.pop(k, None)
+        _WEEKLY_CACHE[key] = data
+    return _WEEKLY_CACHE[key]
+
+
 async def refresh_model_choice() -> dict:
     """품목마다 후보 모델을 과거 4개 시점에서 백테스트해 오차가 가장 작은 모델을 골라 캐시에 저장한다.
     하루 1번 새벽 수집 때 실행 — 사용자 요청 중에는 저장된 선택만 꺼내 쓴다."""
@@ -1487,6 +1511,7 @@ async def public_data_status(_: dict = Depends(require_admin)):
         items = (c or {}).get("items") or []
         status[key] = {"count": len(items), "first": items[0]["date"] if items else None,
                        "last": items[-1]["date"] if items else None}
+    status["kca_fields"] = ((await get_db_cache_stale("ext:kca:_fields")) or {}).get("keys")
     for cat in _KCA_CATEGORIES:
         c = await get_db_cache_stale(f"ext:kca:{cat}")
         status[f"ext:kca:{cat}"] = len((c or {}).get("items") or [])
