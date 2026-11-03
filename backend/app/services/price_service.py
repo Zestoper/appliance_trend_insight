@@ -289,8 +289,22 @@ async def _collect_daily_prices():
                 await _upsert_price_history(cat, avg_p, min_p, max_p, median_p, _json.dumps(brand_list, ensure_ascii=False), len(prices))
 
             # 개별 제품 가격: 관련도 상위 5개 + 출시년월이 가장 최근인 3개 (사용자가 안 봐도 최신 제품 이력이 쌓이도록)
-            newest = sorted([it for it in valid_items if it.get("release")],
-                            key=lambda it: it["release"], reverse=True)[:3]
+            # 최신순으로 보되 브랜드가 겹치지 않게 먼저 고르고 (LG 3개처럼 한 브랜드로 쏠리지 않도록) 모자라면 채운다
+            by_new = sorted([it for it in valid_items if it.get("release")],
+                            key=lambda it: it["release"], reverse=True)
+            newest, brands = [], set()
+            for it in by_new:
+                b = (it.get("brand") or it["title"].split()[0]).strip()
+                if b not in brands:
+                    newest.append(it)
+                    brands.add(b)
+                if len(newest) == 3:
+                    break
+            for it in by_new:
+                if len(newest) == 3:
+                    break
+                if it not in newest:
+                    newest.append(it)
             picks = {str(it["id"]): it for it in valid_items[:5] + newest if it.get("id") and it["price"] > 0}
             for pid, it in picks.items():
                 try:
