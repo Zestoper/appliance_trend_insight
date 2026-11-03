@@ -7,6 +7,7 @@ from app.routers.b2b_utils import *
 from app.services.price_service import get_danawa_price_history
 from app.routers.naver import search_products
 from app.config import CATEGORY_RULES
+from app.auth import require_admin
 
 # 예측은 순수 파이썬 Holt-Winters로 한다 (_run_forecast_sync) — 항상 사용 가능
 _FORECAST_AVAILABLE = True
@@ -1328,3 +1329,71 @@ async def get_search_analysis(
     _ttl = _GROQ_TTL if ai_result else 60
     _GROQ_CACHE[_ck] = (_time.time() + _ttl, result)
     return result
+
+
+# ── 예측 정확도 백테스트 (관리자 전용) ─────────────────────────────────────────
+_BACKTEST_CATEGORIES = ["냉장고", "세탁기", "건조기", "에어컨", "공기청정기",
+                        "로봇청소기", "식기세척기", "TV", "제습기", "가습기"]
+
+
+def _mape(actual: list[float], pred: list[float]) -> float | None:
+    pairs = [(a, p) for a, p in zip(actual, pred) if a > 0]
+    if not pairs:
+        return None
+    return round(sum(abs(a - p) / a for a, p in pairs) / len(pairs) * 100, 1)
+
+
+@router.get("/backtest")
+async def backtest_forecast(
+    holdout: int = Query(8, ge=4, le=26, description="마지막 몇 주를 가려두고 맞혀볼지"),
+    _: dict = Depends(require_admin),
+):
+    """수요 예측(감쇠 추세 Holt-Winters)이 실제로 얼마나 맞는지 확인한다.
+    카테고리별 데이터랩 주간 검색량 2년치에서 마지막 holdout주를 가리고 그 앞까지만으로 예측한 뒤
+    실제 값과 비교한다 (MAPE). 기준선으로 '마지막 주 값이 그대로 이어진다'는 단순 예측(naive)과 비교한다."""
+    today = date.today()
+    results = []
+    for cat in _BACKTEST_CATEGORIES:
+        body = {
+            "startDate": (today - timedelta(days=730)).strftime("%Y-%m-%d"),
+            "endDate":   today.strftime("%Y-%m-%d"),
+            "timeUnit":  "week",
+            "keywordGroups": [{"groupName": cat, "keywords": [cat]}],
+        }
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.post("https://openapi.naver.com/v1/datalab/search", json=body,
+                                         headers={**NAVER_HEADERS, "Content-Type": "application/json"})
+            res = resp.json().get("results", [])
+            data = res[0]["data"][:-1] if res else []   # 이번 주는 아직 덜 쌓여 제외
+        except Exception as e:
+            results.append({"category": cat, "error": str(e)[:100]})
+            continue
+        if len(data) < holdout + 20:
+            results.append({"category": cat, "error": f"데이터 부족 ({len(data)}주)"})
+            continue
+        train, test = data[:-holdout], data[-holdout:]
+        actual = [float(d["ratio"]) for d in test]
+        fc = await asyncio.to_thread(_run_forecast_sync, train, holdout, "W")
+        pred = [r["ratio"] for r in fc][:holdout]
+        naive = [float(train[-1]["ratio"])] * holdout
+        within = sum(1 for a, r in zip(actual, fc) if r["lower"] <= a <= r["upper"])
+        results.append({
+            "category": cat,
+            "weeks": len(data),
+            "mape": _mape(actual, pred),
+            "naive_mape": _mape(actual, naive),
+            "in_interval_pct": round(within / holdout * 100),
+        })
+        await asyncio.sleep(0.3)
+
+    ok = [r for r in results if r.get("mape") is not None and r.get("naive_mape") is not None]
+    avg = lambda k: round(sum(r[k] for r in ok) / len(ok), 1) if ok else None
+    return {
+        "holdout_weeks": holdout,
+        "model": "감쇠 추세 Holt-Winters (주간 검색량)",
+        "avg_mape": avg("mape"),
+        "avg_naive_mape": avg("naive_mape"),
+        "avg_in_interval_pct": avg("in_interval_pct"),
+        "categories": results,
+    }
