@@ -11,6 +11,16 @@ if sys.platform == "win32":
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+# Render는 Python 런타임으로 배포돼 Dockerfile의 ENV MALLOC_ARENA_MAX가 적용되지 않는다.
+# 다나와 HTML 파싱을 스레드에서 돌리면 glibc가 스레드마다 메모리 영역(arena)을 새로 만들어
+# 반납하지 않고 쌓아두므로 512MB 무료 서버에서 메모리 초과로 죽는다 → 시작할 때 영역 수를 2개로 제한
+if sys.platform.startswith("linux"):
+    try:
+        import ctypes
+        ctypes.CDLL("libc.so.6").mallopt(-8, 2)  # -8 = M_ARENA_MAX
+    except Exception:
+        pass
+
 # Render는 터미널이 아니라서 print 출력이 버퍼에 쌓였다가 한참 뒤에 로그에 찍힌다 → 줄마다 바로 내보내기
 sys.stdout.reconfigure(line_buffering=True)
 
