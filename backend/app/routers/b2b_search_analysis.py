@@ -169,6 +169,9 @@ def _holt_winters_fit(ys: list[float], season: int, a: float, b: float, phi: flo
     return level, trend, seas, sse, resid
 
 
+FORECAST_TRAIN_DAYS = 1460   # 주간 검색량 학습 기간 (4년) — 연간 계절성(52주)을 쓰려면 104주 이상 필요
+
+
 def _run_forecast_sync(train_data: list[dict], periods: int = 22, freq: str = "W"):
     """감쇠 추세 Holt-Winters 예측 (순수 파이썬).
 
@@ -653,7 +656,9 @@ async def get_search_analysis(
      product_reviews, category_reviews, release_snippets, danawa_result) = await asyncio.gather(
         _fetch_product_items(),
         _fetch_category_items(),
-        _fetch_search_trend(trend_keyword, 730) if _FORECAST_AVAILABLE else asyncio.sleep(0, result=[]),
+        # 학습은 4년치 — 2년치(약 104주)에서는 마지막 주를 빼면 104주가 안 돼 52주 연간 계절성이 꺼졌다
+        # (백테스트에서 에어컨 · 제습기 같은 계절 가전 예측이 '지난주 값 유지'보다도 못했다)
+        _fetch_search_trend(trend_keyword, FORECAST_TRAIN_DAYS) if _FORECAST_AVAILABLE else asyncio.sleep(0, result=[]),
         _fetch_shopping_trend(365),
         _fetch_shopping_trend(730),
         # sort="sim"(정확도순)으로 바꿔야 "단점" 키워드와 실제로 관련된 글이 우선 잡힌다 —
@@ -1349,13 +1354,13 @@ async def backtest_forecast(
     _: dict = Depends(require_admin),
 ):
     """수요 예측(감쇠 추세 Holt-Winters)이 실제로 얼마나 맞는지 확인한다.
-    카테고리별 데이터랩 주간 검색량 2년치에서 마지막 holdout주를 가리고 그 앞까지만으로 예측한 뒤
+    카테고리별 데이터랩 주간 검색량 4년치에서 마지막 holdout주를 가리고 그 앞까지만으로 예측한 뒤
     실제 값과 비교한다 (MAPE). 기준선으로 '마지막 주 값이 그대로 이어진다'는 단순 예측(naive)과 비교한다."""
     today = date.today()
     results = []
     for cat in _BACKTEST_CATEGORIES:
         body = {
-            "startDate": (today - timedelta(days=730)).strftime("%Y-%m-%d"),
+            "startDate": (today - timedelta(days=FORECAST_TRAIN_DAYS)).strftime("%Y-%m-%d"),
             "endDate":   today.strftime("%Y-%m-%d"),
             "timeUnit":  "week",
             "keywordGroups": [{"groupName": cat, "keywords": [cat]}],
@@ -1377,12 +1382,16 @@ async def backtest_forecast(
         fc = await asyncio.to_thread(_run_forecast_sync, train, holdout, "W")
         pred = [r["ratio"] for r in fc][:holdout]
         naive = [float(train[-1]["ratio"])] * holdout
+        # 계절 기준선: 1년 전 같은 주 값 (계절 가전에 더 공정한 비교 대상)
+        snaive = [float(data[len(data) - holdout + i - 52]["ratio"]) for i in range(holdout)] if len(data) >= holdout + 52 else None
         within = sum(1 for a, r in zip(actual, fc) if r["lower"] <= a <= r["upper"])
         results.append({
             "category": cat,
             "weeks": len(data),
             "mape": _mape(actual, pred),
             "naive_mape": _mape(actual, naive),
+            "seasonal_naive_mape": _mape(actual, snaive) if snaive else None,
+            "seasonal": len(train) >= 104,
             "in_interval_pct": round(within / holdout * 100),
         })
         await asyncio.sleep(0.3)
@@ -1394,6 +1403,8 @@ async def backtest_forecast(
         "model": "감쇠 추세 Holt-Winters (주간 검색량)",
         "avg_mape": avg("mape"),
         "avg_naive_mape": avg("naive_mape"),
+        "avg_seasonal_naive_mape": round(sum(r["seasonal_naive_mape"] for r in ok if r.get("seasonal_naive_mape") is not None)
+                                         / max(1, sum(1 for r in ok if r.get("seasonal_naive_mape") is not None)), 1),
         "avg_in_interval_pct": avg("in_interval_pct"),
         "categories": results,
     }
