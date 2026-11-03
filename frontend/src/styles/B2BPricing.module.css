@@ -1,5 +1,8 @@
 .page {
-  min-height: 100vh;
+  /* body는 overflow: hidden이라 페이지가 직접 스크롤해야 한다 (위 여백을 늘린 뒤 아래 내용이 잘렸다) */
+  height: 100vh;
+  overflow-y: auto;
+  box-sizing: border-box;
   background: var(--b2b-page);
 }
 
