@@ -83,8 +83,10 @@ async def admin_approve_user(user_id: int, _: dict = Depends(require_admin)):
 
 
 @router.post("/users/{user_id}/reject")
-async def admin_reject_user(user_id: int, _: dict = Depends(require_admin)):
+async def admin_reject_user(user_id: int, admin: dict = Depends(require_admin)):
     from app.database import execute, fetchone
+    if str(admin.get("sub") or admin.get("user_id")) == str(user_id):
+        raise HTTPException(status_code=400, detail="본인 계정은 승인 취소할 수 없습니다")
     user = await fetchone("SELECT user_id FROM users WHERE user_id = %s AND user_type = 'b2b'", (user_id,))
     if not user:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")

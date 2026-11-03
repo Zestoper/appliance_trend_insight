@@ -6,7 +6,7 @@
 .container {
   max-width: 1080px;
   margin: 0 auto;
-  padding: 48px 24px 80px;
+  padding: 112px 24px 80px;   /* 위에 떠 있는 메뉴바에 제목이 가려지지 않게 */
 }
 
 .header {

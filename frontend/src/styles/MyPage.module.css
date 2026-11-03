@@ -1,7 +1,7 @@
 .page {
   min-height: 100vh;
   background: var(--bg);
-  padding: 40px 24px 80px;
+  padding: 112px 24px 80px;   /* 위에 떠 있는 메뉴바(top 16px + 높이 60px)에 제목이 가려지지 않게 */
 }
 
 .inner {

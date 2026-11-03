@@ -226,7 +226,11 @@ export default function Admin() {
                       </button>
                     </>
                   )}
-                  {u.status === 'active' && (
+                  {/* 관리자 본인 계정은 승인 취소 버튼을 숨긴다 (실수로 누르면 본인 B2B 이용이 막힘) */}
+                  {u.status === 'active' && u.email === user?.email && (
+                    <span className={s.metaIcon}>내 계정</span>
+                  )}
+                  {u.status === 'active' && u.email !== user?.email && (
                     <button
                       className={s.rejectBtn}
                       disabled={!!busy[u.user_id]}

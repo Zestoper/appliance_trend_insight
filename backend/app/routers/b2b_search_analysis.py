@@ -197,20 +197,27 @@ def _run_forecast_sync(train_data: list[dict], periods: int = 22, freq: str = "W
     last = date.fromisoformat(train_data[-1]["period"][:10])
     rows = []
     damp = 0.0
+    # 데이터랩 지수는 조회 기간 최고점이 100인 상대값이라 예측·신뢰구간이 과거 최고의 1.3배를 넘는 건
+    # 의미가 없다 (신뢰구간이 √h로 커져 22주 뒤 상한이 263까지 올라가 그래프 축이 늘어났다)
+    cap = _forecast_cap(ys)
     for h in range(1, periods + 1):
         damp += phi ** h
         s_h = seas[(n - 1 + h) % season] if season else 0.0
         yhat = level + damp * trend + s_h
         band = _CI_MULTIPLIER * std * math.sqrt(h)
-        ratio = max(0.0, round(yhat, 1))
+        ratio = min(cap, max(0.0, round(yhat, 1)))
         label = (last + timedelta(days=7 * h)) if freq == "W" else _add_months(last, h)
         rows.append({
             "period": label.isoformat(),
             "ratio":  ratio,
-            "lower":  max(0.0, round(yhat - band, 1)),
-            "upper":  max(ratio, round(yhat + band, 1)),
+            "lower":  min(ratio, max(0.0, round(yhat - band, 1))),
+            "upper":  min(cap, max(ratio, round(yhat + band, 1))),
         })
     return rows
+
+
+def _forecast_cap(ys: list[float]) -> float:
+    return round(max(max(ys, default=100.0), 1.0) * 1.3, 1)
 
 
 def _linear_forecast(history: list[dict], n_forecast: int = 8, step_days: int = 7):
@@ -234,13 +241,13 @@ def _linear_forecast(history: list[dict], n_forecast: int = 8, step_days: int = 
     forecast = []
     for i in range(1, n_forecast + 1):
         xi = n - 1 + i
-        pred = max(0.0, round(intercept + slope * xi, 1))
+        pred = min(_forecast_cap(ys), max(0.0, round(intercept + slope * xi, 1)))
         label = (last_date + timedelta(days=step_days * i)).isoformat()
         forecast.append({
             "period": label,
             "ratio":  pred,
             "lower":  max(0.0, round(pred - _CI_MULTIPLIER * std, 1)),
-            "upper":  round(pred + _CI_MULTIPLIER * std, 1),
+            "upper":  min(_forecast_cap(ys), round(pred + _CI_MULTIPLIER * std, 1)),
         })
     return forecast, slope
 
