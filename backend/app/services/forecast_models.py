@@ -123,3 +123,54 @@ def forecast_rows(model: str, data: list[dict], periods: int, hw_fn) -> list[dic
             "upper": min(cap, max(ratio, round(p + band, 1))),
         })
     return rows
+
+
+def evaluate_weather(data: list[dict], weather: dict[str, float], model: str, hw_fn=None,
+                     test_weeks: int = 26, min_fit: int = 12) -> dict | None:
+    """1주 앞 예측에 날씨를 더하면 오차가 줄어드는지 백테스트한다.
+
+    - 기본 예측: 품목별로 골라둔 모델의 1주 앞 예측
+    - 날씨 반영: 기본 예측 × (1 + β × 지난주 날씨의 작년 대비 차이)
+      지난주 날씨는 예측하는 시점에 이미 알고 있는 값이라 미래 정보를 몰래 쓰지 않는다.
+      β는 그 시점 이전 주들만으로 '날씨 차이 vs 기본 예측이 빗나간 비율'을 맞춰 정한다.
+    - 마지막 test_weeks주를 한 주씩 예측해 두 방식의 평균 오차(MAPE %)를 비교한다.
+    """
+    periods = [d["period"][:10] for d in data]
+    ys = _vals(data)
+    n = len(ys)
+
+    def anomaly(i: int) -> float | None:
+        p = periods[i]
+        ly = (date.fromisoformat(p) - timedelta(days=364)).isoformat()
+        if p in weather and ly in weather:
+            return weather[p] - weather[ly]
+        return None
+
+    rows = []   # (t, 기본 예측, 지난주 날씨 차이, 실제값)
+    for t in range(max(SEASON + 8, n - test_weeks - min_fit - 14), n):
+        x = anomaly(t - 1)
+        if x is None:
+            continue
+        base = predict(model, data[:t], 1, hw_fn)
+        if not base or base[0] <= 0:
+            continue
+        rows.append((t, base[0], x, ys[t]))
+
+    base_err, w_err, beta = [], [], 0.0
+    for j, (t, b, x, a) in enumerate(rows):
+        past = rows[:j]
+        if len(past) < min_fit or t < n - test_weeks or a <= 0:
+            continue
+        den = sum(px * px for _, _, px, _ in past)
+        beta = sum(px * (pa / pb - 1) for _, pb, px, pa in past) / den if den > 0 else 0.0
+        p = max(0.0, b * (1 + beta * x))
+        base_err.append(abs(a - b) / a)
+        w_err.append(abs(a - p) / a)
+    if len(base_err) < 8:
+        return None
+    return {
+        "weeks": len(base_err),
+        "base_mape": round(sum(base_err) / len(base_err) * 100, 1),
+        "weather_mape": round(sum(w_err) / len(w_err) * 100, 1),
+        "beta": round(beta, 4),
+    }

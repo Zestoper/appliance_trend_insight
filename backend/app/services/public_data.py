@@ -274,6 +274,9 @@ async def fetch_kepco_rate() -> list[dict]:
         return []
 
 
+# v2: 등급에 월간 소비전력량 · 에너지비용을 같이 저장 (예전 캐시는 등급만 있어서 키를 바꿈)
+KEMCO_CACHE_PREFIX = "kemco_model_grades:v2:"
+
 # EEP_XX 경로 매핑 (실제 서비스 EndPoint: https://apis.data.go.kr/B553530/eep)
 _KEMCO_CAT_PATH_MAP = {
     "에어컨":     "EEP_24_LIST",  # 전기냉방기
@@ -296,13 +299,23 @@ async def fetch_kemco_model_grades(category: str, max_rows: int = 1500) -> dict[
         return {}
 
     from app.services.naver_cache import get_db_cache, set_db_cache
-    cache_key = f"kemco_model_grades:{category}"
+    cache_key = f"{KEMCO_CACHE_PREFIX}{category}"
     cached = await get_db_cache(cache_key)
     if cached is not None:
         return cached.get("map", {})
 
     url = f"https://apis.data.go.kr/B553530/eep/{path}"
     from xml.etree import ElementTree as ET
+
+    def _num(item, field: str) -> float | None:
+        try:
+            v = float((item.findtext(field) or "").replace(",", "").strip())
+            return v if v > 0 else None
+        except ValueError:
+            return None
+
+    power_map: dict[str, float] = {}   # 모델 → 월간 소비전력량(kWh)
+    cost_map: dict[str, float] = {}    # 모델 → 월간 에너지비용(원) — 제습기처럼 비용을 직접 주는 품목
 
     def _parse(xml_text: str) -> tuple[int, dict[str, int]]:
         root = ET.fromstring(xml_text)
@@ -313,10 +326,19 @@ async def fetch_kemco_model_grades(category: str, max_rows: int = 1500) -> dict[
             if not grade_raw or not grade_raw.isdigit():
                 continue
             grade = int(grade_raw)
+            kwh = _num(item, "MONTH_CONS_PWR")
+            if kwh is None and (y := _num(item, "YEAR_CONS_PWR")):
+                kwh = y / 12
+            # 제습기는 YEAR_COST 이름이지만 설명이 '월간에너지비용(원)'이다
+            won = _num(item, "YEAR_COST") if category == "제습기" else None
             for field in ("MODEL_TERM", "OLDX_MODEL_TERM"):
                 model = (item.findtext(field) or "").strip().upper()
                 if model and model != "NULL":
                     m[model] = grade
+                    if kwh:
+                        power_map[model] = round(kwh, 2)
+                    if won:
+                        cost_map[model] = won
         return total, m
 
     grade_map: dict[str, int] = {}
@@ -355,10 +377,22 @@ async def fetch_kemco_model_grades(category: str, max_rows: int = 1500) -> dict[
                 _, m = res
                 grade_map.update(m)
 
-        await set_db_cache(cache_key, {"map": grade_map}, ttl_hours=168)
+        await set_db_cache(cache_key, {"map": grade_map, "power": power_map, "cost": cost_map}, ttl_hours=168)
     except Exception as e:
         logger.warning("[KEMCO] %s 모델별 등급 조회 실패: %s", category, repr(e))
     return grade_map
+
+
+async def get_kemco_model_info_cached(category: str) -> dict:
+    """등급 · 월간 소비전력량 · 월간 에너지비용 맵을 캐시에서 꺼낸다 (없으면 백그라운드로 채움)."""
+    if not PUBLIC_DATA_KEY or category not in _KEMCO_CAT_PATH_MAP:
+        return {}
+    from app.services.naver_cache import get_db_cache
+    cached = await get_db_cache(f"{KEMCO_CACHE_PREFIX}{category}")
+    if cached is not None:
+        return cached
+    asyncio.create_task(fetch_kemco_model_grades(category, max_rows=8000))
+    return {}
 
 
 async def get_kemco_model_grades_cached(category: str) -> dict[str, int]:
@@ -367,7 +401,7 @@ async def get_kemco_model_grades_cached(category: str) -> dict[str, int]:
     if not PUBLIC_DATA_KEY or category not in _KEMCO_CAT_PATH_MAP:
         return {}
     from app.services.naver_cache import get_db_cache
-    cached = await get_db_cache(f"kemco_model_grades:{category}")
+    cached = await get_db_cache(f"{KEMCO_CACHE_PREFIX}{category}")
     if cached is not None:
         return cached.get("map", {})
     asyncio.create_task(fetch_kemco_model_grades(category, max_rows=8000))
@@ -413,52 +447,68 @@ async def fetch_kemco_efficiency(category: str) -> dict:
         return {}
 
 
-async def fetch_kca_complaints(category: str) -> list[dict]:
-    """소비자원: 위해 피해 접수 건수 (카테고리별)"""
+_KCA_KEYWORDS = {
+    "에어컨":     ["에어컨"],
+    "냉장고":     ["냉장고", "김치냉장고"],
+    "세탁기":     ["세탁기"],
+    "건조기":     ["건조기"],
+    "TV":         ["텔레비전"],
+    "선풍기":     ["선풍기"],
+    "공기청정기": ["공기청정기"],
+    "제습기":     ["제습기"],
+    "가습기":     ["가습기"],
+    "로봇청소기": ["청소기"],
+    "식기세척기": ["식기세척기"],
+    "전기밥솥":   ["전기밥솥"],
+}
+
+
+async def fetch_kca_rows(pages: int = 10) -> list[dict]:
+    """소비자원 위해(안전사고) 접수 원자료를 여러 페이지 받아온다.
+    예전엔 품목마다 같은 1페이지(300건 · 전 품목 섞임)를 12번 받아서 품목별로는 몇 건 안 남았다
+    → 한 번에 여러 페이지를 받고 품목별로 나눈다."""
     if not PUBLIC_DATA_KEY:
         return []
-    # 카테고리 → 검색 키워드 매핑 (품목소분류 기준 클라이언트 필터링)
-    cat_keywords = {
-        "에어컨":     ["에어컨"],
-        "냉장고":     ["냉장고", "김치냉장고"],
-        "세탁기":     ["세탁기"],
-        "건조기":     ["건조기"],
-        "TV":         ["텔레비전"],
-        "선풍기":     ["선풍기"],
-        "공기청정기": ["공기청정기"],
-        "제습기":     ["제습기"],
-        "가습기":     ["가습기"],
-        "로봇청소기": ["청소기"],
-        "식기세척기": ["식기세척기"],
-        "전기밥솥":   ["전기밥솥"],
-    }
-    keywords = cat_keywords.get(category, [category])
     url = "https://apis.data.go.kr/B551919/open-api/harm/reception"
-    params = {"serviceKey": PUBLIC_DATA_KEY, "numOfRows": 300, "pageNo": 1, "apiFormat": "json"}
-    try:
-        async with httpx.AsyncClient(timeout=20.0) as c:
-            r = await c.get(url, params=params)
-        body = r.json()["response"]["body"]
-        items = body.get("items", {}).get("item", [])
-        if isinstance(items, dict):
-            items = [items]
-        filtered = [
-            i for i in items
-            if any(kw in (i.get("itemMinor") or "") or kw in (i.get("itemMiddle") or "")
-                   for kw in keywords)
-        ]
-        return [
-            {
-                "date":     item.get("receiveDay", "")[:10],
-                "content":  item.get("injurySymptoms", ""),
-                "product":  item.get("itemMinor", ""),
-                "injury":   item.get("injuryPart", ""),
-            }
-            for item in filtered
-        ]
-    except Exception as e:
-        logger.warning("[KCA] %s 소비자원 수집 실패: %s", category, e)
-        return []
+    rows: list[dict] = []
+    async with httpx.AsyncClient(timeout=20.0) as c:
+        for page in range(1, pages + 1):
+            try:
+                r = await c.get(url, params={"serviceKey": PUBLIC_DATA_KEY, "numOfRows": 300,
+                                             "pageNo": page, "apiFormat": "json"})
+                body = r.json()["response"]["body"]
+            except Exception as e:
+                logger.warning("[KCA] %d페이지 수집 실패: %r", page, e)
+                break
+            raw_items = body.get("items") or {}
+            items = raw_items.get("item", []) if isinstance(raw_items, dict) else raw_items
+            if isinstance(items, dict):
+                items = [items]
+            rows.extend(items)
+            if len(items) < 300:
+                break
+            await asyncio.sleep(0.3)
+    return rows
+
+
+async def fetch_kca_complaints(category: str, rows: list[dict] | None = None) -> list[dict]:
+    """소비자원: 위해 피해 접수 (카테고리별). rows를 주면 다시 받지 않고 그 안에서 거른다."""
+    if rows is None:
+        rows = await fetch_kca_rows()
+    keywords = _KCA_KEYWORDS.get(category, [category])
+    filtered = [
+        i for i in rows
+        if any(kw in (i.get("itemMinor") or "") or kw in (i.get("itemMiddle") or "") for kw in keywords)
+    ]
+    return [
+        {
+            "date":     (item.get("receiveDay") or "")[:10],
+            "content":  item.get("injurySymptoms", ""),
+            "product":  item.get("itemMinor", ""),
+            "injury":   item.get("injuryPart", ""),
+        }
+        for item in filtered
+    ]
 
 
 async def get_ext_dataframe(category: str, ds_dates) -> "pd.DataFrame | None":
@@ -626,10 +676,16 @@ async def _refresh_ext_data_once() -> None:
     except Exception as e:
         logger.warning("[PublicData] KOSIS CPI 갱신 실패: %s", e)
 
-    # 소비자원 KCA 피해접수 (카테고리별)
-    for cat in _KCA_CATEGORIES:
+    # 소비자원 KCA 피해접수 (한 번 받아서 카테고리별로 나눔)
+    try:
+        kca_rows = await fetch_kca_rows()
+        logger.info("[PublicData] KCA 원자료 %d건", len(kca_rows))
+    except Exception as e:
+        kca_rows = []
+        logger.warning("[PublicData] KCA 수집 실패: %s", e)
+    for cat in _KCA_CATEGORIES if kca_rows else []:
         try:
-            items = await fetch_kca_complaints(cat)
+            items = await fetch_kca_complaints(cat, kca_rows)
             if items:
                 await _set(f"ext:kca:{cat}", {"items": items}, ttl_hours=168)  # 7일
         except Exception as e:
@@ -645,6 +701,17 @@ async def _refresh_ext_data_once() -> None:
                 logger.info("[PublicData] KEMCO %s 1등급비율 %s%% 캐시 저장", cat, data.get("grade1_ratio"))
         except Exception as e:
             logger.warning("[PublicData] KEMCO %s 갱신 실패: %s", cat, e)
+
+    # 모델별 등급 · 월간 소비전력량 (상품 카드의 '월 전기료') — 사용자 요청 중에 받지 않도록 새벽에 미리 채운다
+    from app.services.naver_cache import get_db_cache as _get
+    from app.utils.memory import trim
+    for cat in _KEMCO_CATEGORIES:
+        try:
+            if await _get(f"{KEMCO_CACHE_PREFIX}{cat}") is None:
+                await fetch_kemco_model_grades(cat, max_rows=8000)
+                trim()
+        except Exception as e:
+            logger.warning("[PublicData] KEMCO %s 모델 정보 갱신 실패: %s", cat, e)
 
     logger.info("[PublicData] 공공데이터 갱신 완료")
 

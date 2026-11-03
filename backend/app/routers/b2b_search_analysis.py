@@ -260,7 +260,8 @@ def _linear_forecast(history: list[dict], n_forecast: int = 8, step_days: int = 
 async def get_product_search(q: str = Query(..., min_length=1), _: dict = Depends(require_b2b)):
     """검색어에 매칭되는 실제 상품 목록(사진·모델명·가격)을 반환 — 사용자가 그 중 하나를 골라야
     /search-analysis가 해당 '단일 상품' 기준으로 정밀 분석을 수행한다."""
-    from app.services.public_data import get_kemco_model_grades_cached
+    from app.services.public_data import get_kemco_model_info_cached
+    from app.services.public_insights import monthly_cost
 
     detected_category = None
     for kw, cat in _CATEGORY_MAP.items():
@@ -277,7 +278,10 @@ async def get_product_search(q: str = Query(..., min_length=1), _: dict = Depend
 
     # 정부 API 전체 조회는 수십~수백 초 걸려 실시간 요청을 막을 수 없다 —
     # 캐시가 있으면 즉시 실데이터를 쓰고, 없으면 백그라운드로 채우는 동안은 폴백(정규식)만 쓴다.
-    grade_map = await get_kemco_model_grades_cached(detected_category) if detected_category else {}
+    kemco = await get_kemco_model_info_cached(detected_category) if detected_category else {}
+    grade_map = kemco.get("map", {})
+    power_map = kemco.get("power", {})
+    cost_map = kemco.get("cost", {})
 
     # 국내 가전 모델명(예: RM70F90R2ZD, RS84DB5002CW)은 3자리 연속 숫자가 없는 경우가 많아
     # 기존 extract_model_number보다 넓게 잡아야 KEMCO 등급표와 매칭된다.
@@ -294,11 +298,14 @@ async def get_product_search(q: str = Query(..., min_length=1), _: dict = Depend
         seen_titles.add(title)
 
         energy_grade = None
+        month_won = None
         if grade_map:
             candidates = [c for c in _model_candidate_re.findall(title.upper()) if len(c) >= 6]
             for cand in candidates:
                 if cand in grade_map:
                     energy_grade = grade_map[cand]
+                    # 에너지공단 월간 소비전력량(kWh) × 한전 요금 → 한 달 전기료
+                    month_won = monthly_cost(power_map.get(cand), cost_map.get(cand))
                     break
         if energy_grade is None:
             m = _energy_re.search(title)
@@ -311,6 +318,7 @@ async def get_product_search(q: str = Query(..., min_length=1), _: dict = Depend
             "image": it.get("image", ""),
             "link":  it.get("link", ""),
             "energy_grade": energy_grade,
+            "monthly_cost": month_won,
         })
 
     return {"query": q, "items": items[:30]}
@@ -1244,10 +1252,23 @@ async def get_search_analysis(
     if _is_raw_echo(negative_summary, neg_reviews):
         negative_summary = None
 
+    # 공공데이터: 날씨 · 미세먼지와 검색량 / 소비자원 안전사고 TOP 3 (services/public_insights.py)
+    from app.services.public_insights import safety_top, weather_signal
+    try:
+        weather_info, safety_info = await asyncio.gather(
+            weather_signal(detected_category, train_data or trend_data),
+            safety_top(detected_category),
+        )
+    except Exception as e:
+        logger.warning("[search-analysis] 공공데이터 계산 실패: %s", e)
+        weather_info, safety_info = None, None
+
     result = {
         "query": q,
         "category": detected_category,
         "trend_keyword": trend_keyword,
+        "weather_signal": weather_info,
+        "safety_top": safety_info,
         "model_number": model,
 
         # 1. 제품 기본 정보
@@ -1420,3 +1441,57 @@ async def backtest_forecast(_: dict = Depends(require_admin)):
         "avg_mape_selected": round(sum(selected) / len(selected), 1) if selected else None,
         "categories": choice,
     }
+
+
+@router.get("/backtest-weather")
+async def backtest_weather(_: dict = Depends(require_admin)):
+    """1주 앞 예측에 '지난주 날씨가 작년보다 얼마나 달랐나'를 반영하면 오차가 줄어드는지 품목별로 비교 (관리자 전용).
+    미세먼지는 에어코리아가 최근 3개월만 줘서 작년 비교가 안 돼 기온 · 습도 품목만 한다."""
+    from app.services.forecast_models import MODEL_LABELS, evaluate_weather
+    from app.services.public_insights import WEATHER_VARS, load_weekly_weather
+    out = {}
+    for cat, spec in WEATHER_VARS.items():
+        if spec[0] == "pm25":
+            continue
+        try:
+            data = await _fetch_weekly(cat, FORECAST_TRAIN_DAYS)
+        except Exception as e:
+            out[cat] = {"error": f"검색량 조회 실패: {e}"}
+            continue
+        loaded = await load_weekly_weather(cat, [d["period"] for d in data])
+        if not data or not loaded or not loaded[0]:
+            out[cat] = {"error": "날씨 데이터 없음"}
+            continue
+        model, _label = await get_model_choice(cat)
+        res = await asyncio.to_thread(evaluate_weather, data, loaded[0], model, _run_forecast_sync)
+        out[cat] = ({"weather_var": spec[1], "base_model": MODEL_LABELS[model], **res}
+                    if res else {"error": "비교할 주가 부족함"})
+        await asyncio.sleep(0.3)
+    ok = [v for v in out.values() if "base_mape" in v]
+    return {
+        "method": "마지막 26주를 한 주씩 1주 앞 예측 · 기본 모델 vs 기본 모델 × (1 + β × 지난주 날씨의 작년 대비 차이)",
+        "avg_base_mape": round(sum(v["base_mape"] for v in ok) / len(ok), 1) if ok else None,
+        "avg_weather_mape": round(sum(v["weather_mape"] for v in ok) / len(ok), 1) if ok else None,
+        "categories": out,
+    }
+
+
+@router.get("/public-data-status")
+async def public_data_status(_: dict = Depends(require_admin)):
+    """공공데이터 캐시에 무엇이 몇 건 쌓였는지 확인 (관리자 전용)."""
+    from app.services.naver_cache import get_db_cache_stale
+    from app.services.public_data import KEMCO_CACHE_PREFIX, _KCA_CATEGORIES, _KEMCO_CAT_PATH_MAP
+    status = {}
+    for key in ("ext:kma:history", "ext:airkorea:history"):
+        c = await get_db_cache_stale(key)
+        items = (c or {}).get("items") or []
+        status[key] = {"count": len(items), "first": items[0]["date"] if items else None,
+                       "last": items[-1]["date"] if items else None}
+    for cat in _KCA_CATEGORIES:
+        c = await get_db_cache_stale(f"ext:kca:{cat}")
+        status[f"ext:kca:{cat}"] = len((c or {}).get("items") or [])
+    for cat in _KEMCO_CAT_PATH_MAP:
+        c = await get_db_cache_stale(f"{KEMCO_CACHE_PREFIX}{cat}") or {}
+        status[f"kemco:{cat}"] = {"models": len(c.get("map", {})), "power": len(c.get("power", {})),
+                                  "cost": len(c.get("cost", {}))}
+    return status
