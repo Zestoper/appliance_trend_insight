@@ -724,18 +724,18 @@ async def get_search_analysis(
     if trend_data:
         recent_vals = [d["ratio"] for d in trend_data[-8:]] if len(trend_data) >= 8 else [d["ratio"] for d in trend_data]
         lo_v, hi_v = round(min(recent_vals), 1), round(max(recent_vals), 1)
-        swing_pct = round((hi_v - lo_v) / max(lo_v, 1) * 100, 1)
+        swing = round(hi_v - lo_v, 1)   # 최저값이 2.4처럼 작으면 % 변동폭이 2,745%처럼 터무니없어져 지수 차이로 쓴다
         if prophet_forecast:
             base = trend_data[-1]["ratio"]
             fc_end = prophet_forecast[-1]["ratio"]
-            fc_pct = round((fc_end - base) / max(base, 1) * 100, 1)
+            fc_pct = round((fc_end - base) / max(base, 1) * 100, 1) + 0.0   # -0.0 → 0.0 ('+-0.0%' 방지)
             direction = "상승" if fc_pct > 0 else ("하락" if fc_pct < 0 else "보합")
             interest_reason = (
-                f"최근 관심도는 최저 {lo_v}~최고 {hi_v} 사이에서 등락(변동폭 {swing_pct}%)했고, "
+                f"최근 관심도는 최저 {lo_v}~최고 {hi_v} 사이에서 등락(차이 {swing})했고, "
                 f"향후 {len(prophet_forecast)}주간 {direction}세로 {'+' if fc_pct >= 0 else ''}{fc_pct}% 변화할 것으로 예측됩니다."
             )
         else:
-            interest_reason = f"최근 관심도는 최저 {lo_v}~최고 {hi_v} 사이에서 등락(변동폭 {swing_pct}%)했습니다."
+            interest_reason = f"최근 관심도는 최저 {lo_v}~최고 {hi_v} 사이에서 등락(차이 {swing})했습니다."
 
     # ── 판매량(쇼핑인사이트 클릭 동향) 추세 — 검색 관심도와는 별개 지표 — + Holt-Winters 예측 ──
     sales_linear_trend_pts, sales_slope = _linear_trend_fit(sales_trend_data) if sales_trend_data else ([], 0.0)
