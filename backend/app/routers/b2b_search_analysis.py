@@ -778,9 +778,10 @@ async def get_search_analysis(
         prices = sorted(it["price"] for it in product_items)
         med = prices[len(prices) // 2]
         # 예전엔 중앙값의 0.2~5배까지 받아서 부품 · 다른 모델(70만원)이나 묶음 상품(286만원)이 섞였다
-        # → 다나와 최근 가격이 있으면 그 기준 0.5~1.6배 · 없으면 중앙값 기준 0.5~2배만 쓴다
+        # → 다나와 최근 가격이 있으면 그 기준 0.6~1.6배 · 없으면 중앙값 기준 0.5~2배만 쓴다
         ref = danawa_ref_price or med
-        lo_k, hi_k = (0.5, 1.6) if danawa_ref_price else (0.5, 2.0)
+        # 0.5배는 휘센 냉난방기의 69.8만원(다나와 137만원의 0.51배)이 통과해 '평균 대비 -50%'가 됐다 → 0.6배
+        lo_k, hi_k = (0.6, 1.6) if danawa_ref_price else (0.5, 2.0)
         filt = [it for it in product_items if ref * lo_k <= it["price"] <= ref * hi_k]
         if filt:
             fp = sorted(it["price"] for it in filt)
