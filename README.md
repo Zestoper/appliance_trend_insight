@@ -14,17 +14,11 @@
 
 > Render 무료 플랜은 15분 비활동 시 서버가 슬립되며, 첫 요청 시 30~50초 대기가 발생할 수 있습니다.
 
-### Docker로 배포하기 (Backend)
+### Backend 배포 (Render)
 
-`backend/Dockerfile`을 기준으로 Render 등 컨테이너 기반 플랫폼에 배포합니다.
-
-```bash
-cd backend
-docker build -t appliance-trend-insight-backend .
-docker run -p 8000:8000 --env-file .env appliance-trend-insight-backend
-```
-
-Render에서 새 Web Service 생성 시 Root Directory를 `backend`로, Runtime을 `Docker`로 지정하면 `backend/Dockerfile`이 자동으로 사용됩니다. `.env`에 정의된 환경 변수는 Render 대시보드의 Environment 설정에 동일하게 등록해야 합니다.
+Render Web Service · Python 런타임 · Root Directory `backend` · 시작 명령 `uvicorn app.main:app --host 0.0.0.0 --port $PORT`.
+`.env`에 정의된 환경 변수는 Render 대시보드의 Environment에 동일하게 등록합니다.
+`backend/Dockerfile`로 컨테이너 배포도 가능합니다.
 
 ### Frontend 배포 (Vercel)
 
@@ -92,8 +86,8 @@ VITE_API_BASE=https://your-backend-name.onrender.com
 │   │   │   └── email_service.py
 │   │   └── main.py              # lifespan: 공공데이터 자동갱신 루프 등록
 │   └── scripts/
-│       ├── refresh_naver_cache.py   # 네이버 DataLab 수동 수집
-│       └── refresh_ext_data.py      # 공공데이터 수동 수집 (선택)
+│       ├── refresh_ext_data.py      # 공공데이터 수동 수집 (선택)
+│       └── seed_rag_local.py        # RAG 문서 로컬 시딩
 └── frontend/
     └── src/
         ├── pages/
@@ -173,44 +167,38 @@ npm install
 npm run dev
 ```
 
-> **공공데이터 자동 수집**: 서버 시작 10초 후 KMA·에어코리아·KOSIS CPI·KCA·KEMCO를 자동 수집해 Supabase에 저장합니다. 이후 24시간마다 반복 갱신됩니다. 별도 스크립트 실행은 불필요합니다.
-
-### 네이버 DataLab 수동 수집 (로컬 Mac 필요)
-```bash
-# Render 서버는 네이버 API가 해외 IP 차단 → 로컬에서 실행
-cd backend
-python -m scripts.refresh_naver_cache --periods 1m 3m 6m 1y
-```
+> **데이터 수집**: 별도 스크립트 없이 서버가 매일 자동으로 수집합니다. 수집 대상 · 기간 · 주기는 아래 [데이터 수집](#데이터-수집-기간--주기)을 참고하세요.
 
 ---
 
-## 공공데이터 자동 갱신 구조
+## 데이터 수집 (기간 · 주기)
 
-서버 시작 시 `ext_data_refresh_loop()`가 백그라운드 태스크로 등록됩니다.
+### 수집 기간
 
-```
-서버 시작 (lifespan)
-    └── ext_data_refresh_loop() [백그라운드]
-            ├── 10초 대기 (서버 초기화)
-            ├── _refresh_ext_data_once()  ← 즉시 1회 실행
-            │       ├── KMA 기온·습도 2년치       → ext:kma:history     (30h TTL)
-            │       ├── 에어코리아 PM2.5·PM10     → ext:airkorea:history (30h TTL)
-            │       ├── KOSIS 소비자물가지수       → ext:kosis:cpi        (30일 TTL)
-            │       ├── KCA 피해접수 × 12개 카테고리 → ext:kca:{cat}    (7일 TTL)
-            │       └── KEMCO 1등급비율 × 7개 카테고리 → ext:kemco:{cat} (30일 TTL)
-            └── 24시간 대기 후 반복
-```
+| 데이터 | 출처 | 수집 기간 | 쓰이는 곳 |
+|---|---|---|---|
+| 검색량 추이 (주간) | 네이버 데이터랩 검색어 트렌드 | 최근 **730일** (주 단위) | B2B 수요 예측 — Holt-Winters로 **22주** 예측 |
+| 쇼핑 클릭 추이 (월간) | 네이버 데이터랩 쇼핑인사이트 | 최근 **730일** (월 단위) | B2B 판매 예측 — Holt-Winters로 **8개월** 예측 |
+| 검색량 추이 (일간) | 네이버 데이터랩 검색어 트렌드 | 최근 **30일** (일 단위) | 트렌드 TOP10 · 제품 리포트 · 구매 타이밍 관심도 |
+| 제품 가격 이력 | 다나와 가격 이력 + 매일 자체 수집 | 다나와 최대 **24개월** / 화면은 최근 **30일** | 구매 타이밍 · 출시가 대비 할인율 |
+| 카테고리 가격 통계 | 다나와 검색 (매일 자체 수집) | 수집 시작일부터 누적 | B2B 시장 분석 · 매입 적기 알림 |
+| 기온 · 습도 | 기상청 ASOS | 최근 **730일** | 계절 가전 수요와 날씨 상관 |
+| 미세먼지 PM2.5 · PM10 | 에어코리아 | 최근 **90일** | 공기청정기 · 가습기 수요 신호 |
+| 소비자물가지수 | 통계청 KOSIS | 최근 **24개월** | AI 리포트 경기 맥락 |
+| 위해 피해 접수 | 한국소비자원 | 카테고리 12개 최근 접수 건 | 제품 안전 이슈 |
+| 에너지효율 등급 | 한국에너지공단 | 카테고리 7개 1등급 비율 + 모델별 등급 | 효율 등급 표시 · AI 리포트 |
 
----
+### 수집 주기
 
-## 데이터 수집 스케줄 (crontab — 선택)
+| 주기 | 무엇을 | 방식 |
+|---|---|---|
+| **매일 1회** (새벽 3:23 KST) | 카테고리 24개 가격 통계 + 관련도 상위 5개 + **출시가 가장 최근인 3개** 가격 / 추적 제품(최근 7일 안에 조회됐거나 최신 제품 · 최대 150개) 가격 / 데이터랩 일간 검색량 / 매입 적기 알림 메일 | GitHub Actions가 서버를 깨우고 수집이 끝날 때까지 유지 (`.github/workflows/daily-collect.yml`) |
+| **매일 1회** (가격 수집 2분 뒤) | 기상청 · 에어코리아 · KOSIS · 소비자원 · 에너지공단 | 서버 백그라운드 작업 |
+| **볼 때마다** | 제품 목록 · 검색 · 비교 (다나와 실시간, 같은 검색어 30분 캐시) / 트렌드 TOP10 (30분 캐시) / 구매 타이밍 현재가 / 제품 리포트 · B2B 분석의 뉴스 · 유튜브 · 리뷰 | 요청 시 수집 |
 
-서버 자동 갱신으로 대부분 불필요하지만, 수동 트리거가 필요한 경우:
-
-```cron
-# 네이버 DataLab (Render 해외 차단 → 로컬 Mac에서 실행)
-0 */8 * * *  python3 -m scripts.refresh_naver_cache --periods 1m 3m 6m 1y
-```
+- 20시간 안에 이미 수집했으면 다시 돌지 않습니다 (서버가 하루에 여러 번 깨어나도 1회)
+- Render 무료 서버(512MB) 보호: 수집 중 메모리가 300MB를 넘으면 멈추고 다음 기동 때 다시 수집
+- 실사용자가 없어도 카테고리별 최신 제품 가격 이력이 매일 쌓입니다
 
 ---
 
