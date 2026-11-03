@@ -509,17 +509,22 @@ export default function ProductReport() {
       .then(data => { setReportData(data); setReportLoading(false) })
       .catch(() => setReportLoading(false))
 
-    fetch(`${API_BASE}/api/ai-analysis?query=${encodeURIComponent(product.title)}`)
-      .then(r => r.json())
-      .then(data => { setAiData(data); setAiLoading(false) })
-      .catch(() => setAiLoading(false))
-
     // 네이버·다나와 중 더 싼 가격을 비교해 상단 가격/구매 링크에 반영
     fetch(`${API_BASE}/api/best-price?query=${encodeURIComponent(product.title)}${category ? `&category=${encodeURIComponent(category)}` : ''}`)
       .then(r => r.json())
       .then(data => { if (data.available) setBestPrice(data) })
       .catch(() => {})
   }, [])
+
+  // AI 리포트는 로그인 회원에게만 보여주므로 로그인했을 때만 요청한다 (비로그인 방문마다 LLM을 호출하지 않도록)
+  useEffect(() => {
+    if (!product || !isLoggedIn) return
+    setAiLoading(true)
+    fetch(`${API_BASE}/api/ai-analysis?query=${encodeURIComponent(product.title)}`)
+      .then(r => r.json())
+      .then(data => { setAiData(data); setAiLoading(false) })
+      .catch(() => setAiLoading(false))
+  }, [isLoggedIn])
 
   // product가 없으면 (직접 URL 접근 등) 안내 화면
   if (!product) {

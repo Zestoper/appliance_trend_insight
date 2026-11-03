@@ -651,7 +651,9 @@ async def _refresh_ext_data_once() -> None:
 
 async def ext_data_refresh_loop() -> None:
     """서버 시작 시 1회 즉시 갱신, 이후 24h마다 반복."""
-    await asyncio.sleep(10)  # 서버 초기화 대기
+    from app.services.price_service import run_once_per_day
+    # 가격 수집과 동시에 돌면 메모리가 몰리므로 2분 늦게 시작한다
+    await asyncio.sleep(120)
     while True:
-        await _refresh_ext_data_once()
-        await asyncio.sleep(86400)  # 24h
+        await run_once_per_day("ext_data", _refresh_ext_data_once)
+        await asyncio.sleep(6 * 3600)

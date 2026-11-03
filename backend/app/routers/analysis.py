@@ -270,8 +270,8 @@ async def get_timing(category: str = Query(..., min_length=1), product_id: str =
             color = "red"
 
         trend_dir = "상승" if direction > 0.03 else "하락" if direction < -0.03 else "안정"
-        low_idx   = hist_prices.index(hist_min) if hist_prices else 0
-        low_day   = str(rows[low_idx]["snapshot_date"])
+        # hist_prices는 0원 행을 뺀 목록이라 그 인덱스로 rows를 찾으면 날짜가 어긋날 수 있다 → rows에서 직접 찾는다
+        low_day   = next((str(r["snapshot_date"]) for r in rows if r["min_price"] == hist_min), str(rows[0]["snapshot_date"]))
 
         search_summary = None
         if len(search_data) >= 7:
@@ -323,8 +323,36 @@ async def get_timing(category: str = Query(..., min_length=1), product_id: str =
         return {"data": [], "search_data": [], "analysis": None, "error": str(e)}
 
 
+# 트렌드 TOP10은 카테고리 10개 × (쇼핑 검색 + 데이터랩) + LLM 호출이라 한 번에 20초 넘게 걸리고
+# Render 무료 서버에서 가끔 503으로 끊겼다. 값이 하루 단위로 바뀌는 데이터라 30분 캐시하고
+# 새로 만들다 실패하면 직전 결과를 그대로 돌려준다.
+_TREND_TTL = 30 * 60
+_trend_cache: dict[str, tuple[float, dict]] = {}
+_trend_locks: dict[str, asyncio.Lock] = {}
+
+
 @router.get("/api/trend")
 async def get_trend(category: str = Query(None)):
+    key = category or "전체"
+    now = datetime.now().timestamp()
+    hit = _trend_cache.get(key)
+    if hit and now - hit[0] < _TREND_TTL:
+        return hit[1]
+    lock = _trend_locks.setdefault(key, asyncio.Lock())
+    async with lock:   # 같은 카테고리를 동시에 여러 번 만들지 않도록
+        hit = _trend_cache.get(key)
+        if hit and datetime.now().timestamp() - hit[0] < _TREND_TTL:
+            return hit[1]
+        result = await _build_trend(category)
+        if result.get("items"):
+            _trend_cache[key] = (datetime.now().timestamp(), result)
+            return result
+        if hit:            # 실패·빈 결과면 오래된 캐시라도 보여준다
+            return hit[1]
+        return result
+
+
+async def _build_trend(category: str | None):
     try:
         from app.routers.b2b_utils import _groq_create as _gc
 
@@ -387,11 +415,15 @@ async def get_trend(category: str = Query(None)):
                      for it in items[:2]]
                 )
 
-            all_items.sort(
-                key=lambda x: x["trend_score"] + x["trend_diff"] * 1.5 + quality(x) * 3,
-                reverse=True,
-            )
+            def rank_key(x):
+                return x["trend_score"] + x["trend_diff"] * 1.5 + quality(x) * 3
+
+            all_items.sort(key=rank_key, reverse=True)
             pool = all_items[:10]
+            # 화면의 '트렌드 지수'를 순위 기준과 같은 값(1위 = 100)으로 보여준다.
+            # 예전에는 카테고리 검색량(trend_score)만 보여줘서 4위가 100, 2위가 90처럼 순위와 숫자가 어긋났다
+            top = rank_key(pool[0]) if pool else 1
+            pool = [{**x, "rank_score": round(max(rank_key(x), 0) / max(top, 1) * 100)} for x in pool]
 
         if not pool:
             return {"items": []}

@@ -388,12 +388,31 @@ async def _send_buy_signal_emails(today_str: str):
         print(f"[email] 매입 알림 처리 실패: {e}")
 
 
+async def run_once_per_day(key: str, job, hours: int = 20) -> None:
+    """Render 무료 서버는 15분 동안 요청이 없으면 잠들고 요청이 오면 새로 뜬다.
+    예전에는 뜰 때마다 하루치 수집을 처음부터 다시 돌려서 사용자 요청과 겹치면
+    메모리 512MB를 넘겨 서버가 죽었다(Render 'Ran out of memory'). 마지막 실행 시각을 DB에 남겨
+    hours 안에 이미 돌았으면 건너뛴다."""
+    from app.services.naver_cache import get_db_cache, set_db_cache
+    marker = f"job:{key}:last_run"
+    try:
+        if await get_db_cache(marker):
+            print(f"[{key}] 최근 {hours}시간 안에 이미 실행됨 → 건너뜀")
+            return
+    except Exception as e:
+        print(f"[{key}] 실행 기록 확인 실패 (그냥 실행): {e}")
+    await job()
+    try:
+        await set_db_cache(marker, {"at": datetime.utcnow().isoformat()}, ttl_hours=hours)
+    except Exception as e:
+        print(f"[{key}] 실행 기록 저장 실패: {e}")
+
+
 async def price_snapshot_loop():
     await asyncio.sleep(5)
-    await _collect_daily_prices()
     while True:
-        await asyncio.sleep(24 * 3600)  # 하루 1회 수집 (네이버 API 쿼터 절약)
-        await _collect_daily_prices()
+        await run_once_per_day("snapshot", _collect_daily_prices)
+        await asyncio.sleep(6 * 3600)  # 서버가 계속 깨어 있으면 6시간마다 확인 (실제 수집은 하루 1회)
 
 
 async def backfill_category_price_history(category: str, today: date) -> None:
