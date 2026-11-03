@@ -24,6 +24,11 @@ _CACHE: dict[str, tuple[float, list[dict]]] = {}
 _CACHE_TTL = 1800  # 30분
 _CACHE_MAX = 200  # 자유 검색어가 계속 쌓여 메모리를 무한정 잡아먹지 않도록 상한선
 
+# 다나와 페이지 받기 + 파싱을 동시에 2개까지만 한다.
+# 트렌드 TOP10은 카테고리 10개를 한꺼번에 검색하고 B2B 분석도 여러 검색을 동시에 돌려서
+# 2~3MB짜리 HTML 10여 개가 스레드에서 동시에 파싱되면 Render 무료 서버(512MB)가 메모리 초과로 죽었다.
+_FETCH_SEM = asyncio.Semaphore(2)
+
 
 def _parse_item(li) -> dict | None:
     """다나와 검색결과 li.prod_item 하나를 네이버 search_products()와 동일한 item 형태로 변환."""
@@ -172,14 +177,20 @@ async def _fetch_raw_items(query: str) -> list[dict]:
     last_err: Exception | None = None
     for attempt in range(2):
         try:
-            async with httpx.AsyncClient(timeout=12.0, follow_redirects=True) as client:
-                resp = await client.get(
-                    "https://search.danawa.com/",
-                    params={"query": query, "tab": "goods"},
-                    headers=_DANAWA_HEADERS,
-                )
-            resp.raise_for_status()
-            items = await asyncio.to_thread(_parse_html, resp.text)
+            async with _FETCH_SEM:
+                # 기다리는 동안 다른 요청이 같은 검색어를 이미 받아왔으면 그걸 쓴다
+                cached = _CACHE.get(query)
+                if cached and time.time() - cached[0] < _CACHE_TTL:
+                    return cached[1]
+                async with httpx.AsyncClient(timeout=12.0, follow_redirects=True) as client:
+                    resp = await client.get(
+                        "https://search.danawa.com/",
+                        params={"query": query, "tab": "goods"},
+                        headers=_DANAWA_HEADERS,
+                    )
+                resp.raise_for_status()
+                items = await asyncio.to_thread(_parse_html, resp.text)
+                del resp
             if len(_CACHE) >= _CACHE_MAX:
                 oldest_key = min(_CACHE, key=lambda k: _CACHE[k][0])
                 del _CACHE[oldest_key]
