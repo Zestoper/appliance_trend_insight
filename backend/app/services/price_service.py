@@ -306,7 +306,8 @@ async def _collect_daily_prices():
         """,
         (seven_days_ago,),
     )
-    for row in tracked:
+    from app.utils.memory import rss_mb, trim
+    for n, row in enumerate(tracked, 1):
         pid = row["product_key"]
         pname = row["product_name"] or ""
         try:
@@ -317,6 +318,11 @@ async def _collect_daily_prices():
                 print(f"[snapshot]   제품 {pid} ({pname[:20]}): {match['price']:,}원")
         except Exception as e:
             print(f"[snapshot]   제품 {pid} 실패: {e}")
+        # 제품마다 다나와 검색 페이지(2~3MB)를 파싱하는데 쓰고 난 메모리를 돌려주지 않아
+        # 제품 하나에 4~5MB씩 쌓이다 512MB를 넘었다 (Render 로그 [mem]으로 확인) → 제품마다 반납
+        trim()
+        if n % 10 == 0:
+            print(f"[snapshot]   {n}/{len(tracked)}개 처리 · 메모리 {rss_mb()}MB")
         await asyncio.sleep(1.2)
 
     from app.config import _DL_CACHE
