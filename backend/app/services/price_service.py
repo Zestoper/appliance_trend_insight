@@ -294,6 +294,8 @@ async def _collect_daily_prices():
                         pass
         except Exception as e:
             print(f"[snapshot]   {cat} 실패: {e}")
+        from app.utils.memory import trim
+        trim()   # 카테고리마다 다나와 페이지를 파싱하므로 쌓인 메모리를 바로 돌려준다
         await asyncio.sleep(1.2)
 
     tracked = await fetchall(

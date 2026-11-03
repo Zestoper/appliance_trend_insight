@@ -773,9 +773,9 @@ async def get_search_analysis(
                 await db_exec(
                     """
                     INSERT INTO product_price_history
-                        (product_key, product_name, model_number, min_price, max_price, avg_price, snapshot_date, mall_data)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                    ON CONFLICT (product_key, snapshot_date) DO UPDATE SET
+                        (product_key, product_name, model_number, min_price, max_price, avg_price, snapshot_date, snapshot_hour, mall_data)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, 0, %s)
+                    ON CONFLICT (product_key, snapshot_date, snapshot_hour) DO UPDATE SET
                         min_price = EXCLUDED.min_price,
                         max_price = EXCLUDED.max_price,
                         avg_price = EXCLUDED.avg_price,
