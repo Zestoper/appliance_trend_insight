@@ -167,7 +167,7 @@ function WeatherChart({ series, label, unit, keyword }) {
 
 function energyText(p) {
   if (!p?.energy_grade) return null
-  return `에너지 ${p.energy_grade}등급` + (p.monthly_cost ? ` · 월 전기료 약 ${p.monthly_cost.toLocaleString()}원` : '')
+  return `에너지 ${p.energy_grade}등급` + (p.monthly_cost ? ` · 월 전기료 약 ${p.monthly_cost.toLocaleString()}원` + (p.monthly_cost_basis ? ` (${p.monthly_cost_basis})` : '') : '')
 }
 
 // ── 가격 변동 그래프 (실제 이력 축적분만 표시) ────────────────────────────
