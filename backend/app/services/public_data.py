@@ -275,7 +275,8 @@ async def fetch_kepco_rate() -> list[dict]:
 
 
 # v2: 등급에 월간 소비전력량 · 에너지비용을 같이 저장 (예전 캐시는 등급만 있어서 키를 바꿈)
-KEMCO_CACHE_PREFIX = "kemco_model_grades:v2:"
+# v3: 품목마다 다른 전력량 · 비용 필드 이름을 넓게 찾고 실제 필드 샘플을 같이 저장
+KEMCO_CACHE_PREFIX = "kemco_model_grades:v3:"
 
 # EEP_XX 경로 매핑 (실제 서비스 EndPoint: https://apis.data.go.kr/B553530/eep)
 _KEMCO_CAT_PATH_MAP = {
@@ -314,6 +315,37 @@ async def fetch_kemco_model_grades(category: str, max_rows: int = 1500) -> dict[
         except ValueError:
             return None
 
+    def _first_num(item, names: tuple[str, ...]) -> float | None:
+        for n in names:
+            if (v := _num(item, n)) is not None:
+                return v
+        return None
+
+    def _guess_kwh(item) -> float | None:
+        """월간 소비전력량(kWh). 품목마다 필드 이름이 달라서 알려진 이름 → 이름 규칙 순서로 찾는다."""
+        v = _first_num(item, ("MONTH_CONS_PWR", "MONTH_PWR", "MONTH_CONS_ELEC", "MONTH_ELEC_USE"))
+        if v is not None:
+            return v
+        if (y := _first_num(item, ("YEAR_CONS_PWR", "YEAR_PWR", "YEAR_CONS_ELEC"))) is not None:
+            return y / 12
+        for child in item:
+            tag = child.tag.upper()
+            if "MONTH" in tag and ("PWR" in tag or "ELEC" in tag) and "COST" not in tag:
+                if (v := _num(item, child.tag)) is not None:
+                    return v
+        return None
+
+    def _guess_won(item) -> float | None:
+        """월간 에너지비용(원). 제습기는 YEAR_COST 이름이지만 설명이 '월간에너지비용(원)'이다."""
+        if category == "제습기":
+            v = _first_num(item, ("YEAR_COST", "MONTH_COST"))
+        else:
+            v = _first_num(item, ("MONTH_COST", "MONTH_ENRG_COST"))
+            if v is None and (y := _first_num(item, ("YEAR_COST", "YEAR_ENRG_COST"))) is not None:
+                v = y / 12
+        return v
+
+    sample: dict[str, str] = {}        # 첫 항목의 실제 필드 이름 · 값 (관리자 확인용)
     power_map: dict[str, float] = {}   # 모델 → 월간 소비전력량(kWh)
     cost_map: dict[str, float] = {}    # 모델 → 월간 에너지비용(원) — 제습기처럼 비용을 직접 주는 품목
 
@@ -322,15 +354,14 @@ async def fetch_kemco_model_grades(category: str, max_rows: int = 1500) -> dict[
         total = int(root.findtext(".//totalCount") or 0)
         m: dict[str, int] = {}
         for item in root.findall(".//item"):
+            if not sample:
+                sample.update({ch.tag: (ch.text or "").strip()[:40] for ch in item})
             grade_raw = (item.findtext("GRADE") or "").strip()
             if not grade_raw or not grade_raw.isdigit():
                 continue
             grade = int(grade_raw)
-            kwh = _num(item, "MONTH_CONS_PWR")
-            if kwh is None and (y := _num(item, "YEAR_CONS_PWR")):
-                kwh = y / 12
-            # 제습기는 YEAR_COST 이름이지만 설명이 '월간에너지비용(원)'이다
-            won = _num(item, "YEAR_COST") if category == "제습기" else None
+            kwh = _guess_kwh(item)
+            won = _guess_won(item)
             for field in ("MODEL_TERM", "OLDX_MODEL_TERM"):
                 model = (item.findtext(field) or "").strip().upper()
                 if model and model != "NULL":
@@ -377,7 +408,7 @@ async def fetch_kemco_model_grades(category: str, max_rows: int = 1500) -> dict[
                 _, m = res
                 grade_map.update(m)
 
-        await set_db_cache(cache_key, {"map": grade_map, "power": power_map, "cost": cost_map}, ttl_hours=168)
+        await set_db_cache(cache_key, {"map": grade_map, "power": power_map, "cost": cost_map, "sample": sample}, ttl_hours=168)
     except Exception as e:
         logger.warning("[KEMCO] %s 모델별 등급 조회 실패: %s", category, repr(e))
     return grade_map
@@ -733,6 +764,6 @@ async def ext_data_refresh_loop() -> None:
     # 가격 수집과 동시에 돌면 메모리가 몰리므로 2분 늦게 시작한다
     await asyncio.sleep(120)
     while True:
-        # v2: 위해 원인(injuryReason)을 저장하도록 바뀌어 오늘 한 번 더 수집되게 기록 키를 바꿈
-        await run_once_per_day("ext_data:v2", _refresh_ext_data_once)
+        # v3: 에너지공단 캐시 키가 v3로 바뀌어 배포 당일 한 번 더 채우도록 기록 키를 바꿈
+        await run_once_per_day("ext_data:v3", _refresh_ext_data_once)
         await asyncio.sleep(6 * 3600)

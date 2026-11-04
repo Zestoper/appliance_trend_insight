@@ -1546,5 +1546,5 @@ async def public_data_status(_: dict = Depends(require_admin)):
     for cat in _KEMCO_CAT_PATH_MAP:
         c = await get_db_cache_stale(f"{KEMCO_CACHE_PREFIX}{cat}") or {}
         status[f"kemco:{cat}"] = {"models": len(c.get("map", {})), "power": len(c.get("power", {})),
-                                  "cost": len(c.get("cost", {}))}
+                                  "cost": len(c.get("cost", {})), "fields": c.get("sample")}
     return status
