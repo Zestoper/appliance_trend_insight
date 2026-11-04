@@ -2,6 +2,10 @@
 ##시연 영상
 
 
+https://github.com/user-attachments/assets/f6fac124-3d55-43ff-9fa6-128516cc242d
+
+
+
 
 
 가전제품 B2B 유통사를 위한 AI 기반 시장 분석 플랫폼입니다.  
