@@ -1,9 +1,11 @@
-# 가전무쌍 (Appliance Trend Insight)
-가전제품 B2B 유통사를 위한 AI 기반 시장 분석 플랫폼입니다.  
+# 가전무쌍 — 가전 B2B 시장 분석 · 매입 판단 서비스
 제품을 검색해 고르면 검색량 · 가격 · 리뷰 · 공공데이터를 모아 수요 예측과 매입 판단(매입 추천 · 관망)을 한 화면에 보여줍니다.
 
 ## 시연 영상
 https://github.com/user-attachments/assets/dbc6fe18-7f63-40eb-988b-6548a2e3a6cf
+
+**서비스**: https://appliance-trend-insight.vercel.app
+> 백엔드는 Render 무료 플랜이라 처음 접속 시 서버가 깨어나는 데 최대 1분 정도 걸립니다.
 
 ---
 
@@ -14,8 +16,6 @@ https://github.com/user-attachments/assets/dbc6fe18-7f63-40eb-988b-6548a2e3a6cf
 | **서비스 (Frontend)** | https://appliance-trend-insight.vercel.app | Vercel |
 | **Backend** | FastAPI (Python 런타임) | Render |
 | **DB** | PostgreSQL + pgvector | Neon |
-
-> Render 무료 플랜은 15분 비활동 시 서버가 슬립되며, 첫 요청 시 30~50초 대기가 발생할 수 있습니다.
 
 ### Backend 배포 (Render)
 
