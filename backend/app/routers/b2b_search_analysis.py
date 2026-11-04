@@ -260,7 +260,7 @@ def _linear_forecast(history: list[dict], n_forecast: int = 8, step_days: int = 
 async def get_product_search(q: str = Query(..., min_length=1), _: dict = Depends(require_b2b)):
     """검색어에 매칭되는 실제 상품 목록(사진·모델명·가격)을 반환 — 사용자가 그 중 하나를 골라야
     /search-analysis가 해당 '단일 상품' 기준으로 정밀 분석을 수행한다."""
-    from app.services.public_data import get_kemco_model_info_cached
+    from app.services.public_data import get_kemco_model_info_cached, AIR_PURIFIER_HOURS_PER_DAY
     from app.services.public_insights import monthly_cost
 
     detected_category = None
@@ -319,6 +319,9 @@ async def get_product_search(q: str = Query(..., min_length=1), _: dict = Depend
             "link":  it.get("link", ""),
             "energy_grade": energy_grade,
             "monthly_cost": month_won,
+            # 공기청정기 전기료는 하루 사용 시간을 가정한 값이라 기준을 같이 내려준다
+            "monthly_cost_basis": (f"하루 {AIR_PURIFIER_HOURS_PER_DAY}시간 기준"
+                                   if month_won and detected_category == "공기청정기" else None),
         })
 
     return {"query": q, "items": items[:30]}
