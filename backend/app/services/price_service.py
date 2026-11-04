@@ -452,13 +452,23 @@ MEMORY_LIMIT_MB = 300
 async def run_once_per_day(key: str, job, hours: int = 20) -> None:
     """Render 무료 서버는 15분 동안 요청이 없으면 잠들고 요청이 오면 새로 뜬다.
     예전에는 뜰 때마다 하루치 수집을 처음부터 다시 돌려서 사용자 요청과 겹치면
-    메모리 512MB를 넘겨 서버가 죽었다(Render 'Ran out of memory'). 마지막 실행 시각을 DB에 남겨
-    hours 안에 이미 돌았으면 건너뛴다."""
-    from app.services.naver_cache import get_db_cache, set_db_cache
+    메모리 512MB를 넘겨 서버가 죽었다(Render 'Ran out of memory') → 실행 기록을 DB에 남겨 하루 1번만 돈다.
+
+    기준은 '마지막 실행 후 20시간'이 아니라 '한국 날짜'다.
+    20시간 기준이면 전날 낮에 한 번 돌았을 때 다음 날 새벽 수집(GitHub Actions · 실행 시각이 몇 시간씩 밀리기도 함)이
+    20시간 안이라 건너뛰고 그날은 아무도 접속하지 않아 하루 수집이 통째로 빠졌다."""
+    from datetime import timedelta, timezone
+    from app.services.naver_cache import get_db_cache_stale, set_db_cache
+    kst = timezone(timedelta(hours=9))
+    today_kst = datetime.now(kst).date().isoformat()
     marker = f"job:{key}:last_run"
     try:
-        if await get_db_cache(marker):
-            print(f"[{key}] 최근 {hours}시간 안에 이미 실행됨 → 건너뜀")
+        last = await get_db_cache_stale(marker) or {}
+        last_day = last.get("kst_date")
+        if last_day is None and last.get("at"):   # 예전 형식(UTC 시각)도 읽는다
+            last_day = datetime.fromisoformat(last["at"]).replace(tzinfo=timezone.utc).astimezone(kst).date().isoformat()
+        if last_day == today_kst:
+            print(f"[{key}] 오늘({today_kst}) 이미 실행됨 → 건너뜀")
             return
     except Exception as e:
         print(f"[{key}] 실행 기록 확인 실패 (그냥 실행): {e}")
@@ -470,7 +480,7 @@ async def run_once_per_day(key: str, job, hours: int = 20) -> None:
     if completed is False:   # 메모리 보호로 중간에 멈췄으면 완료 기록을 남기지 않아 다음에 다시 돈다
         return
     try:
-        await set_db_cache(marker, {"at": datetime.utcnow().isoformat()}, ttl_hours=hours)
+        await set_db_cache(marker, {"at": datetime.utcnow().isoformat(), "kst_date": today_kst}, ttl_hours=72)
     except Exception as e:
         print(f"[{key}] 실행 기록 저장 실패: {e}")
 

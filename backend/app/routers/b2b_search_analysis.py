@@ -959,8 +959,21 @@ async def get_search_analysis(
 
     competitor_reviews = []
     if competitor:
-        competitor_reviews = await _fetch_review_snippets(f"{competitor['title'][:40]} 후기", 6, 4)
-        competitor_reviews = await _enrich_with_full_text(competitor_reviews[:6])
+        # 제품명으로만 찾으면 다른 품목 후기가 섞인다 (예: 에어컨 '비스포크 AI 무풍콤보' → 세탁건조기 '비스포크 AI 콤보' 후기)
+        # → 모델명이 있으면 모델명으로 찾고 · 모델명이나 같은 품목 이름이 들어간 후기만 남긴다
+        _comp_model = _extract_model_broad(competitor['title'])
+        _comp_q = f"{_comp_model} 후기" if _comp_model else f"{competitor['title'][:40]} 후기"
+        competitor_reviews = await _fetch_review_snippets(_comp_q, 8, 4)
+        _cat_words = [kw for kw, c in _CATEGORY_MAP.items() if c == detected_category] or [detected_category or ""]
+
+        def _is_same_product(r: dict) -> bool:
+            txt = (r.get("title", "") + " " + r.get("text", "")).upper()
+            if _comp_model and _comp_model.upper() in txt:
+                return True
+            return any(w and w.upper() in txt for w in _cat_words)
+
+        competitor_reviews = [r for r in competitor_reviews if _is_same_product(r)]
+        competitor_reviews = await _enrich_with_full_text(competitor_reviews[:6]) if competitor_reviews else []
 
     # ── RAG(pgvector) 컨텍스트 ────────────────────────────────────────────────
     rag_enhanced = False
