@@ -1,6 +1,8 @@
 # 가전무쌍 (Appliance Trend Insight)
 ## 시연 영상
-https://github.com/user-attachments/assets/49eb6737-b0f4-4e56-8814-e296684b9e4f
+https://github.com/user-attachments/assets/dbc6fe18-7f63-40eb-988b-6548a2e3a6cf
+
+
 
 가전제품 B2B 유통사를 위한 AI 기반 시장 분석 플랫폼입니다.  
 제품을 검색해 고르면 검색량 · 가격 · 리뷰 · 공공데이터를 모아 수요 예측과 매입 판단(매입 추천 · 관망)을 한 화면에 보여줍니다.
