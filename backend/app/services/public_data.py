@@ -12,6 +12,7 @@ import os
 import asyncio
 import logging
 import math
+import re
 from datetime import date, timedelta, datetime
 
 import httpx
@@ -276,7 +277,12 @@ async def fetch_kepco_rate() -> list[dict]:
 
 # v2: 등급에 월간 소비전력량 · 에너지비용을 같이 저장 (예전 캐시는 등급만 있어서 키를 바꿈)
 # v3: 품목마다 다른 전력량 · 비용 필드 이름을 넓게 찾고 실제 필드 샘플을 같이 저장
-KEMCO_CACHE_PREFIX = "kemco_model_grades:v3:"
+# v4: 단위가 붙은 값("6,816(원)")을 읽고 공기청정기 전력량을 계산하도록 바뀌어 다시 받음
+KEMCO_CACHE_PREFIX = "kemco_model_grades:v4:"
+
+# 공기청정기는 월간 전력량을 주지 않고 단위면적당 소비전력(W/㎡)과 표준사용면적(㎡)만 준다.
+# 소비전력(W) = 두 값의 곱이고 한 달 전기료는 하루 8시간 사용을 가정해 계산한다 (화면에도 기준을 표시).
+AIR_PURIFIER_HOURS_PER_DAY = 8
 
 # EEP_XX 경로 매핑 (실제 서비스 EndPoint: https://apis.data.go.kr/B553530/eep)
 _KEMCO_CAT_PATH_MAP = {
@@ -309,11 +315,12 @@ async def fetch_kemco_model_grades(category: str, max_rows: int = 1500) -> dict[
     from xml.etree import ElementTree as ET
 
     def _num(item, field: str) -> float | None:
-        try:
-            v = float((item.findtext(field) or "").replace(",", "").strip())
-            return v if v > 0 else None
-        except ValueError:
+        # 값 뒤에 단위가 붙어 오는 품목이 있다 (제습기 YEAR_COST "6,816(원)") → 앞쪽 숫자만 읽는다
+        m = re.match(r"\s*(\d+(?:\.\d+)?)", (item.findtext(field) or "").replace(",", ""))
+        if not m:
             return None
+        v = float(m.group(1))
+        return v if v > 0 else None
 
     def _first_num(item, names: tuple[str, ...]) -> float | None:
         for n in names:
@@ -328,6 +335,10 @@ async def fetch_kemco_model_grades(category: str, max_rows: int = 1500) -> dict[
             return v
         if (y := _first_num(item, ("YEAR_CONS_PWR", "YEAR_PWR", "YEAR_CONS_ELEC"))) is not None:
             return y / 12
+        if category == "공기청정기":
+            w_per_m2, area = _num(item, "CONS_PWR"), _num(item, "STANDARD_CONS_AREA")
+            if w_per_m2 and area:
+                return w_per_m2 * area * AIR_PURIFIER_HOURS_PER_DAY * 30 / 1000
         for child in item:
             tag = child.tag.upper()
             if "MONTH" in tag and ("PWR" in tag or "ELEC" in tag) and "COST" not in tag:
@@ -764,6 +775,6 @@ async def ext_data_refresh_loop() -> None:
     # 가격 수집과 동시에 돌면 메모리가 몰리므로 2분 늦게 시작한다
     await asyncio.sleep(120)
     while True:
-        # v3: 에너지공단 캐시 키가 v3로 바뀌어 배포 당일 한 번 더 채우도록 기록 키를 바꿈
-        await run_once_per_day("ext_data:v3", _refresh_ext_data_once)
+        # v4: 에너지공단 캐시 키가 v4로 바뀌어 배포 당일 한 번 더 채우도록 기록 키를 바꿈
+        await run_once_per_day("ext_data:v4", _refresh_ext_data_once)
         await asyncio.sleep(6 * 3600)
