@@ -513,7 +513,8 @@ async def fetch_kca_complaints(category: str, rows: list[dict] | None = None) ->
             "content":  item.get("injurySymptoms", ""),
             "product":  item.get("itemMinor", ""),
             "injury":   item.get("injuryPart", ""),
-            "cause":    _pick(item, "cause"),
+            # 원자료 필드 이름은 injuryReason (11/4 수집에서 확인) — 혹시 바뀌면 'cause'가 들어간 필드도 찾아본다
+            "cause":    (item.get("injuryReason") or "").strip() or _pick(item, "cause"),
         }
         for item in filtered
     ]
@@ -732,5 +733,6 @@ async def ext_data_refresh_loop() -> None:
     # 가격 수집과 동시에 돌면 메모리가 몰리므로 2분 늦게 시작한다
     await asyncio.sleep(120)
     while True:
-        await run_once_per_day("ext_data", _refresh_ext_data_once)
+        # v2: 위해 원인(injuryReason)을 저장하도록 바뀌어 오늘 한 번 더 수집되게 기록 키를 바꿈
+        await run_once_per_day("ext_data:v2", _refresh_ext_data_once)
         await asyncio.sleep(6 * 3600)
