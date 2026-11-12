@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import s from '../styles/B2BHome.module.css'
 import anim from '../styles/animations.module.css'
 import { useInView } from '../hooks/useInView'
-import { ArrowRight, Building2, Hourglass, Lock } from 'lucide-react'
+import { ArrowRight, Bell, Building2, ChartBar, CircleCheck, Hourglass, Lock, ShieldCheck, TrendingUp } from 'lucide-react'
 
 const TYPING_PHRASES = [
   'AI가 에어컨 매입 전략 수립 중',
@@ -60,6 +60,7 @@ const FEATURES = [
     path: '/products/냉장고',
     cta: '리포트 보기',
     color: '#ec4899',
+    tags: ['시장 포지션', '경쟁사 진단', '리뷰 · 뉴스'],
   },
   {
     icon: (
@@ -74,6 +75,47 @@ const FEATURES = [
     path: '/timing',
     cta: '타이밍 확인',
     color: '#06b6d4',
+    tags: ['90일 추이', '고점 · 저점', '수요 흐름'],
+  },
+  {
+    icon: <ChartBar size={22} strokeWidth={1.8} />,
+    title: '제품 검색 기반 시장 분석',
+    desc: '제품명을 검색해 상품 하나를 고르면 검색량 예측·가격 적정성·경쟁 제품 비교까지 한 번에 분석',
+    path: '/b2b/analysis',
+    cta: '분석 시작',
+    color: '#6366f1',
+    tags: ['검색량 예측', '가격 적정성', '경쟁 제품 비교'],
+  },
+]
+
+const WHY = [
+  {
+    icon: TrendingUp,
+    title: '근거 있는 수요 예측',
+    desc: 'Holt-Winters 시계열 모델로 연간 계절성까지 반영하고 신뢰구간과 함께 예측을 보여줍니다',
+    tag: 'Holt-Winters · 신뢰구간',
+    color: '#6366f1',
+  },
+  {
+    icon: ShieldCheck,
+    title: '지어내지 않는 AI 리포트',
+    desc: '실제 리뷰·뉴스·블로그를 벡터 검색(RAG)으로 찾아 근거로 삼아 리포트를 작성합니다',
+    tag: 'RAG · pgvector',
+    color: '#ec4899',
+  },
+  {
+    icon: Bell,
+    title: '놓치지 않는 매입 타이밍',
+    desc: '검색 관심도 추이에서 수요 고점과 저점을 포착해 매입 시점 판단을 돕습니다',
+    tag: '90일 관심도 추이',
+    color: '#06b6d4',
+  },
+  {
+    icon: CircleCheck,
+    title: '끊기지 않는 분석',
+    desc: 'Groq 한도가 소진되면 Cerebras로 자동 전환해 리포트 생성이 멈추지 않습니다',
+    tag: 'LLM 이중화',
+    color: '#22c55e',
   },
 ]
 
@@ -181,6 +223,7 @@ export default function B2BHome() {
   const gateRef     = useInView({ threshold: 0.1 })
   const gridRef     = useInView({ threshold: 0.05 })
   const workflowRef = useInView({ threshold: 0.1 })
+  const whyRef      = useInView({ threshold: 0.1 })
 
   const isB2BActive = (user?.user_type === 'b2b' && user?.status === 'active') || user?.role === 'admin'
 
@@ -279,6 +322,11 @@ export default function B2BHome() {
               </div>
             )}
 
+            <div className={s.featHeader}>
+              <span className={s.workflowBadge}>핵심 기능</span>
+              <h2 className={s.featHeading}>지금 바로 써볼 수 있는 분석 3가지</h2>
+            </div>
+
             <div ref={gridRef.ref} className={s.featureGrid}>
               {FEATURES.map((f, i) => (
                 <div
@@ -291,6 +339,9 @@ export default function B2BHome() {
                   <div className={s.featureIcon}>{f.icon}</div>
                   <h3 className={s.featureTitle}>{f.title}</h3>
                   <p className={s.featureDesc}>{f.desc}</p>
+                  <div className={s.featureTags}>
+                    {f.tags.map(tag => <span key={tag} className={s.featureTag}>{tag}</span>)}
+                  </div>
                   {isB2BActive && (
                     <span className={s.featureCta}>{f.cta} <ArrowRight size="1em" /></span>
                   )}
@@ -299,6 +350,37 @@ export default function B2BHome() {
               ))}
             </div>
 
+          </div>
+        </div>
+
+        {/* ── 왜 가전무쌍인가 ── */}
+        <div className={s.whySection}>
+          <div className={s.whyInner}>
+            <div className={s.featHeader}>
+              <span className={s.workflowBadge}>왜 가전무쌍인가</span>
+              <h2 className={s.featHeading}>감이 아니라 근거로 결정합니다</h2>
+            </div>
+            <div ref={whyRef.ref} className={s.whyGrid}>
+              {WHY.map((w, i) => {
+                const Icon = w.icon
+                return (
+                  <div
+                    key={w.title}
+                    className={`${s.whyCard} ${anim.hidden} ${whyRef.inView ? anim.visible : ''} ${DELAYS[i]}`}
+                    style={{ '--card-color': w.color }}
+                  >
+                    <div className={s.whyIcon}><Icon size={22} strokeWidth={1.8} /></div>
+                    <div className={s.whyBody}>
+                      <div className={s.whyTop}>
+                        <h3 className={s.whyTitle}>{w.title}</h3>
+                        <span className={s.featureTag}>{w.tag}</span>
+                      </div>
+                      <p className={s.whyDesc}>{w.desc}</p>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         </div>
 
