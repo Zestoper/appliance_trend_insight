@@ -5,7 +5,7 @@ import smtplib
 import time
 
 from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from app.auth import make_token, hash_password, verify_password, get_current_user
 from app.services.email_service import send_verification_email, send_password_reset_email
@@ -15,31 +15,37 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 _verification_codes: dict[str, dict] = {}
 
 
-class SendCodeRequest(BaseModel):
+class _EmailBody(BaseModel):
     email: str
 
+    @field_validator("email")
+    @classmethod
+    def _normalize_email(cls, v: str) -> str:
+        # 'Test@Gmail.com ' 과 'test@gmail.com' 을 같은 이메일로 취급
+        return v.strip().lower()
 
-class VerifyCodeRequest(BaseModel):
-    email: str
+
+class SendCodeRequest(_EmailBody):
+    pass
+
+
+class VerifyCodeRequest(_EmailBody):
     code: str
 
 
-class SignupB2C(BaseModel):
-    email: str
+class SignupB2C(_EmailBody):
     password: str
     nickname: str
 
 
-class SignupB2B(BaseModel):
-    email: str
+class SignupB2B(_EmailBody):
     password: str
     company_name: str
     business_type: str
     contact_phone: str
 
 
-class LoginRequest(BaseModel):
-    email: str
+class LoginRequest(_EmailBody):
     password: str
 
 

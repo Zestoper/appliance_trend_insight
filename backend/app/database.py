@@ -103,7 +103,10 @@ async def _execute_returning(sql: str, args=None) -> int:
 
 
 async def get_user_by_email(email: str) -> dict | None:
-    return await fetchone("SELECT * FROM users WHERE email = %s", (email,))
+    # 대소문자·앞뒤 공백 차이로 같은 이메일을 놓치지 않도록 정규화해서 비교
+    return await fetchone(
+        "SELECT * FROM users WHERE LOWER(email) = %s", ((email or "").strip().lower(),)
+    )
 
 
 async def create_user(email: str, password_hash: str, user_type: str, status: str = "active") -> int:
