@@ -210,7 +210,12 @@ export default function Signup() {
   }
 
   function prev() {
-    if (step === 0) return
+    // 첫 단계에서는 가입 화면을 벗어나 이전 페이지로 (바로 들어온 경우 로그인으로)
+    if (step === 0) {
+      if (window.history.length > 1) navigate(-1)
+      else navigate('/login')
+      return
+    }
     setError('')
     setStep(s => s - 1)
   }
@@ -427,7 +432,7 @@ export default function Signup() {
         </div>
 
         <div className={s.btnRow}>
-          <button className={s.prevBtn} onClick={prev} disabled={step === 0}>
+          <button className={s.prevBtn} onClick={prev} disabled={loading}>
            <ArrowLeft size="1em" /> 이전
           </button>
           <button className={styles.submitBtn} onClick={next}
