@@ -45,7 +45,9 @@ PROVIDERS = {
         "authorize_url": "https://kauth.kakao.com/oauth/authorize",
         "token_url":     "https://kauth.kakao.com/oauth/token",
         "userinfo_url":  "https://kapi.kakao.com/v2/user/me",
-        "scope":         "profile_nickname account_email",
+        # scope 를 비워두면 카카오는 콘솔 '동의항목'에서 켜둔 항목만 요청한다.
+        # 직접 적으면 콘솔에서 안 켠 항목(예: 비즈 앱이 아니라 잠긴 이메일)이 섞일 때 KOE205 오류가 난다.
+        "scope":         "",
     },
 }
 
@@ -157,9 +159,10 @@ async def social_login(provider: str):
         "client_id":     cfg["client_id"],
         "redirect_uri":  _callback_url(provider),
         "response_type": "code",
-        "scope":         cfg["scope"],
         "state":         _make_state(provider),
     }
+    if cfg["scope"]:
+        params["scope"] = cfg["scope"]
     if provider == "google":
         params["prompt"] = "select_account"  # 여러 구글 계정 중 고를 수 있게
     return RedirectResponse(f"{cfg['authorize_url']}?{urlencode(params)}")
