@@ -359,3 +359,56 @@
     color: var(--text-muted);
     font-size: 12px;
 }
+
+/* ── 소셜 로그인 ───────────────────────────────────────── */
+.socialDivider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 20px 0 14px;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+.socialDivider::before,
+.socialDivider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(128, 128, 128, 0.25);
+}
+
+.socialRow {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.socialBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.socialBtn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+
+/* 카카오 공식 가이드: 노란 배경 + 검은 글자 */
+.kakaoBtn {
+    background: #fee500;
+    color: rgba(0, 0, 0, 0.85);
+}
+
+/* 구글 공식 가이드: 흰 배경 + 회색 테두리 */
+.googleBtn {
+    background: #ffffff;
+    color: #1f1f1f;
+    border: 1px solid #dadce0;
+}

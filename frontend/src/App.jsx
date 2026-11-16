@@ -3,6 +3,7 @@ import { ThemeProvider } from './context/ThemeContext'
 import { AuthProvider } from './context/AuthContext'
 import Home from './pages/Home'
 import Login from './pages/Login'
+import OAuthCallback from './pages/OAuthCallback'
 import FindPassword from './pages/FindPassword'
 import ResetPassword from './pages/ResetPassword'
 import Signup from './pages/SignUp'
@@ -31,6 +32,7 @@ export default function App() {
             <Route path="/"                  element={<Home />} />
             <Route path="/home"              element={<Home />} />
             <Route path="/login"             element={<Login />} />
+            <Route path="/oauth/callback"    element={<OAuthCallback />} />
             <Route path="/signup"            element={<Signup />} />
             <Route path="/find-password"     element={<FindPassword />} />
             <Route path="/reset-password"    element={<ResetPassword />} />
