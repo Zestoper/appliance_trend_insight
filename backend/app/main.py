@@ -31,6 +31,7 @@ from app.services.public_data import ext_data_refresh_loop
 from app.routers.insights import router as insights_router
 from app.routers.naver import router as naver_router
 from app.routers.auth import router as auth_router
+from app.routers.oauth import router as oauth_router
 from app.routers.admin import router as admin_router
 from app.routers.user import router as user_router
 from app.routers.analysis import router as analysis_router
@@ -143,6 +144,7 @@ app.add_middleware(
 app.include_router(insights_router)
 app.include_router(naver_router)
 app.include_router(auth_router)
+app.include_router(oauth_router)
 app.include_router(admin_router)
 app.include_router(user_router)
 app.include_router(analysis_router)
