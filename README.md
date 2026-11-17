@@ -62,6 +62,11 @@ VITE_API_BASE=https://your-backend-name.onrender.com
 - 제품 목록 · 비교 · 추천 · 구매 타이밍 · 트렌드 TOP10 · 제품 리포트
 - AI 상담 채팅: 실제 가격 이력으로 답변 · 리포트는 RAG(pgvector) 문서를 함께 참고
 
+### 소셜 로그인
+- 카카오 · 구글 계정으로 바로 가입 · 로그인 (`/api/auth/{kakao|google}/login`)
+- 인증된 같은 이메일의 기존 계정은 자동 연결
+- 로그인 상태값(state)을 서명해 10분 안에만 유효하게 처리하고 발급한 토큰은 주소 뒤 `#token=`으로 넘겨 서버 로그에 남지 않게 함
+
 ### 지원 카테고리
 에어컨 · 냉장고 · 세탁기 · 건조기 · TV · 선풍기 · 공기청정기 · 제습기 · 가습기 · 로봇청소기 · 식기세척기 · 에어프라이어 · 전기밥솥
 
@@ -73,6 +78,7 @@ VITE_API_BASE=https://your-backend-name.onrender.com
 |------|------|
 | Frontend | React 18, Vite, React Router |
 | Backend | FastAPI, Python 3.11 |
+| 인증 | JWT · 카카오/구글 OAuth2 소셜 로그인 |
 | DB / 캐시 | PostgreSQL + pgvector (Neon) |
 | AI / LLM | Groq (openai/gpt-oss-120b → openai/gpt-oss-20b), Cerebras (gpt-oss-120b) |
 | 임베딩 | HuggingFace Inference API (sentence-transformers/all-MiniLM-L6-v2, 384차원) |
@@ -152,6 +158,16 @@ ENABLE_RAG=true
 
 # JWT
 JWT_SECRET=
+
+# 소셜 로그인 (선택 — 비워두면 해당 버튼만 비활성화)
+#   콜백 주소는 {BACKEND_URL}/api/auth/{kakao|google}/callback 로 서버가 만든다
+#   → 카카오 · 구글 콘솔의 Redirect URI 에 이 주소를 등록
+BACKEND_URL=http://localhost:8000
+FRONTEND_URL=http://localhost:5173
+KAKAO_REST_API_KEY=
+KAKAO_CLIENT_SECRET=          # 카카오 콘솔에서 Client Secret 을 켰을 때만
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
 
 # 이메일 (Gmail SMTP)
 SMTP_HOST=smtp.gmail.com
