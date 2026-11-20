@@ -40,13 +40,13 @@ async def fix_ranges(fixes: list[str]):
         print(f"  key={key}  {lo:,}~{hi:,}원 밖의 기록 {len(rows)}개 삭제")
 
 
-async def main(delete: bool, fixes: list[str]):
+async def main(delete: bool, fixes: list[str]) -> int:
     if fixes:
         from app.database import close_pool
         print("범위 밖 기록 삭제")
         await fix_ranges(fixes)
         await close_pool()
-        return
+        return 0
 
     from app.database import fetchall, execute, close_pool
     from app.utils.accessory_filter import is_accessory
@@ -118,11 +118,14 @@ async def main(delete: bool, fixes: list[str]):
     elif bad or bad_tracked:
         print("\n지우려면: python scripts/audit_prices.py --delete")
     await close_pool()
+    return len(bad) + len(odd) + len(bad_tracked)
 
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--delete", action="store_true", help="소모품 이름 기록 삭제")
     ap.add_argument("--fix", action="append", default=[], help="KEY=최소~최대 : 범위 밖 기록 삭제")
+    ap.add_argument("--fail-if-found", action="store_true", help="의심 기록이 있으면 종료 코드 1 (GitHub Actions 알림용)")
     a = ap.parse_args()
-    asyncio.run(main(a.delete, a.fix))
+    found = asyncio.run(main(a.delete, a.fix))
+    sys.exit(1 if a.fail_if_found and found and not a.delete else 0)

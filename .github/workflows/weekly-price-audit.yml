@@ -1,0 +1,44 @@
+# 매주 가격 기록 점검 (지우지 않고 의심 목록만 보고)
+# 검색 · 계산 · 저장 단계 필터를 빠져나간 쓰레기 가격이 있는지 확인한다.
+# 의심 기록이 있으면 실행이 실패(빨간 X)로 끝나서 GitHub이 메일로 알려준다.
+# 결과는 Actions 실행 화면의 Summary에서 볼 수 있다.
+# 필요한 저장소 Secret: DATABASE_URL (Render에 넣은 Neon 주소와 같은 값)
+name: Weekly price audit
+
+on:
+  schedule:
+    # UTC 일요일 23:47 = 한국 시간 월요일 08:47
+    - cron: "47 23 * * 0"
+  workflow_dispatch: {}
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install
+        run: pip install asyncpg python-dotenv
+
+      - name: Audit (report only)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          code=0
+          python scripts/audit_prices.py --fail-if-found > audit.txt 2>&1 || code=$?
+          cat audit.txt
+          {
+            echo '## 가격 기록 점검'
+            echo '```'
+            cat audit.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit $code
