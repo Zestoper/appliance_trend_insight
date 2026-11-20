@@ -10,6 +10,7 @@ from app.config import (
     NAVER_MAINTENANCE_MODE,
 )
 from app.utils.helpers import strip_html
+from app.utils.accessory_filter import is_accessory, looks_like_model
 from app.services.danawa_search import danawa_search_products, get_danawa_live_price
 
 router = APIRouter()
@@ -120,8 +121,20 @@ async def search_products(
         # 네이버 쇼핑 검색(shop.json)만 막혀 있는 동안 다나와 스크래핑으로 대체 —
         # 반환 형태가 동일해서 이 함수를 호출하는 다른 모든 곳(타이밍/트렌드/추천/
         # 가격 스냅샷 등)은 코드 변경 없이 그대로 동작한다.
-        return await danawa_search_products(query=query, page=page, display=display, sort=sort, category=category)
-    return await _fetch_naver_raw(query=query, page=page, display=display, sort=sort, category=category)
+        result = await danawa_search_products(query=query, page=page, display=display, sort=sort, category=category)
+    else:
+        result = await _fetch_naver_raw(query=query, page=page, display=display, sort=sort, category=category)
+    return _drop_accessories(result, query, category)
+
+
+def _drop_accessories(result: dict, query: str, category: str | None) -> dict:
+    """모델명으로 검색했고 품목을 모를 때 딸려 나오는 필터 · 리모컨 · 커버 같은 소모품을 뺀다.
+    품목을 알면 CATEGORY_RULES가 이미 거르므로 건드리지 않는다. (앱 AccessoryFilter와 같은 규칙)"""
+    if category or not looks_like_model(query):
+        return result
+    items = result.get("items", [])
+    kept = [it for it in items if not is_accessory(it.get("title", ""), it.get("price", 0))]
+    return {**result, "items": kept, "accessories_removed": len(items) - len(kept)}
 
 
 @router.get("/api/best-price")
