@@ -700,13 +700,18 @@ async def _product_news(query: str, display: int = 5) -> dict:
         async with httpx.AsyncClient(timeout=8.0) as client:
             resp = await client.get("https://openapi.naver.com/v1/search/news.json", headers=NAVER_HEADERS,
                                     params={"query": news_query, "display": 30, "sort": "sim"})
-        items = []
+        items, seen_titles = [], set()
         for it in resp.json().get("items", []):
             title = strip_html(it.get("title", ""))
             desc = strip_html(it.get("description", ""))
             text = f"{title} {desc}"
             if not any(a in text for a in aliases):        # 품목 이름이 없는 기사 (인사 · 주식 · 분양 등) 제외
                 continue
+            # 같은 기사가 [포토] 등으로 두 번 오는 경우 → 말머리를 떼고 제목이 같으면 하나만
+            key = re.sub(r"^\[[^\]]*\]\s*|\W", "", title)
+            if key in seen_titles:
+                continue
+            seen_titles.add(key)
             items.append({
                 "title":       title,
                 "description": desc,
