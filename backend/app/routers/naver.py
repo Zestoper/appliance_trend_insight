@@ -133,8 +133,16 @@ def _drop_accessories(result: dict, query: str, category: str | None) -> dict:
     if category or not looks_like_model(query):
         return result
     items = result.get("items", [])
-    kept = [it for it in items if not is_accessory(it.get("title", ""), it.get("price", 0))]
-    return {**result, "items": kept, "accessories_removed": len(items) - len(kept)}
+    kept, removed = [], []
+    for it in items:
+        (removed if is_accessory(it.get("title", ""), it.get("price", 0)) else kept).append(it)
+    # 뺀 상품 제목도 함께 돌려준다 → 본품이 잘못 빠졌는지 바로 확인할 수 있고 앱 '다음 검색어 제안'에도 쓸 수 있다
+    return {
+        **result,
+        "items": kept,
+        "accessories_removed": len(removed),
+        "accessories_removed_titles": [f'{it.get("title", "")} ({it.get("price", 0):,}원)' for it in removed[:20]],
+    }
 
 
 @router.get("/api/best-price")
