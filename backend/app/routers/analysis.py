@@ -701,25 +701,58 @@ def _norm(text: str) -> str:
     return re.sub(r"[\s\-_]", "", text).upper()
 
 
+_HYPHEN_MODEL_RE = re.compile(r"^[A-Z0-9]+(?:-[A-Z0-9]+)+$")
+
+
+def _model_from_title(clean: str):
+    """모델명 추출. CRP-LHTR0610FW처럼 하이픈이 있는 모델명은 통째로 쓰고 없으면 B2B와 같은 규칙."""
+    from app.routers.b2b_search_analysis import _extract_model_broad
+    for raw in re.split(r"[\s()\[\]{},/]+", clean.upper()):
+        tok = raw.strip("-_.")
+        if 8 <= len(tok) <= 20 and _HYPHEN_MODEL_RE.match(tok) and re.search(r"[A-Z]", tok) and re.search(r"\d", tok):
+            return tok
+    return _extract_model_broad(clean)
+
+
+def _model_keys(model: str) -> list[str]:
+    """비교용 모델명. 정확한 모델명 다음에 끝 2 · 4글자를 뗀 앞부분 (최소 6자).
+    블로거는 AF60F17D11GS를 AF60F17D11처럼 색상 · 구성 글자를 빼고 쓰는 일이 많다.
+    (앱 ModelNameExtractor.shorterQueries와 같은 방식)"""
+    full = _norm(model)
+    keys = [full]
+    for cut in (2, 4):
+        k = full[:-cut]
+        if len(k) >= 6 and k not in keys:
+            keys.append(k)
+    return keys
+
+
 def _review_query_and_filter(query: str):
-    """검색어와 '이 글이 이 제품 얘기인가'를 판단하는 함수를 함께 만든다."""
-    from app.routers.b2b_search_analysis import _extract_model_broad, _PROMO_KW
+    """검색어 · 넓힌 검색어 · '이 글이 이 제품 얘기인가' 판단 함수를 만든다.
+    relevant(title, text, level): level 0은 정확한 모델명 · 1 이상은 앞부분까지 허용."""
+    from app.routers.b2b_search_analysis import _PROMO_KW
 
     clean = strip_html(query)
-    model = _extract_model_broad(clean)
-    base = model or _short_name(clean)
+    model = _model_from_title(clean)
     tokens = _key_tokens(clean)
     need = min(2, len(tokens))
+    keys = _model_keys(model) if model else []
 
-    def relevant(title: str, text: str) -> bool:
+    def relevant(title: str, text: str, level: int = 0) -> bool:
         if any(k in title or k in text for k in _PROMO_KW):
             return False
         body = _norm(f"{title} {text}")
         if model:
-            return _norm(model) in body
+            return any(k in body for k in keys[: level + 1])
         return sum(_norm(tok) in body for tok in tokens) >= need
 
-    return f"{base} 사용후기", relevant
+    base = model or _short_name(clean)
+    # 넓힌 검색어는 원래 표기(하이픈 포함)에서 끝 4글자를 뗀 것 (예: AF60F17D11GS → AF60F17D)
+    wider = None
+    if model and len(keys) > 1:
+        cut = model[: max(len(model) - 4, 6)].rstrip("-_.")
+        wider = f"{cut} 사용후기" if len(_norm(cut)) >= 6 else None
+    return f"{base} 사용후기", wider, relevant, len(keys)
 
 
 @router.get("/api/user-reviews")
@@ -727,31 +760,17 @@ async def get_user_reviews(query: str = Query(..., min_length=1)):
     from app.dependencies import get_rag_optional
     rag = get_rag_optional()
 
-    blog_url = "https://openapi.naver.com/v1/search/blog.json"
-    cafe_url = "https://openapi.naver.com/v1/search/cafearticle.json"
-    review_query, relevant = _review_query_and_filter(query)
+    review_query, wider_query, relevant, levels = _review_query_and_filter(query)
 
     try:
         async with httpx.AsyncClient(timeout=8.0) as client:
-            blog_resp, cafe_resp = await asyncio.gather(
-                client.get(blog_url, headers=NAVER_HEADERS, params={"query": review_query, "display": 20, "sort": "sim"}),
-                client.get(cafe_url, headers=NAVER_HEADERS, params={"query": review_query, "display": 10, "sort": "sim"}),
-            )
-
-        reviews = []
-        for source, resp in (("블로그", blog_resp), ("카페", cafe_resp)):
-            for item in resp.json().get("items", []):
-                title = strip_html(item.get("title", ""))
-                text = strip_html(item.get("description", "")).strip()
-                if len(text) < 30 or not relevant(title, text):
-                    continue
-                reviews.append({
-                    "source": source,
-                    "title":  title,
-                    "review": text[:200],
-                    "date":   item.get("postdate", ""),
-                    "link":   item.get("link", ""),
-                })
+            items = await _search_reviews(client, review_query)
+            reviews = _pick_reviews(items, relevant, levels)
+            # 정확히 맞는 글이 거의 없으면 모델명 앞부분으로 한 번 더 찾는다
+            if len(reviews) < 3 and wider_query and wider_query != review_query:
+                more = await _search_reviews(client, wider_query)
+                seen = {r["link"] for r in reviews}
+                reviews += [r for r in _pick_reviews(more, relevant, levels) if r["link"] not in seen]
 
         # 걸러낸 후기만 RAG에 저장한다 (다른 제품 글이 쌓여 다음 분석을 오염시키지 않도록)
         if rag and reviews:
@@ -768,6 +787,46 @@ async def get_user_reviews(query: str = Query(..., min_length=1)):
 
     except Exception as e:
         return {"reviews": [], "error": str(e)}
+
+
+async def _search_reviews(client, review_query: str) -> list[tuple[str, dict]]:
+    """네이버 블로그 20 · 카페 10개를 정확도순으로 가져온다."""
+    blog_resp, cafe_resp = await asyncio.gather(
+        client.get("https://openapi.naver.com/v1/search/blog.json", headers=NAVER_HEADERS,
+                   params={"query": review_query, "display": 20, "sort": "sim"}),
+        client.get("https://openapi.naver.com/v1/search/cafearticle.json", headers=NAVER_HEADERS,
+                   params={"query": review_query, "display": 10, "sort": "sim"}),
+    )
+    return ([("블로그", it) for it in blog_resp.json().get("items", [])]
+            + [("카페", it) for it in cafe_resp.json().get("items", [])])
+
+
+def _pick_reviews(items: list[tuple[str, dict]], relevant, levels: int) -> list[dict]:
+    """정확한 모델명 글부터 고르고 3개가 안 되면 모델명 앞부분이 맞는 글까지 넓힌다."""
+    rows = []
+    for source, item in items:
+        title = strip_html(item.get("title", ""))
+        text = strip_html(item.get("description", "")).strip()
+        if len(text) < 30:
+            continue
+        rows.append((source, title, text, item))
+
+    picked: list[dict] = []
+    for level in range(max(levels, 1)):
+        for source, title, text, item in rows:
+            link = item.get("link", "")
+            if any(p["link"] == link for p in picked) or not relevant(title, text, level):
+                continue
+            picked.append({
+                "source": source,
+                "title":  title,
+                "review": text[:200],
+                "date":   item.get("postdate", ""),
+                "link":   link,
+            })
+        if len(picked) >= 3:
+            break
+    return picked
 
 
 @router.get("/api/ai-analysis")
@@ -787,19 +846,15 @@ async def get_ai_analysis(query: str = Query(..., min_length=1)):
         news_items   = [] if isinstance(news_result,    Exception) else news_result.get("items",   [])
 
         if rag:
+            # 후기는 get_user_reviews가 걸러서 이미 RAG에 넣는다 → 여기서는 뉴스만 (중복 저장 방지)
             docs = []
-            for r in user_reviews:
-                if r.get("review"):
-                    docs.append({
-                        "text": f"[{r.get('source','')}] {r.get('title','')} - {r.get('review','')}",
-                        "metadata": {"source": r.get("source", ""), "product": query},
-                    })
             for n in news_items:
                 docs.append({
                     "text": f"[뉴스] {n['title']} - {n.get('description','')}",
                     "metadata": {"source": "news", "product": query},
                 })
-            await rag.add_documents(docs)
+            if docs:
+                await rag.add_documents(docs)
 
         # 방금 이 검색어로 직접 가져온 실사용자 후기·뉴스가 있으면 그게 가장 구체적이고
         # 정확한 근거라 항상 먼저 넣는다. RAG 검색 결과는 이걸 대체하지 않고 보조 참고

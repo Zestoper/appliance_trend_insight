@@ -1,8 +1,10 @@
+import html
 import re
 
 
 def strip_html(text: str) -> str:
-    return re.sub(r"<[^>]+>", "", text)
+    """네이버 API가 섞어 보내는 <b> 태그를 지우고 &quot; &amp; 같은 특수문자를 원래 글자로 바꾼다."""
+    return html.unescape(re.sub(r"<[^>]+>", "", text or ""))
 
 
 def extract_model_number(title: str) -> str | None:
