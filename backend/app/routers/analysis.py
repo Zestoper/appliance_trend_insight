@@ -629,6 +629,109 @@ async def get_recommend(query: str = Query(..., min_length=1)):
         return {"recommendations": [], "error": err_str}
 
 
+# ── 제품 관련 뉴스 ──
+# 예전에는 상품명에서 한글 단어만 골라 뉴스를 찾아서 "삼성전자 AI Q9000 AF60F17D11GS"는 "삼성전자"만,
+# "로보락 S9 MaxV Ultra"는 "로보락"만 검색됐다 → 그 회사의 인사 · 주식 · 분양 기사가 나왔다.
+# 이제는 "브랜드 + 품목"(예: 삼성전자 에어컨)으로 정확도순 검색한 뒤 품목 이름이 들어간 기사만 남긴다.
+
+_NEWS_CAT_ALIASES = {
+    "에어컨": ["에어컨", "냉난방기", "냉방기"],
+    "세탁기": ["세탁기", "워시타워", "워시콤보"],
+    "전기밥솥": ["밥솥"],
+    "TV": ["TV", "티비", "텔레비전"],
+    "전기히터": ["히터"],
+    "블루투스 스피커": ["스피커"],
+}
+
+
+def _category_from_text(text: str):
+    from app.config import _CATEGORY_MAP
+    for kw, cat in _CATEGORY_MAP.items():
+        if kw in text:
+            return cat
+    return None
+
+
+async def _guess_category(clean: str):
+    """품목과 (상품명에 없으면) 브랜드를 정한다.
+    상품명에 품목 이름이 없거나 모델명만 왔으면 (예: "AF60F17D11GS") 쇼핑 검색 결과 제목으로 정한다."""
+    cat = _category_from_text(clean)
+    brand = _brand_from_title(clean)
+    if cat and brand:
+        return cat, brand
+    try:
+        res = await search_products(query=_model_from_title(clean) or _short_name(clean), page=1, display=10, sort="sim", category=None)
+        titles = [it.get("title", "") for it in res.get("items", [])]
+    except Exception:
+        titles = []
+    if not cat:
+        votes: dict[str, int] = {}
+        for t in titles:
+            c = _category_from_text(t)
+            if c:
+                votes[c] = votes.get(c, 0) + 1
+        cat = max(votes, key=votes.get) if votes else None
+    if not brand and titles:
+        brand = _brand_from_title(titles[0])
+    return cat, brand
+
+
+def _brand_from_title(clean: str):
+    """상품명 첫 단어를 브랜드로 본다. 모델명처럼 생긴 단어면 브랜드 없음."""
+    words = _short_name(clean).split()
+    if not words:
+        return None
+    first = words[0]
+    if _HYPHEN_MODEL_RE.match(first.upper()) or (re.search(r"\d", first) and re.search(r"[A-Za-z]", first)):
+        return None
+    return first
+
+
+async def _product_news(query: str, display: int = 5) -> dict:
+    """브랜드 + 품목으로 찾은 제품 관련 뉴스. 품목을 모르면 엉뚱한 기사 대신 빈 목록."""
+    clean = strip_html(query)
+    category, brand = await _guess_category(clean)
+    if not category:
+        return {"items": [], "news_query": None}
+    news_query = f"{brand} {category}" if brand else category
+    aliases = _NEWS_CAT_ALIASES.get(category, [category])
+
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            resp = await client.get("https://openapi.naver.com/v1/search/news.json", headers=NAVER_HEADERS,
+                                    params={"query": news_query, "display": 30, "sort": "sim"})
+        items = []
+        for it in resp.json().get("items", []):
+            title = strip_html(it.get("title", ""))
+            desc = strip_html(it.get("description", ""))
+            text = f"{title} {desc}"
+            if not any(a in text for a in aliases):        # 품목 이름이 없는 기사 (인사 · 주식 · 분양 등) 제외
+                continue
+            items.append({
+                "title":       title,
+                "description": desc,
+                "pubDate":     it.get("pubDate", ""),
+                "link":        it.get("originallink") or it.get("link", ""),
+                "_brand":      bool(brand and brand in text),
+                "_ts":         _news_ts(it.get("pubDate", "")),
+            })
+        # 브랜드까지 맞는 기사 먼저 · 그 안에서는 최신순
+        items.sort(key=lambda x: (x["_brand"], x["_ts"]), reverse=True)
+        for x in items:
+            x.pop("_brand"); x.pop("_ts")
+        return {"items": items[:display], "news_query": news_query}
+    except Exception:
+        return {"items": [], "news_query": news_query}
+
+
+def _news_ts(pub: str) -> float:
+    try:
+        from email.utils import parsedate_to_datetime
+        return parsedate_to_datetime(pub).timestamp()
+    except Exception:
+        return 0.0
+
+
 @router.get("/api/report")
 async def get_report(query: str = Query(..., min_length=1)):
     STOPWORDS = {"이하", "이상", "포함", "이내", "기준", "용", "형"}
@@ -645,7 +748,7 @@ async def get_report(query: str = Query(..., min_length=1)):
     dl_simple = seen[-1] if seen else short_query
 
     results = await asyncio.gather(
-        get_news(short_query, display=5),
+        _product_news(query, display=5),
         get_datalab(dl_alt),
         get_datalab(short_query),
         get_datalab(dl_simple),
@@ -838,7 +941,7 @@ async def get_ai_analysis(query: str = Query(..., min_length=1)):
 
         reviews_result, news_result = await asyncio.gather(
             get_user_reviews(query),
-            get_news(query, display=5),
+            _product_news(query, display=5),
             return_exceptions=True,
         )
 
@@ -937,8 +1040,8 @@ async def ai_compare(
         r1, r2, n1, n2 = await asyncio.gather(
             get_user_reviews(q1),
             get_user_reviews(q2),
-            get_news(q1, display=3),
-            get_news(q2, display=3),
+            _product_news(q1, display=3),
+            _product_news(q2, display=3),
             return_exceptions=True,
         )
 
