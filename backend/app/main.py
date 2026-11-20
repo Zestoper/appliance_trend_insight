@@ -152,6 +152,7 @@ app.include_router(b2b_router)
 app.include_router(payments_router)
 
 
-@app.get("/")
+# UptimeRobot 무료 모니터는 HEAD 로 확인한다 → GET 만 받으면 405 로 "Down" 표시됨
+@app.api_route("/", methods=["GET", "HEAD"])
 async def root():
     return {"status": "ok"}
