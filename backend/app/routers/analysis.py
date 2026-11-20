@@ -672,49 +672,89 @@ async def get_report(query: str = Query(..., min_length=1)):
     return {"news": news, "datalab": datalab, "youtube": youtube, "ppomppu": ppomppu, "datalab_query": datalab_query}
 
 
+# ── 실사용자 후기 검색 ──
+# 예전에는 '제품 이름 전체 + 사용후기'를 최신순(date)으로 8+5개만 가져와서 다른 모델 글 ·
+# 특가 홍보 글이 그대로 AI 분석과 RAG에 들어갔다. 이제는 정확도순(sim)으로 넉넉히 가져온 뒤
+# 모델명(없으면 제품 이름 핵심 단어)이 실제로 들어간 글만 남긴다. (B2B 분석과 같은 방식)
+
+_BRACKET_RE  = re.compile(r"\[[^\]]*\]|\([^)]*\)|【[^】]*】|<[^>]*>")
+_UNIT_RE     = re.compile(r"\b\d+(?:\.\d+)?\s*(?:L|l|리터|kg|KG|㎏|인치|형|W|w|평|구|인용|도어|단)\b")
+_NOISE_WORDS = {"정품", "공식", "공식인증", "신제품", "신형", "최신형", "무료배송", "무료설치", "당일발송",
+                "빠른배송", "국내정품", "사은품", "증정", "특가", "단독", "추천", "인기", "사용후기", "후기"}
+
+
+def _short_name(title: str) -> str:
+    """쇼핑 상품명에서 괄호 · 용량 · 홍보 문구를 걷어내고 앞쪽 핵심 단어 4개만 남긴다."""
+    t = _BRACKET_RE.sub(" ", strip_html(title))
+    t = _UNIT_RE.sub(" ", t)
+    t = re.sub(r"[^\w가-힣\s-]", " ", t)
+    words = [w for w in t.split() if w not in _NOISE_WORDS and len(w) >= 2]
+    return " ".join(words[:4]) or strip_html(title)[:30]
+
+
+def _key_tokens(title: str) -> list[str]:
+    """관련성 확인용 핵심 단어 (브랜드 · 시리즈 · 품목)."""
+    return [w for w in _short_name(title).split() if len(w) >= 2]
+
+
+def _norm(text: str) -> str:
+    return re.sub(r"[\s\-_]", "", text).upper()
+
+
+def _review_query_and_filter(query: str):
+    """검색어와 '이 글이 이 제품 얘기인가'를 판단하는 함수를 함께 만든다."""
+    from app.routers.b2b_search_analysis import _extract_model_broad, _PROMO_KW
+
+    clean = strip_html(query)
+    model = _extract_model_broad(clean)
+    base = model or _short_name(clean)
+    tokens = _key_tokens(clean)
+    need = min(2, len(tokens))
+
+    def relevant(title: str, text: str) -> bool:
+        if any(k in title or k in text for k in _PROMO_KW):
+            return False
+        body = _norm(f"{title} {text}")
+        if model:
+            return _norm(model) in body
+        return sum(_norm(tok) in body for tok in tokens) >= need
+
+    return f"{base} 사용후기", relevant
+
+
 @router.get("/api/user-reviews")
 async def get_user_reviews(query: str = Query(..., min_length=1)):
     from app.dependencies import get_rag_optional
     rag = get_rag_optional()
 
-    blog_url     = "https://openapi.naver.com/v1/search/blog.json"
-    cafe_url     = "https://openapi.naver.com/v1/search/cafearticle.json"
-    review_query = f"{query} 사용후기"
+    blog_url = "https://openapi.naver.com/v1/search/blog.json"
+    cafe_url = "https://openapi.naver.com/v1/search/cafearticle.json"
+    review_query, relevant = _review_query_and_filter(query)
 
     try:
         async with httpx.AsyncClient(timeout=8.0) as client:
             blog_resp, cafe_resp = await asyncio.gather(
-                client.get(blog_url, headers=NAVER_HEADERS, params={"query": review_query, "display": 8, "sort": "date"}),
-                client.get(cafe_url, headers=NAVER_HEADERS, params={"query": review_query, "display": 5, "sort": "date"}),
+                client.get(blog_url, headers=NAVER_HEADERS, params={"query": review_query, "display": 20, "sort": "sim"}),
+                client.get(cafe_url, headers=NAVER_HEADERS, params={"query": review_query, "display": 10, "sort": "sim"}),
             )
 
         reviews = []
+        for source, resp in (("블로그", blog_resp), ("카페", cafe_resp)):
+            for item in resp.json().get("items", []):
+                title = strip_html(item.get("title", ""))
+                text = strip_html(item.get("description", "")).strip()
+                if len(text) < 30 or not relevant(title, text):
+                    continue
+                reviews.append({
+                    "source": source,
+                    "title":  title,
+                    "review": text[:200],
+                    "date":   item.get("postdate", ""),
+                    "link":   item.get("link", ""),
+                })
 
-        for item in blog_resp.json().get("items", []):
-            text = strip_html(item.get("description", "")).strip()
-            if len(text) < 30:
-                continue
-            reviews.append({
-                "source": "블로그",
-                "title":  strip_html(item.get("title", "")),
-                "review": text[:200],
-                "date":   item.get("postdate", ""),
-                "link":   item.get("link", ""),
-            })
-
-        for item in cafe_resp.json().get("items", []):
-            text = strip_html(item.get("description", "")).strip()
-            if len(text) < 30:
-                continue
-            reviews.append({
-                "source": "카페",
-                "title":  strip_html(item.get("title", "")),
-                "review": text[:200],
-                "date":   item.get("postdate", ""),
-                "link":   item.get("link", ""),
-            })
-
-        if rag:
+        # 걸러낸 후기만 RAG에 저장한다 (다른 제품 글이 쌓여 다음 분석을 오염시키지 않도록)
+        if rag and reviews:
             docs = [
                 {
                     "text": f"[{r['source']}] {r['title']} - {r['review']}",
