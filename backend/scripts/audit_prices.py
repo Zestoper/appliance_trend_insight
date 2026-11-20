@@ -10,6 +10,8 @@ DB에 이미 쌓인 '쓰레기 가격'을 찾아서 (원하면) 지우는 점검
 사용법 (backend 폴더에서, .env의 DATABASE_URL 사용)
   python scripts/audit_prices.py            # 찾기만 (아무것도 안 지움)
   python scripts/audit_prices.py --delete   # 소모품 이름 기록 · 추적 목록의 소모품만 삭제
+  python scripts/audit_prices.py --fix 53531354527=300000~1500000
+      # 그 제품의 기록 중 가격 범위를 벗어난 것만 삭제 (사람이 확인한 정상 범위를 적는다 · 여러 번 써도 됨)
 """
 import argparse
 import asyncio
@@ -24,7 +26,28 @@ load_dotenv()
 LOW, HIGH = 0.4, 2.5
 
 
-async def main(delete: bool):
+async def fix_ranges(fixes: list[str]):
+    from app.database import execute, fetchall
+    for f in fixes:
+        key, rng = f.split("=", 1)
+        lo, hi = (int(x.replace(",", "")) for x in rng.split("~", 1))
+        rows = await fetchall(
+            "SELECT min_price FROM product_price_history WHERE product_key = %s AND min_price > 0 "
+            "AND (min_price < %s OR min_price > %s)", (key, lo, hi))
+        await execute(
+            "DELETE FROM product_price_history WHERE product_key = %s AND min_price > 0 "
+            "AND (min_price < %s OR min_price > %s)", (key, lo, hi))
+        print(f"  key={key}  {lo:,}~{hi:,}원 밖의 기록 {len(rows)}개 삭제")
+
+
+async def main(delete: bool, fixes: list[str]):
+    if fixes:
+        from app.database import close_pool
+        print("범위 밖 기록 삭제")
+        await fix_ranges(fixes)
+        await close_pool()
+        return
+
     from app.database import fetchall, execute, close_pool
     from app.utils.accessory_filter import is_accessory
 
@@ -99,5 +122,7 @@ async def main(delete: bool):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--delete", action="store_true", help="찾은 기록 삭제")
-    asyncio.run(main(ap.parse_args().delete))
+    ap.add_argument("--delete", action="store_true", help="소모품 이름 기록 삭제")
+    ap.add_argument("--fix", action="append", default=[], help="KEY=최소~최대 : 범위 밖 기록 삭제")
+    a = ap.parse_args()
+    asyncio.run(main(a.delete, a.fix))
