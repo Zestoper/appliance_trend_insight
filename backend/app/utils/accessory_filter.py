@@ -10,6 +10,12 @@
      본품은 보통 모델명으로 끝난다 (예: "공기청정기 헤파필터 AX060")
   4) 5만 원 미만인데 소모품 단어가 있다
   5) 소모품 단어가 있고 제품명에 품목 이름(에어컨 등)이 없다
+
+본품을 소모품으로 잘못 거르지 않게 (DB 점검에서 실제로 걸렸던 사례)
+  - "A + B" 묶음 상품은 '+' 앞의 본품만 보고 판단한다 (예: "에어랩 오리진+ … + 라운드볼륨브러쉬" · "식기세척기 + 인덕션")
+  - 모델명이 2개여도 소모품 단어가 없고 싸지 않으면 본품이다 (예: "AI Q9000 AF60F17D11GRS" · "HW-LS50H/ LS51H")
+  - "히팅패드 · 듀얼호스"처럼 소모품 단어가 들어간 제품 이름은 소모품 단어로 보지 않는다
+  - 품목 이름이 있고 3만 원 이상인 제품의 "리모컨"은 기능 설명이다 (예: "스탠드 선풍기 가정용 리모컨")
 """
 import re
 
@@ -99,21 +105,46 @@ def distinct_model_count(title: str) -> int:
     return len(prefixes)
 
 
+# 소모품 단어가 들어 있지만 그 자체가 본품 이름인 말
+_PRODUCT_COMPOUNDS = ["히팅패드", "전기패드", "온열패드", "쿨링패드", "듀얼호스", "싱글호스"]
+# 품목 이름과 같이 있고 3만 원 이상이면 본품의 기능 설명인 말 (예: "스탠드 선풍기 리모컨" 99,000원)
+_FEATURE_WORDS = ["리모컨"]
+_FEATURE_MIN_PRICE = 30000
+# 묶음 상품의 '+' (숫자 사이 "1+1" · "14인용+3구"는 제외)
+_BUNDLE_PLUS = re.compile(r"(?<![0-9])\+|\+(?![0-9])")
+
+
+def _weak_text(text: str, feature_ok: bool) -> str:
+    """소모품 단어 검사에서 빼야 할 말을 지운 문자열"""
+    for w in _PRODUCT_COMPOUNDS:
+        text = text.replace(w, " ")
+    if feature_ok:
+        for w in _FEATURE_WORDS:
+            text = text.replace(w, " ")
+    return text
+
+
 def is_accessory(title: str | None, price: int = 0) -> bool:
     """price: 상품 가격 (모르면 0)"""
     if not title:
         return False
     t = title.upper()
-    if any(w in t for w in _STRONG):                     # 1) 강한 신호
+    if any(w in t for w in _STRONG):                     # 1) 강한 신호 (묶음 전체에서)
         return True
-    if distinct_model_count(title) >= 2:                 # 2) 호환 모델명 나열
+    main = _BUNDLE_PLUS.split(title)[0].strip() or title  # 묶음이면 '+' 앞 본품만
+    m = main.upper()
+    has_category = detect_category(main) is not None
+    feature_ok = has_category and price >= _FEATURE_MIN_PRICE
+    wt = _weak_text(m, feature_ok)
+    has_weak = _contains_weak(wt)
+    cheap = 0 < price < _CHEAP
+    if distinct_model_count(main) >= 2 and (has_weak or cheap):   # 2) 호환 모델명 나열
         return True
-    if _contains_weak(last_meaningful_word(t)):          # 3) 소모품 단어로 끝남
+    if _contains_weak(_weak_text(last_meaningful_word(m), feature_ok)):  # 3) 소모품 단어로 끝남
         return True
-    has_weak = _contains_weak(t)
-    if has_weak and 0 < price < _CHEAP:                  # 4) 싼데 소모품 단어가 있음
+    if has_weak and cheap:                               # 4) 싼데 소모품 단어가 있음
         return True
-    return has_weak and detect_category(title) is None   # 5) 소모품 단어가 있고 본품 이름이 없음
+    return has_weak and not has_category                 # 5) 소모품 단어가 있고 본품 이름이 없음
 
 
 def wants_accessory(query: str | None) -> bool:
