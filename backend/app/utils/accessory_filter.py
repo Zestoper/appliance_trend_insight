@@ -24,6 +24,8 @@ _WEAK = [
     "필터", "커버", "덮개", "거치대", "받침대", "브라켓", "케이블", "리모컨", "호스",
     "부품", "소모품", "세정제", "세척제", "스티커", "패드", "걸레", "먼지봉투",
     "브러시", "브러쉬", "배터리", "어댑터", "노즐", "트레이",
+    # 로봇청소기 · 청소기 소모품 (예: "로보락 S9 MaxV Ultra 전용 울트라도크 거름망 (1개)")
+    "거름망", "필터망", "더스트백", "물걸레포", "전용",
 ]
 
 # 품목 이름. 긴 이름을 먼저 검사해야 "세탁건조기"가 "건조기"로 잘못 잡히지 않는다
@@ -112,3 +114,11 @@ def is_accessory(title: str | None, price: int = 0) -> bool:
     if has_weak and 0 < price < _CHEAP:                  # 4) 싼데 소모품 단어가 있음
         return True
     return has_weak and detect_category(title) is None   # 5) 소모품 단어가 있고 본품 이름이 없음
+
+
+def wants_accessory(query: str | None) -> bool:
+    """검색어 자체가 소모품을 찾는 말인지 (예: "FQ18D7 필터", "로보락 거름망")."""
+    if not query:
+        return False
+    q = query.upper()
+    return any(w in q for w in _STRONG) or any(w in q for w in _WEAK if w != "전용")

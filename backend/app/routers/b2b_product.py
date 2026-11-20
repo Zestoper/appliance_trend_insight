@@ -1,12 +1,18 @@
 from fastapi import APIRouter, Depends, Query
 from app.routers.b2b_utils import *
 from app.routers.naver import search_products
+from app.utils.price_guard import sanitize_items, is_plausible_price
 
 router = APIRouter()
 
 
 @router.get("/product-price")
-async def get_product_price(title: str = Query(..., min_length=1), _: dict = Depends(require_b2b)):
+async def get_product_price(
+    title: str = Query(..., min_length=1),
+    ref_price: int = Query(0, ge=0),
+    _: dict = Depends(require_b2b),
+):
+    """ref_price: 화면에 보이는 그 상품의 가격 (모르면 0). 검색 결과에 섞인 소모품 · 부속품을 거르는 기준으로 쓴다."""
     import json as _json
     from app.database import fetchall, execute as db_exec
 
@@ -31,6 +37,11 @@ async def get_product_price(title: str = Query(..., min_length=1), _: dict = Dep
         and not any(kw in it.get("mallName", "") for kw in _RENTAL_MALL_KW)
         and not any(kw in it["title"] for kw in _RENTAL_MALL_KW)
     ]
+
+    # 본품 이름으로 검색해도 거름망 · 필터 · 물걸레포 같은 소모품이 잔뜩 섞여 나온다.
+    # 소모품이 절반을 넘으면 아래 중앙값 필터도 소모품 가격을 기준으로 잡혀서 8천 원짜리 거름망이
+    # 109만 원짜리 로봇청소기의 '현재 최저가'로 저장되던 문제가 있었다 → 먼저 소모품을 빼고 기준가로도 거른다.
+    items = sanitize_items(items, ref_price=ref_price)
 
     if not items:
         return {"available": False, "product_key": product_key, "model_number": model}
@@ -62,6 +73,8 @@ async def get_product_price(title: str = Query(..., min_length=1), _: dict = Dep
 
     mall_json = _json.dumps(malls, ensure_ascii=False)
     try:
+        if not await is_plausible_price(product_key, title, min_price, str(today)):
+            raise ValueError("최근 가격과 너무 달라 저장하지 않음")
         await db_exec(
             """
             INSERT INTO product_price_history

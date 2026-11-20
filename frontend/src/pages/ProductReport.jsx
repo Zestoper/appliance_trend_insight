@@ -334,13 +334,13 @@ function MiniPriceChart({ history }) {
   )
 }
 
-function ProductPriceIntel({ title, token }) {
+function ProductPriceIntel({ title, token, refPrice }) {
   const [data, setData]       = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!title || !token) { setLoading(false); return }
-    fetch(`${API_BASE}/api/b2b/product-price?title=${encodeURIComponent(title)}`, {
+    fetch(`${API_BASE}/api/b2b/product-price?title=${encodeURIComponent(title)}${refPrice ? `&ref_price=${refPrice}` : ''}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(r => r.json())
@@ -510,7 +510,7 @@ export default function ProductReport() {
       .catch(() => setReportLoading(false))
 
     // 네이버·다나와 중 더 싼 가격을 비교해 상단 가격/구매 링크에 반영
-    fetch(`${API_BASE}/api/best-price?query=${encodeURIComponent(product.title)}${category ? `&category=${encodeURIComponent(category)}` : ''}`)
+    fetch(`${API_BASE}/api/best-price?query=${encodeURIComponent(product.title)}${category ? `&category=${encodeURIComponent(category)}` : ''}${product.price ? `&ref_price=${product.price}` : ''}`)
       .then(r => r.json())
       .then(data => { if (data.available) setBestPrice(data) })
       .catch(() => {})
@@ -672,7 +672,7 @@ export default function ProductReport() {
 
         {/* 제품별 가격 인텔리전스 — B2B 유저 전용 */}
         {user?.user_type === 'b2b' && user?.status === 'active' && (
-          <ProductPriceIntel title={product.title} token={token} />
+          <ProductPriceIntel title={product.title} token={token} refPrice={product.price} />
         )}
 
         {/* 수집 중 로딩 표시 — 완료되면 사라지고 데이터 섹션이 나타남 */}

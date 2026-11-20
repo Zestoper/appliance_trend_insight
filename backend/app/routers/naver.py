@@ -10,7 +10,7 @@ from app.config import (
     NAVER_MAINTENANCE_MODE,
 )
 from app.utils.helpers import strip_html
-from app.utils.accessory_filter import is_accessory, looks_like_model
+from app.utils.accessory_filter import is_accessory, looks_like_model, wants_accessory
 from app.services.danawa_search import danawa_search_products, get_danawa_live_price
 
 router = APIRouter()
@@ -128,9 +128,10 @@ async def search_products(
 
 
 def _drop_accessories(result: dict, query: str, category: str | None) -> dict:
-    """모델명으로 검색했고 품목을 모를 때 딸려 나오는 필터 · 리모컨 · 커버 같은 소모품을 뺀다.
-    품목을 알면 CATEGORY_RULES가 이미 거르므로 건드리지 않는다. (앱 AccessoryFilter와 같은 규칙)"""
-    if category or not looks_like_model(query):
+    """품목 없이 검색하면 (모델명 · 상품명 검색) 딸려 나오는 필터 · 거름망 · 리모컨 · 커버 같은 소모품을 뺀다.
+    품목을 알면 CATEGORY_RULES가 이미 거르므로 건드리지 않는다. (앱 AccessoryFilter와 같은 규칙)
+    단 "필터", "거름망"처럼 사용자가 소모품 자체를 찾는 검색이면 빼지 않는다."""
+    if category or wants_accessory(query):
         return result
     items = result.get("items", [])
     kept, removed = [], []
@@ -146,12 +147,19 @@ def _drop_accessories(result: dict, query: str, category: str | None) -> dict:
 
 
 @router.get("/api/best-price")
-async def get_best_price(query: str = Query(..., min_length=1), category: str = Query(None)):
+async def get_best_price(query: str = Query(..., min_length=1), category: str = Query(None), ref_price: int = Query(0, ge=0)):
     """다나와(항상 시도)와 네이버(점검모드가 풀렸을 때만 시도)를 비교해 더 싼 쪽의
     가격·링크·출처를 반환한다. 네이버 쇼핑 API가 막혀 있는 동안은 다나와만 써서
     이미 막힌 걸 아는 API를 매번 두들기지 않는다."""
-    danawa = await danawa_search_products(query=query, page=1, display=5, sort="asc", category=category)
-    best = next((it for it in danawa["items"] if it["price"] > 0), None)
+    def _real_product(it: dict) -> bool:
+        """가격 오름차순이라 소모품이 맨 앞에 오기 쉽다 → 소모품 · 기준가 대비 너무 싼 상품은 건너뛴다."""
+        p = it.get("price", 0)
+        if p <= 0 or is_accessory(it.get("title", ""), p):
+            return False
+        return not ref_price or ref_price * 0.4 <= p <= ref_price * 3
+
+    danawa = await danawa_search_products(query=query, page=1, display=20, sort="asc", category=category)
+    best = next((it for it in danawa["items"] if _real_product(it)), None)
     source = "다나와"
 
     if best:
@@ -164,8 +172,8 @@ async def get_best_price(query: str = Query(..., min_length=1), category: str = 
 
     if not NAVER_MAINTENANCE_MODE:
         try:
-            naver = await _fetch_naver_raw(query=query, page=1, display=5, sort="asc", category=category)
-            naver_best = next((it for it in naver["items"] if it["price"] > 0), None)
+            naver = await _fetch_naver_raw(query=query, page=1, display=20, sort="asc", category=category)
+            naver_best = next((it for it in naver["items"] if _real_product(it)), None)
             if naver_best and (not best or naver_best["price"] < best["price"]):
                 best = naver_best
                 source = "네이버"

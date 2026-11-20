@@ -803,6 +803,9 @@ async def get_search_analysis(
 
             mall_json = json.dumps(malls, ensure_ascii=False)
             try:
+                from app.utils.price_guard import is_plausible_price
+                if not await is_plausible_price(product_key, q, min_p, str(today)):
+                    raise ValueError("최근 가격과 너무 달라 저장하지 않음")
                 await db_exec(
                     """
                     INSERT INTO product_price_history

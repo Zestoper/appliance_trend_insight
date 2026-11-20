@@ -114,10 +114,12 @@ async def get_timing(category: str = Query(..., min_length=1), product_id: str =
         _EXCLUDE_KW = ["렌탈", "월렌탈", "렌탈료", "구독", "리스", "할부월",
                        "필터", "부품", "액세서리", "케이스", "커버", "청소포",
                        "먼지봉투", "호스", "거치대", "브라켓", "리모컨"]
+        from app.utils.accessory_filter import is_accessory
         valid = [
             it for it in items
             if it["price"] > 0
             and not any(kw in it["title"] for kw in _EXCLUDE_KW)
+            and not is_accessory(it["title"], it["price"])     # 거름망 · 물걸레포 등 목록에 없는 소모품까지
         ]
 
         cat_min = CATEGORY_RULES.get(detected_cat or "", {}).get("min_price", 0)

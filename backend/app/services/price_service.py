@@ -187,6 +187,10 @@ async def _init_tables():
 
 async def upsert_price(product_key: str, product_name: str, price: int, today_str: str, hour: int = 0):
     from app.database import execute
+    from app.utils.price_guard import is_plausible_price
+    # 소모품 가격이나 다른 제품 가격이 이 제품의 이력으로 쌓이지 않게 (한 번 쌓이면 평균 · 역대 최저가 다 틀어진다)
+    if not await is_plausible_price(product_key, product_name, price, today_str):
+        return
     await execute(
         """
         INSERT INTO product_price_history
@@ -517,7 +521,8 @@ async def backfill_category_price_history(category: str, today: date) -> None:
     # TOP5 제품 목록
     try:
         raw = await search_products(query=category, page=1, display=10, sort="sim", category=category)
-        items = [it for it in raw.get("items", []) if it.get("price", 0) > 0][:5]
+        from app.utils.price_guard import sanitize_items
+        items = sanitize_items(raw.get("items", []))[:5]
     except Exception as e:
         logger.warning("[backfill] 제품 조회 실패 [%s]: %s", category, e)
         return
