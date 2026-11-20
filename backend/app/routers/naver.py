@@ -76,8 +76,20 @@ async def _fetch_naver_raw(
             "mallName":    item.get("mallName", ""),
             "reviewCount": int(item.get("reviewCount") or 0),
             "reviewScore": float(item.get("reviewScore") or 0),
+            # 네이버 카테고리 (예: 디지털/가전 > 계절가전 > 에어컨) — 다나와와 같은 방식으로 거른다
+            "categories":  [c for c in (item.get(f"category{i}") for i in range(1, 5)) if c],
         }
         for item in data.get("items", [])
+    ]
+
+    from app.utils.danawa_category import is_appliance_category, is_accessory_category, in_category
+    from app.utils.accessory_filter import wants_accessory
+    keep_acc = wants_accessory(query)
+    items = [
+        it for it in items
+        if is_appliance_category(it)
+        and (keep_acc or not is_accessory_category(it))
+        and in_category(it, category)
     ]
 
     _RENTAL_MALL = ["렌탈", "리스", "렌트", "월정액"]

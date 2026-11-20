@@ -142,6 +142,8 @@ def _item_from_json(p: dict) -> dict | None:
         "reviewScore": score,
         # 다나와 출시(제조)년월 "25.06" → "2025-06" — 최신 제품을 고를 때 쓴다
         "release":     _release_ym(p.get("makeDate")),
+        # 다나와 카테고리 (예: ["생활가전", "청소기", "로봇청소기"]) — 품목 · 소모품 · 비가전을 거르는 데 쓴다
+        "categories":  [_clean(c) for c in (p.get("categoryNameList") or []) if isinstance(c, str)],
     }
 
 
@@ -213,6 +215,17 @@ async def _fetch_raw_items(query: str) -> list[dict]:
     raise last_err
 
 
+# "21평" · "18평형" 같은 평수 단어 — 다나와는 상품명에 검색어가 다 있어야 찾아주는데 가정용 에어컨 이름에는
+# 평수가 없다. 그대로 보내면 "캐리어 21평 에어컨" → 여행가방 캐리어만 · "21평 에어컨" → 이름에 평수를 적은
+# 업소용 이동식 에어컨만 나온다. 그래서 다나와에 보낼 때만 평수를 뗀다.
+_PYEONG_RE = re.compile(r"\d+(?:\.\d+)?\s*평형?")
+
+
+def _danawa_query(query: str) -> str:
+    q = re.sub(r"\s+", " ", _PYEONG_RE.sub(" ", query or "")).strip()
+    return q or (query or "").strip()
+
+
 async def danawa_search_products(
     query: str,
     page: int = 1,
@@ -223,7 +236,21 @@ async def danawa_search_products(
     """네이버 쇼핑 검색(shop.json)이 막혀 있는 동안 다나와 통합검색을 긁어 동일한 응답 형태로 반환.
     다나와는 검색 결과를 한 페이지에 최대 40~50개 정도만 내려주므로, 여러 페이지를 합치는 대신
     한 번의 요청 결과 안에서 필터링·정렬·페이지네이션을 전부 처리한다."""
-    items = list(await _fetch_raw_items(query))
+    items = list(await _fetch_raw_items(_danawa_query(query)))
+
+    # 다나와 카테고리로 먼저 거른다 (정확도가 제목 글자보다 훨씬 높다)
+    #  - 가전이 아닌 상품 (캐리어 · SSD · 노트북 등) 제외
+    #  - 소모품 카테고리 (청소용품 · 액세서리 등) 제외 — 사용자가 소모품을 찾는 검색이면 남긴다
+    #  - 품목을 받았으면 그 품목 카테고리 상품만
+    from app.utils.danawa_category import is_appliance_category, is_accessory_category, in_category
+    from app.utils.accessory_filter import wants_accessory
+    keep_acc = wants_accessory(query)
+    items = [
+        it for it in items
+        if is_appliance_category(it)
+        and (keep_acc or not is_accessory_category(it))
+        and in_category(it, category)
+    ]
 
     # 다나와 상품명은 "브랜드+모델명" 위주라 네이버 쇼핑 제목과 달리 카테고리 단어
     # ("냉장고" 등)가 안 들어있는 경우가 대부분 — 네이버처럼 제목에 가전 키워드가
