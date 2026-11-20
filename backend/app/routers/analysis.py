@@ -652,10 +652,12 @@ def _category_from_text(text: str):
     return None
 
 
-async def _guess_category(clean: str):
+async def _guess_category(clean: str, hint: str | None = None):
     """품목과 (상품명에 없으면) 브랜드를 정한다.
-    상품명에 품목 이름이 없거나 모델명만 왔으면 (예: "AF60F17D11GS") 쇼핑 검색 결과 제목으로 정한다."""
-    cat = _category_from_text(clean)
+    앱 · 웹이 아는 품목(hint)을 보내면 그걸 먼저 쓴다 (예: "로보락 S9 MaxV Ultra"는 제목에 품목 이름이 없다).
+    그다음 상품명 · 쇼핑 검색 결과 제목 순으로 정한다."""
+    cat = _category_from_text(hint) if hint else None   # 아는 품목 이름일 때만 (웹 기본값 "제품" 등은 무시)
+    cat = cat or _category_from_text(clean)
     brand = _brand_from_title(clean)
     if cat and brand:
         return cat, brand
@@ -687,14 +689,34 @@ def _brand_from_title(clean: str):
     return first
 
 
-async def _product_news(query: str, display: int = 5) -> dict:
-    """브랜드 + 품목으로 찾은 제품 관련 뉴스. 품목을 모르면 엉뚱한 기사 대신 빈 목록."""
+def _series_from_title(clean: str, brand: str | None, category: str) -> list[str]:
+    """시리즈 이름들.
+    - 브랜드 · 품목 말고 남는 첫 한글 단어 (예: 퓨리케어 · 비스포크 · 무풍 · 휘센)
+    - 영문 + 숫자로 된 짧은 시리즈명 (예: 로보락 S9 · 삼성 Q9000) — 전체 모델명은 기사에 거의 안 나와서 제외"""
+    skip = {brand or "", category, *(_NEWS_CAT_ALIASES.get(category, [])), "스탠드", "벽걸이", "인버터", "가정용", "일반", "삼성", "엘지"}
+    out: list[str] = []
+    words = _short_name(clean).split()
+    for w in words:
+        if re.fullmatch(r"[가-힣]{2,}", w) and w not in skip and not _category_from_text(w):
+            out.append(w)
+            break
+    for w in words:
+        if 2 <= len(w) <= 6 and re.search(r"[A-Za-z]", w) and re.search(r"\d", w):
+            out.append(w)
+            break
+    return out
+
+
+async def _product_news(query: str, display: int = 5, category_hint: str | None = None) -> dict:
+    """브랜드 + 품목으로 찾은 제품 관련 뉴스. 품목을 모르면 엉뚱한 기사 대신 빈 목록.
+    기사 제목에 품목 이름이나 시리즈 이름이 있어야 남긴다 — 본문에 '정수기 · 공기청정기 등'처럼
+    지나가듯 나오는 회사 기사(인사 · 구독 · 디자인상)는 뺀다."""
     clean = strip_html(query)
-    category, brand = await _guess_category(clean)
+    category, brand = await _guess_category(clean, category_hint)
     if not category:
         return {"items": [], "news_query": None}
     news_query = f"{brand} {category}" if brand else category
-    aliases = _NEWS_CAT_ALIASES.get(category, [category])
+    aliases = _NEWS_CAT_ALIASES.get(category, [category]) + _series_from_title(clean, brand, category)
 
     try:
         async with httpx.AsyncClient(timeout=8.0) as client:
@@ -705,7 +727,7 @@ async def _product_news(query: str, display: int = 5) -> dict:
             title = strip_html(it.get("title", ""))
             desc = strip_html(it.get("description", ""))
             text = f"{title} {desc}"
-            if not any(a in text for a in aliases):        # 품목 이름이 없는 기사 (인사 · 주식 · 분양 등) 제외
+            if not any(a in title for a in aliases):       # 제목에 품목 · 시리즈 이름이 없는 기사 제외
                 continue
             # 같은 기사가 [포토] 등으로 두 번 오는 경우 → 말머리를 떼고 제목이 같으면 하나만
             key = re.sub(r"^\[[^\]]*\]\s*|\W", "", title)
@@ -738,7 +760,7 @@ def _news_ts(pub: str) -> float:
 
 
 @router.get("/api/report")
-async def get_report(query: str = Query(..., min_length=1)):
+async def get_report(query: str = Query(..., min_length=1), category: str | None = Query(None)):
     STOPWORDS = {"이하", "이상", "포함", "이내", "기준", "용", "형"}
     # 단어 분리 후 후행 구두점 제거 (예: "일반배관," → "일반배관")
     raw = [re.sub(r'[^\w가-힣A-Za-z0-9]+$', '', w) for w in query.split()]
@@ -753,7 +775,7 @@ async def get_report(query: str = Query(..., min_length=1)):
     dl_simple = seen[-1] if seen else short_query
 
     results = await asyncio.gather(
-        _product_news(query, display=5),
+        _product_news(query, display=5, category_hint=category),
         get_datalab(dl_alt),
         get_datalab(short_query),
         get_datalab(dl_simple),
@@ -938,7 +960,7 @@ def _pick_reviews(items: list[tuple[str, dict]], relevant, levels: int) -> list[
 
 
 @router.get("/api/ai-analysis")
-async def get_ai_analysis(query: str = Query(..., min_length=1)):
+async def get_ai_analysis(query: str = Query(..., min_length=1), category: str | None = Query(None)):
     try:
         from app.dependencies import get_rag_optional
         from app.routers.b2b_utils import _groq_create as _gc
@@ -946,7 +968,7 @@ async def get_ai_analysis(query: str = Query(..., min_length=1)):
 
         reviews_result, news_result = await asyncio.gather(
             get_user_reviews(query),
-            _product_news(query, display=5),
+            _product_news(query, display=5, category_hint=category),
             return_exceptions=True,
         )
 

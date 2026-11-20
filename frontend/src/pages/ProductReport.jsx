@@ -504,7 +504,7 @@ export default function ProductReport() {
   useEffect(() => {
     if (!product) return
     // 두 API 병렬 호출
-    fetch(`${API_BASE}/api/report?query=${encodeURIComponent(product.title)}`)
+    fetch(`${API_BASE}/api/report?query=${encodeURIComponent(product.title)}${category && category !== '제품' ? `&category=${encodeURIComponent(category)}` : ''}`)
       .then(r => r.json())
       .then(data => { setReportData(data); setReportLoading(false) })
       .catch(() => setReportLoading(false))
@@ -520,7 +520,7 @@ export default function ProductReport() {
   useEffect(() => {
     if (!product || !isLoggedIn) return
     setAiLoading(true)
-    fetch(`${API_BASE}/api/ai-analysis?query=${encodeURIComponent(product.title)}`)
+    fetch(`${API_BASE}/api/ai-analysis?query=${encodeURIComponent(product.title)}${category && category !== '제품' ? `&category=${encodeURIComponent(category)}` : ''}`)
       .then(r => r.json())
       .then(data => { setAiData(data); setAiLoading(false) })
       .catch(() => setAiLoading(false))
