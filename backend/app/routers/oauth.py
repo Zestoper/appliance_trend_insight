@@ -162,6 +162,17 @@ async def _create_social_user(provider: str, info: dict, nickname: str) -> dict:
     return await fetchone("SELECT * FROM users WHERE user_id = %s", (user_id,))
 
 
+def _account_blocked(user: dict) -> str | None:
+    """이메일 로그인과 같은 계정 상태 검사. 막혀 있으면 안내 문구"""
+    if not user.get("is_active", True):
+        return "비활성화된 계정입니다"
+    if user.get("status") == "pending":
+        return "사업자 인증 검토 중인 계정입니다"
+    if user.get("status") == "rejected":
+        return "사업자 인증이 거절되었습니다. 관리자에게 문의해주세요"
+    return None
+
+
 # ── 소셜 첫 가입: 약관 동의 화면 ──────────────────────────────────────────
 # 처음 오는 사람은 바로 가입시키지 않고, 서버가 서명한 15분짜리 '가입 티켓'을 들려
 # 프론트 /oauth/callback#signup=... 으로 보낸다. 프론트가 약관 동의 화면을 보여주고
@@ -278,14 +289,91 @@ async def social_callback(provider: str, code: str = "", state: str = "", error:
             f"{FRONTEND_URL}/oauth/callback#signup={ticket}&provider={provider}&name={quote(info['name'] or '')}"
         )
 
-    # 이메일 로그인과 같은 계정 상태 검사
-    if not user.get("is_active", True):
-        return _fail("비활성화된 계정입니다")
-    if user.get("status") == "pending":
-        return _fail("사업자 인증 검토 중인 계정입니다")
-    if user.get("status") == "rejected":
-        return _fail("사업자 인증이 거절되었습니다. 관리자에게 문의해주세요")
+    blocked = _account_blocked(user)
+    if blocked:
+        return _fail(blocked)
 
     token = make_token(user["user_id"], user["user_type"], role=user.get("role", "user"))
     # 토큰은 # 뒤(fragment)에 붙인다 — 브라우저가 서버로 보내지 않아 접속 기록(로그)에 남지 않는다
     return RedirectResponse(f"{FRONTEND_URL}/oauth/callback#token={token}")
+
+
+# ── 앱 소셜 로그인 (카카오 · 구글 SDK) ────────────────────────────────────
+# 앱은 브라우저 리다이렉트 대신 각 SDK로 로그인하고 받은 토큰을 여기로 보낸다.
+#   kakao : 카카오 SDK access token → 우리 앱에서 발급된 토큰인지(app_id) 확인 → 회원 번호 · 이메일 · 닉네임
+#   google: Credential Manager ID 토큰 → 구글 공개키로 서명 검증 · aud가 우리 '웹 클라이언트 ID'인지 확인
+# 이후는 웹 콜백과 같다: 기존 회원이면 JWT, 처음 온 사람이면 가입 티켓(→ 앱 약관 동의 화면 → /social/complete)
+# 필요한 환경변수: GOOGLE_CLIENT_ID(이미 있음) · KAKAO_APP_ID(카카오 콘솔 앱 ID 숫자 — 넣으면 다른 앱 토큰을 거절)
+KAKAO_APP_ID = os.getenv("KAKAO_APP_ID", "").strip()
+GOOGLE_ISSUERS = ("https://accounts.google.com", "accounts.google.com")
+_google_jwks: dict = {"keys": None, "at": 0.0}
+
+
+class SocialTokenRequest(BaseModel):
+    provider: str
+    token: str
+
+
+async def _google_keys(force: bool = False) -> dict:
+    import time
+    if force or not _google_jwks["keys"] or time.time() - _google_jwks["at"] > 3600:
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get("https://www.googleapis.com/oauth2/v3/certs")
+            r.raise_for_status()
+            _google_jwks["keys"], _google_jwks["at"] = r.json(), time.time()
+    return _google_jwks["keys"]
+
+
+async def _verify_google_id_token(id_token: str) -> dict:
+    client_id = PROVIDERS["google"]["client_id"]
+    if not client_id:
+        raise HTTPException(status_code=500, detail="google 로그인이 아직 설정되지 않았습니다")
+    last = None
+    for force in (False, True):   # 구글이 키를 바꿨으면 한 번 새로 받아서 다시 검증
+        try:
+            claims = jwt.decode(id_token, await _google_keys(force), algorithms=["RS256"],
+                                audience=client_id, options={"verify_at_hash": False})
+            if claims.get("iss") not in GOOGLE_ISSUERS:
+                raise ValueError("iss 불일치")
+            return claims
+        except Exception as e:
+            last = e
+    print(f"[oauth-app] google ID 토큰 검증 실패: {type(last).__name__}: {last}")
+    raise HTTPException(status_code=401, detail="구글 로그인 정보를 확인할 수 없어요. 다시 시도해 주세요")
+
+
+async def _verify_kakao_access_token(access_token: str) -> dict:
+    headers = {"Authorization": f"Bearer {access_token}"}
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            info = await client.get("https://kapi.kakao.com/v1/user/access_token_info", headers=headers)
+            info.raise_for_status()
+            if KAKAO_APP_ID and str(info.json().get("app_id")) != KAKAO_APP_ID:
+                raise ValueError("다른 앱에서 발급된 토큰")
+            me = await client.get(PROVIDERS["kakao"]["userinfo_url"], headers=headers)
+            me.raise_for_status()
+            return me.json()
+    except Exception as e:
+        print(f"[oauth-app] kakao 토큰 검증 실패: {type(e).__name__}: {e}")
+        raise HTTPException(status_code=401, detail="카카오 로그인 정보를 확인할 수 없어요. 다시 시도해 주세요")
+
+
+@router.post("/social/token")
+async def social_token_login(body: SocialTokenRequest):
+    """앱 소셜 로그인. 200 {"token", "user_type"} 또는 200 {"signup", "provider", "name"} · 401 {"detail"}"""
+    provider = body.provider.strip().lower()
+    if provider == "google":
+        info = _normalize("google", await _verify_google_id_token(body.token))
+    elif provider == "kakao":
+        info = _normalize("kakao", await _verify_kakao_access_token(body.token))
+    else:
+        raise HTTPException(status_code=400, detail="지원하지 않는 로그인 방식입니다")
+
+    user = await _find_user(provider, info)
+    if not user:
+        return {"signup": _make_signup_ticket(provider, info), "provider": provider, "name": info["name"] or ""}
+    blocked = _account_blocked(user)
+    if blocked:
+        raise HTTPException(status_code=403, detail=blocked)
+    return {"token": make_token(user["user_id"], user["user_type"], role=user.get("role", "user")),
+            "user_type": user["user_type"]}
