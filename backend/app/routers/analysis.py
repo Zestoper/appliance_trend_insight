@@ -406,6 +406,8 @@ def _trend_refresh_background(key: str, category: str | None):
         return
 
     async def run():
+        from app.services.danawa_search import background_fetch
+        background_fetch.set(True)   # 사용자 검색을 밀어내지 않도록 다나와 뒤쪽 줄 사용
         try:
             await _trend_refresh(key, category)
         except Exception as e:

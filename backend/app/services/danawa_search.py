@@ -1,4 +1,5 @@
 import asyncio
+import contextvars
 import json
 import re
 import time
@@ -28,6 +29,10 @@ _CACHE_MAX = 200  # 자유 검색어가 계속 쌓여 메모리를 무한정 잡
 # 트렌드 TOP10은 카테고리 10개를 한꺼번에 검색하고 B2B 분석도 여러 검색을 동시에 돌려서
 # 2~3MB짜리 HTML 10여 개가 스레드에서 동시에 파싱되면 Render 무료 서버(512MB)가 메모리 초과로 죽었다.
 _FETCH_SEM = asyncio.Semaphore(2)
+# 뒤에서 도는 작업(트렌드 미리 만들기 등)은 별도 줄을 쓴다.
+# 같은 줄에 서면 트렌드가 다나와 검색 10개를 먼저 잡아서 사용자 검색이 30초 넘게 밀렸다.
+_BG_FETCH_SEM = asyncio.Semaphore(1)
+background_fetch: contextvars.ContextVar[bool] = contextvars.ContextVar("danawa_background_fetch", default=False)
 
 
 def _parse_item(li) -> dict | None:
@@ -186,12 +191,13 @@ async def _fetch_raw_items(query: str) -> list[dict]:
     last_err: Exception | None = None
     for attempt in range(2):
         try:
-            async with _FETCH_SEM:
+            async with (_BG_FETCH_SEM if background_fetch.get() else _FETCH_SEM):
                 # 기다리는 동안 다른 요청이 같은 검색어를 이미 받아왔으면 그걸 쓴다
                 cached = _CACHE.get(query)
                 if cached and time.time() - cached[0] < _CACHE_TTL:
                     return cached[1]
-                async with httpx.AsyncClient(timeout=12.0, follow_redirects=True) as client:
+                # 요청 한 번 8초 — 재시도까지 해도 상품 검색 전체 시간 제한(20초) 안에 끝나도록
+                async with httpx.AsyncClient(timeout=8.0, follow_redirects=True) as client:
                     resp = await client.get(
                         "https://search.danawa.com/",
                         params={"query": query, "tab": "goods"},

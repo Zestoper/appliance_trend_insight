@@ -121,6 +121,9 @@ async def _fetch_naver_raw(
     return {"items": items, "total": capped_total, "page": page, "display": display}
 
 
+SEARCH_TIMEOUT = 20.0   # 상품 검색 전체 시간 제한(초) — 앱 대기 한도보다 충분히 짧게
+
+
 @router.get("/api/naver/products")
 async def search_products(
     query:    str = Query(..., min_length=1),
@@ -133,7 +136,17 @@ async def search_products(
         # 네이버 쇼핑 검색(shop.json)만 막혀 있는 동안 다나와 스크래핑으로 대체 —
         # 반환 형태가 동일해서 이 함수를 호출하는 다른 모든 곳(타이밍/트렌드/추천/
         # 가격 스냅샷 등)은 코드 변경 없이 그대로 동작한다.
-        result = await danawa_search_products(query=query, page=page, display=display, sort=sort, category=category)
+        # 다나와가 느리거나 막히면 예전에는 35초 넘게 기다린 뒤 처리 안 된 예외로 500이 났다.
+        # 전체 시간 제한을 두고, 넘거나 실패하면 앱이 읽을 수 있는 {"detail": ...} 503으로 돌려준다.
+        # (네이버 쇼핑 검색은 점검 모드라 막혀 있어서 대신 쓸 수 없다)
+        try:
+            result = await asyncio.wait_for(
+                danawa_search_products(query=query, page=page, display=display, sort=sort, category=category),
+                timeout=SEARCH_TIMEOUT,
+            )
+        except Exception as e:
+            print(f"[search] 다나와 검색 실패 '{query}': {type(e).__name__}: {e}")
+            raise HTTPException(status_code=503, detail="상품 검색이 잠시 느려요. 잠시 후 다시 시도해 주세요.")
     else:
         result = await _fetch_naver_raw(query=query, page=page, display=display, sort=sort, category=category)
     return _drop_accessories(result, query, category)
