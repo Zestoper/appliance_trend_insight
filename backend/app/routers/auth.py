@@ -342,6 +342,53 @@ class WithdrawRequest(BaseModel):
     confirm:  str | None = None
 
 
+async def has_password_login(user_id: int) -> bool:
+    """비밀번호로 로그인할 수 있는 회원인지.
+    소셜로 처음 가입한 회원은 임의의 비밀번호가 들어 있어서 본인도 모른다 → False.
+    가입한 순간 소셜 연결이 함께 만들어졌으면(10초 이내) 소셜 가입, 나중에 연결했으면 이메일 가입 회원이다."""
+    from app.database import fetchone
+    exists = await fetchone("SELECT to_regclass('public.user_social_accounts') IS NOT NULL AS ok")
+    if not exists or not exists["ok"]:
+        return True
+    row = await fetchone(
+        "SELECT 1 AS hit FROM user_social_accounts s JOIN users u ON u.user_id = s.user_id "
+        "WHERE s.user_id = %s AND s.created_at - u.created_at < INTERVAL '10 seconds' LIMIT 1",
+        (user_id,),
+    )
+    return not row
+
+
+class PasswordChangeRequest(BaseModel):
+    current_password: str
+    new_password: str
+    new_password_confirm: str
+
+
+@router.post("/password/change")
+async def change_password(body: PasswordChangeRequest, payload: dict = Depends(get_current_user)):
+    """마이페이지 비밀번호 변경 — 웹과 앱이 같이 쓴다"""
+    from app.database import fetchone, execute
+    user_id = int(payload["sub"])
+    user = await fetchone("SELECT user_id, password_hash FROM users WHERE user_id = %s", (user_id,))
+    if not user:
+        raise HTTPException(status_code=401, detail="유효하지 않은 사용자입니다")
+    if not await has_password_login(user_id):
+        raise HTTPException(status_code=400, detail="소셜 로그인 회원은 비밀번호가 없어요. 비밀번호 찾기로 새로 만들 수 있어요")
+    if not verify_password(body.current_password, user["password_hash"]):
+        raise HTTPException(status_code=401, detail="현재 비밀번호가 올바르지 않습니다")
+    if body.new_password != body.new_password_confirm:
+        raise HTTPException(status_code=400, detail="새 비밀번호가 서로 다릅니다")
+    if len(body.new_password) < 8:
+        raise HTTPException(status_code=400, detail="비밀번호는 8자 이상으로 입력해주세요")
+    if body.new_password == body.current_password:
+        raise HTTPException(status_code=400, detail="지금 비밀번호와 다른 비밀번호를 입력해주세요")
+    await execute("UPDATE users SET password_hash = %s WHERE user_id = %s", (hash_password(body.new_password), user_id))
+    # 아직 안 쓴 비밀번호 재설정 링크는 무효로
+    await _ensure_reset_table()
+    await execute("DELETE FROM password_resets WHERE user_id = %s", (user_id,))
+    return {"message": "비밀번호를 바꿨어요"}
+
+
 async def social_providers(user_id: int) -> list[str]:
     from app.database import fetchone, fetchall
     exists = await fetchone("SELECT to_regclass('public.user_social_accounts') IS NOT NULL AS ok")

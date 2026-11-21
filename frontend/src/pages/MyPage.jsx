@@ -22,6 +22,11 @@ export default function MyPage() {
   const [fetchError, setFetchError] = useState(null)
   const [alerts, setAlerts] = useState([])
   const [alertDeleting, setAlertDeleting] = useState({})
+  // 비밀번호 변경
+  const [pwOpen, setPwOpen] = useState(false)
+  const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' })
+  const [pwMsg, setPwMsg] = useState({ ok: false, text: '' })
+  const [pwSaving, setPwSaving] = useState(false)
   // 회원 탈퇴
   const [withdrawOpen, setWithdrawOpen] = useState(false)
   const [withdrawInput, setWithdrawInput] = useState('')
@@ -53,6 +58,31 @@ export default function MyPage() {
       setAlerts(prev => prev.filter(a => a.alert_id !== alertId))
     } finally {
       setAlertDeleting(prev => ({ ...prev, [alertId]: false }))
+    }
+  }
+
+  async function changePassword() {
+    setPwMsg({ ok: false, text: '' })
+    if (pwForm.next !== pwForm.confirm) { setPwMsg({ ok: false, text: '새 비밀번호가 서로 달라요' }); return }
+    if (pwForm.next.length < 8) { setPwMsg({ ok: false, text: '비밀번호는 8자 이상으로 입력해 주세요' }); return }
+    setPwSaving(true)
+    try {
+      const r = await fetch(`${API}/api/auth/password/change`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          current_password: pwForm.current, new_password: pwForm.next, new_password_confirm: pwForm.confirm,
+        }),
+      })
+      const data = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(data.detail || '비밀번호를 바꾸지 못했어요')
+      setPwMsg({ ok: true, text: '비밀번호를 바꿨어요' })
+      setPwForm({ current: '', next: '', confirm: '' })
+      setPwOpen(false)
+    } catch (e) {
+      setPwMsg({ ok: false, text: e.message })
+    } finally {
+      setPwSaving(false)
     }
   }
 
@@ -184,6 +214,47 @@ export default function MyPage() {
               <button className={s.homeBtn} style={{ marginTop: 12 }} onClick={() => navigate('/b2b/pricing')}>
                구독 관리 / 업그레이드 <ArrowRight size="1em" />
               </button>
+            </div>
+          )}
+
+          {/* 비밀번호 변경 */}
+          {profile && (
+            <div className={s.section}>
+              <p className={s.sectionTitle}>비밀번호</p>
+              {profile.has_password === false ? (
+                <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>
+                  카카오 · Google로 가입한 계정이라 비밀번호 없이 로그인해요.
+                </p>
+              ) : !pwOpen ? (
+                <>
+                  {pwMsg.text && <p className={pwMsg.ok ? s.pwOk : s.withdrawError}>{pwMsg.text}</p>}
+                  <button className={s.homeBtn} onClick={() => { setPwOpen(true); setPwMsg({ ok: false, text: '' }) }}>
+                    비밀번호 변경
+                  </button>
+                </>
+              ) : (
+                <>
+                  {[
+                    ['current', '현재 비밀번호', 'current-password'],
+                    ['next', '새 비밀번호 (8자 이상)', 'new-password'],
+                    ['confirm', '새 비밀번호 확인', 'new-password'],
+                  ].map(([key, ph, ac]) => (
+                    <input key={key} type="password" className={s.withdrawInput} placeholder={ph} autoComplete={ac}
+                      value={pwForm[key]} onChange={e => setPwForm(f => ({ ...f, [key]: e.target.value }))} />
+                  ))}
+                  {pwMsg.text && <p className={s.withdrawError}>{pwMsg.text}</p>}
+                  <div className={s.btnRow}>
+                    <button className={s.homeBtn}
+                      onClick={() => { setPwOpen(false); setPwForm({ current: '', next: '', confirm: '' }); setPwMsg({ ok: false, text: '' }) }}>
+                      취소
+                    </button>
+                    <button className={s.homeBtn} disabled={pwSaving || !pwForm.current || !pwForm.next || !pwForm.confirm}
+                      onClick={changePassword}>
+                      {pwSaving ? '바꾸는 중…' : '변경하기'}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
