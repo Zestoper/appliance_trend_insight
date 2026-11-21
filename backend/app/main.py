@@ -90,6 +90,10 @@ async def lifespan(app: FastAPI):
             print(f"[mem] {rss_mb()}MB")
     mem_task = asyncio.create_task(_mem_log_loop())
 
+    # 트렌드: DB에 저장된 결과를 메모리로 올려서 재시작 직후 첫 요청도 바로 응답
+    from app.routers.analysis import warm_trend_cache
+    asyncio.create_task(warm_trend_cache())
+
     alert_task = asyncio.create_task(price_alert_loop())
     ext_data_task = asyncio.create_task(ext_data_refresh_loop())
 

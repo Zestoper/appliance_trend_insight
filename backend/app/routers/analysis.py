@@ -334,30 +334,116 @@ async def get_timing(category: str = Query(..., min_length=1), product_id: str =
 # 트렌드 TOP10은 카테고리 10개 × (쇼핑 검색 + 데이터랩) + LLM 호출이라 한 번에 20초 넘게 걸리고
 # Render 무료 서버에서 가끔 503으로 끊겼다. 값이 하루 단위로 바뀌는 데이터라 30분 캐시하고
 # 새로 만들다 실패하면 직전 결과를 그대로 돌려준다.
+#
+# 메모리 캐시는 배포 · 재시작 때마다 사라져서 재시작 직후 첫 요청이 91초 걸렸다 (앱 대기 한도 90초).
+# 그래서 결과를 DB(trend_cache)에도 저장하고, 오래된 결과라도 있으면 바로 돌려준 뒤
+# 새 결과는 뒤에서 만든다. 결과가 하나도 없을 때(최초 1회)만 기다려서 만든다.
 _TREND_TTL = 30 * 60
 _trend_cache: dict[str, tuple[float, dict]] = {}
 _trend_locks: dict[str, asyncio.Lock] = {}
+_trend_refreshing: set[str] = set()
+_trend_tasks: set[asyncio.Task] = set()   # 백그라운드 작업이 중간에 사라지지 않게 잡아둔다
+_trend_table_ready = False
 
 
-@router.get("/api/trend")
-async def get_trend(category: str = Query(None)):
-    key = category or "전체"
-    now = datetime.now().timestamp()
-    hit = _trend_cache.get(key)
-    if hit and now - hit[0] < _TREND_TTL:
-        return hit[1]
+async def _trend_table():
+    global _trend_table_ready
+    if _trend_table_ready:
+        return
+    from app.database import execute
+    await execute(
+        "CREATE TABLE IF NOT EXISTS trend_cache ("
+        " cache_key VARCHAR(50) PRIMARY KEY,"
+        " payload TEXT NOT NULL,"
+        " updated_at DOUBLE PRECISION NOT NULL)"
+    )
+    _trend_table_ready = True
+
+
+async def _trend_db_load(key: str) -> tuple[float, dict] | None:
+    try:
+        from app.database import fetchone
+        await _trend_table()
+        row = await fetchone("SELECT payload, updated_at FROM trend_cache WHERE cache_key = %s", (key,))
+        if row:
+            return float(row["updated_at"]), _json.loads(row["payload"])
+    except Exception as e:
+        logger.warning("[trend] DB 캐시 읽기 실패 [%s]: %s", key, e)
+    return None
+
+
+async def _trend_db_save(key: str, ts: float, result: dict):
+    try:
+        from app.database import execute
+        await _trend_table()
+        await execute(
+            "INSERT INTO trend_cache (cache_key, payload, updated_at) VALUES (%s, %s, %s) "
+            "ON CONFLICT (cache_key) DO UPDATE SET payload = EXCLUDED.payload, updated_at = EXCLUDED.updated_at",
+            (key, _json.dumps(result, ensure_ascii=False, default=str), ts),
+        )
+    except Exception as e:
+        logger.warning("[trend] DB 캐시 저장 실패 [%s]: %s", key, e)
+
+
+async def _trend_refresh(key: str, category: str | None) -> dict | None:
+    """새 트렌드를 만들어 메모리 · DB에 저장. 같은 카테고리는 동시에 한 번만 만든다."""
     lock = _trend_locks.setdefault(key, asyncio.Lock())
-    async with lock:   # 같은 카테고리를 동시에 여러 번 만들지 않도록
+    async with lock:
         hit = _trend_cache.get(key)
         if hit and datetime.now().timestamp() - hit[0] < _TREND_TTL:
             return hit[1]
         result = await _build_trend(category)
         if result.get("items"):
-            _trend_cache[key] = (datetime.now().timestamp(), result)
+            ts = datetime.now().timestamp()
+            _trend_cache[key] = (ts, result)
+            await _trend_db_save(key, ts, result)
             return result
-        if hit:            # 실패·빈 결과면 오래된 캐시라도 보여준다
-            return hit[1]
-        return result
+        return None
+
+
+def _trend_refresh_background(key: str, category: str | None):
+    if key in _trend_refreshing:
+        return
+
+    async def run():
+        try:
+            await _trend_refresh(key, category)
+        except Exception as e:
+            logger.warning("[trend] 백그라운드 갱신 실패 [%s]: %s", key, e)
+        finally:
+            _trend_refreshing.discard(key)
+
+    _trend_refreshing.add(key)
+    task = asyncio.create_task(run())
+    _trend_tasks.add(task)
+    task.add_done_callback(_trend_tasks.discard)
+
+
+async def warm_trend_cache():
+    """서버 시작 시 DB에 저장된 트렌드를 메모리로 올리고, 오래됐으면 뒤에서 새로 만든다."""
+    hit = await _trend_db_load("전체")
+    if hit:
+        _trend_cache["전체"] = hit
+    if not hit or datetime.now().timestamp() - hit[0] >= _TREND_TTL:
+        _trend_refresh_background("전체", None)
+
+
+@router.get("/api/trend")
+async def get_trend(category: str = Query(None)):
+    key = category or "전체"
+    cat = None if key == "전체" else category
+    hit = _trend_cache.get(key)
+    if not hit:
+        hit = await _trend_db_load(key)
+        if hit:
+            _trend_cache[key] = hit
+    if hit:
+        if datetime.now().timestamp() - hit[0] >= _TREND_TTL:
+            _trend_refresh_background(key, cat)   # 오래됐으면 일단 보여주고 뒤에서 새로 만든다
+        return hit[1]
+    # 저장된 결과가 전혀 없을 때만 기다려서 만든다
+    result = await _trend_refresh(key, cat)
+    return result or {"items": []}
 
 
 async def _build_trend(category: str | None):
