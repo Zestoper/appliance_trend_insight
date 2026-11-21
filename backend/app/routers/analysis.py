@@ -408,7 +408,9 @@ async def _trend_refresh(key: str, category: str | None) -> dict | None:
             return result
         # 모자란 결과는 저장하지 않는다 (이전 10개를 2개짜리로 덮어쓰지 않도록) — 다음 요청 때 다시 만든다
         logger.warning("[trend] %s: 결과 %d개라 저장 안 함 (이전 결과 유지)", key, len(result.get("items") or []))
-        return result if result.get("items") and not hit else None
+        if hit and _trend_complete(key, hit[1]):
+            return hit[1]   # 오래됐어도 제대로 된 이전 결과
+        return result if result.get("items") else None
 
 
 def _trend_refresh_background(key: str, category: str | None):
@@ -434,8 +436,10 @@ def _trend_refresh_background(key: str, category: str | None):
 async def warm_trend_cache():
     """서버 시작 시 DB에 저장된 트렌드를 메모리로 올리고, 오래됐으면 뒤에서 새로 만든다."""
     hit = await _trend_db_load("전체")
-    if hit:
+    if hit and _trend_complete("전체", hit[1]):
         _trend_cache["전체"] = hit
+    else:
+        hit = None   # 없거나 모자라면 서버가 켜지자마자 새로 만든다 (첫 사용자는 진행 중인 결과를 기다린다)
     if not hit or datetime.now().timestamp() - hit[0] >= _TREND_TTL or not _trend_complete("전체", hit[1]):
         _trend_refresh_background("전체", None)
 
@@ -449,8 +453,10 @@ async def get_trend(category: str = Query(None)):
         hit = await _trend_db_load(key)
         if hit:
             _trend_cache[key] = hit
+    if hit and not _trend_complete(key, hit[1]):
+        hit = None   # 모자란 결과(예: 2개)는 사용자에게 보여주지 않는다 → 아래에서 제대로 만든 결과를 기다린다
     if hit:
-        if datetime.now().timestamp() - hit[0] >= _TREND_TTL or not _trend_complete(key, hit[1]):
+        if datetime.now().timestamp() - hit[0] >= _TREND_TTL:
             _trend_refresh_background(key, cat)   # 오래됐으면 일단 보여주고 뒤에서 새로 만든다
         return hit[1]
     # 저장된 결과가 전혀 없을 때만 기다려서 만든다

@@ -32,7 +32,7 @@ def test_재시작_직후에도_저장된_트렌드로_바로_응답():
         assert r["items"][0]["t"] == "new" and len(calls) == 1
         # 재시작 흉내: 메모리는 비고 DB에는 1시간 지난 결과
         a._trend_cache.clear()
-        db["전체"] = (time.time() - 3600, {"items": [{"t": "old"}]})
+        db["전체"] = (time.time() - 3600, {"items": [{"t": "old"}] * 10})
         t0 = time.time()
         r = await a.get_trend(None)
         assert r["items"][0]["t"] == "old" and time.time() - t0 < 0.1   # 기다리지 않고 바로
@@ -93,8 +93,8 @@ def test_이미_저장된_2개짜리_결과는_바로_다시_만든다():
     a._trend_cache.clear()
 
     async def main():
-        await a.get_trend(None)
-        await asyncio.sleep(0.05)
+        r = await a.get_trend(None)
+        assert len(r["items"]) == 10            # 2개짜리를 보여주지 않고 제대로 만든 10개를 준다
         assert calls and len(db["전체"][1]["items"]) == 10
 
     asyncio.run(main())
