@@ -17,6 +17,7 @@ class AlertCreate(BaseModel):
 @router.get("/me")
 async def get_my_profile(payload: dict = Depends(get_current_user)):
     from app.database import fetchone
+    from app.routers.auth import social_providers
     user_id = int(payload["sub"])
     user = await fetchone(
         "SELECT user_id, email, user_type, role, status, created_at, tier, tier_expires_at FROM users WHERE user_id = %s",
@@ -53,6 +54,8 @@ async def get_my_profile(payload: dict = Depends(get_current_user)):
         "created_at":      str(user["created_at"]) if user.get("created_at") else None,
         "tier":            effective_tier,
         "tier_expires_at": user["tier_expires_at"].isoformat() if user.get("tier_expires_at") else None,
+        # 비어 있지 않으면 소셜 가입 회원 → 탈퇴할 때 비밀번호 대신 "탈퇴" 입력
+        "social_providers": await social_providers(user_id),
         **profile,
     }
 

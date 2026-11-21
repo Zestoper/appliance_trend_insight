@@ -344,3 +344,59 @@
   .page       { padding: 80px 16px 60px; }
   .profileCard { flex-direction: column; align-items: flex-start; gap: 14px; padding: 20px; }
 }
+
+/* 회원 탈퇴 */
+.withdrawLink {
+  display: block;
+  margin: 18px auto 0;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.withdrawBox {
+  margin-top: 18px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.withdrawTitle {
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #f87171;
+}
+
+.withdrawDesc {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.withdrawInput {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 11px 12px;
+  margin-bottom: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.15));
+  background: transparent;
+  color: inherit;
+  font-size: 13px;
+}
+
+.withdrawError {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: #f87171;
+}
+
+.logoutBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

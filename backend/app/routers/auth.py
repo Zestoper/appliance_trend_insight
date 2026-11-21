@@ -278,3 +278,75 @@ async def password_reset_confirm(body: ResetConfirm):
                   (hash_password(body.new_password), row["user_id"]))
     await execute("DELETE FROM password_resets WHERE user_id = %s", (row["user_id"],))
     return {"message": "비밀번호를 바꿨어요"}
+
+
+# ── 회원 탈퇴 ─────────────────────────────────────────────────────────────
+# 웹과 앱이 같이 쓴다. POST로 받는 이유: 안드로이드 Retrofit의 @DELETE는 본문을 보내기 번거롭다.
+# 확인 방법
+#   - 이메일 가입 회원: 현재 비밀번호
+#   - 소셜(카카오 · 구글) 가입 회원: 비밀번호를 모르므로 confirm에 "탈퇴"를 입력
+#     (/api/user/me 의 social_providers가 비어 있지 않으면 소셜 회원)
+# 지우는 것: 회원 정보 · 프로필 · 가격 알림 · 소셜 연결 · 비밀번호 재설정 토큰
+# 결제 기록은 전자상거래법상 5년 보관 의무가 있어서 회원과 연결을 끊은 사본을 payments_archive에 남긴 뒤 지운다
+#   (개인정보처리방침 2조와 같은 내용 · 5년이 지난 사본은 따로 지워야 함)
+# 탈퇴 후 기존 토큰은 /api/auth/me 에서 401이 나서 웹 · 앱 모두 자동으로 로그아웃된다.
+WITHDRAW_CONFIRM_WORD = "탈퇴"
+
+# 자식 테이블부터 지운다 (DB에 ON DELETE CASCADE가 없어도 안전하도록)
+_WITHDRAW_TABLES = [
+    "price_alert", "payments", "user_social_accounts", "password_resets",
+    "user_b2c_profiles", "user_b2b_profiles",
+]
+
+
+class WithdrawRequest(BaseModel):
+    password: str | None = None
+    confirm:  str | None = None
+
+
+async def social_providers(user_id: int) -> list[str]:
+    from app.database import fetchone, fetchall
+    exists = await fetchone("SELECT to_regclass('public.user_social_accounts') IS NOT NULL AS ok")
+    if not exists or not exists["ok"]:
+        return []
+    rows = await fetchall("SELECT provider FROM user_social_accounts WHERE user_id = %s ORDER BY provider", (user_id,))
+    return [r["provider"] for r in rows]
+
+
+@router.post("/withdraw")
+async def withdraw(body: WithdrawRequest, payload: dict = Depends(get_current_user)):
+    from app.database import fetchone, get_pool
+    user_id = int(payload["sub"])
+    user = await fetchone("SELECT user_id, password_hash, role FROM users WHERE user_id = %s", (user_id,))
+    if not user:
+        raise HTTPException(status_code=401, detail="유효하지 않은 사용자입니다")
+    if user.get("role") == "admin":
+        raise HTTPException(status_code=403, detail="관리자 계정은 탈퇴할 수 없어요")
+
+    password_ok = bool(body.password) and verify_password(body.password, user["password_hash"])
+    social_ok = (body.confirm or "").strip() == WITHDRAW_CONFIRM_WORD and bool(await social_providers(user_id))
+    if not (password_ok or social_ok):
+        if body.password:
+            raise HTTPException(status_code=401, detail="비밀번호가 올바르지 않습니다")
+        raise HTTPException(status_code=400, detail=f"비밀번호를 입력하거나 소셜 회원은 '{WITHDRAW_CONFIRM_WORD}'를 입력해 주세요")
+
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        async with conn.transaction():   # 중간에 실패하면 아무것도 안 지워진다
+            if await conn.fetchval("SELECT to_regclass($1) IS NOT NULL", "public.payments"):
+                await conn.execute(
+                    "CREATE TABLE IF NOT EXISTS payments_archive ("
+                    " order_id TEXT, payload JSONB NOT NULL, archived_at TIMESTAMPTZ DEFAULT NOW())"
+                )
+                # 사본에는 user_id를 빼서 탈퇴한 회원과 연결되지 않게 한다
+                await conn.execute(
+                    "INSERT INTO payments_archive (order_id, payload) "
+                    "SELECT p.order_id, to_jsonb(p) - 'user_id' FROM payments p WHERE p.user_id = $1",
+                    user_id,
+                )
+            for table in _WITHDRAW_TABLES:
+                if await conn.fetchval("SELECT to_regclass($1) IS NOT NULL", f"public.{table}"):
+                    await conn.execute(f"DELETE FROM {table} WHERE user_id = $1", user_id)
+            await conn.execute("DELETE FROM users WHERE user_id = $1", user_id)
+    print(f"[auth] 회원 탈퇴 user_id={user_id}")
+    return {"ok": True, "message": "탈퇴가 완료되었어요. 그동안 이용해 주셔서 감사합니다"}

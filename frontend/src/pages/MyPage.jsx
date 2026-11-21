@@ -22,6 +22,12 @@ export default function MyPage() {
   const [fetchError, setFetchError] = useState(null)
   const [alerts, setAlerts] = useState([])
   const [alertDeleting, setAlertDeleting] = useState({})
+  // 회원 탈퇴
+  const [withdrawOpen, setWithdrawOpen] = useState(false)
+  const [withdrawInput, setWithdrawInput] = useState('')
+  const [withdrawError, setWithdrawError] = useState('')
+  const [withdrawing, setWithdrawing] = useState(false)
+  const isSocial = (profile?.social_providers || []).length > 0
 
   useEffect(() => {
     if (!isLoggedIn) return
@@ -47,6 +53,26 @@ export default function MyPage() {
       setAlerts(prev => prev.filter(a => a.alert_id !== alertId))
     } finally {
       setAlertDeleting(prev => ({ ...prev, [alertId]: false }))
+    }
+  }
+
+  async function withdraw() {
+    setWithdrawError('')
+    setWithdrawing(true)
+    try {
+      const r = await fetch(`${API}/api/auth/withdraw`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(isSocial ? { confirm: withdrawInput } : { password: withdrawInput }),
+      })
+      const data = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(data.detail || '탈퇴에 실패했어요. 잠시 후 다시 시도해 주세요')
+      logout()
+      navigate('/', { replace: true })
+    } catch (e) {
+      setWithdrawError(e.message)
+    } finally {
+      setWithdrawing(false)
     }
   }
 
@@ -197,6 +223,40 @@ export default function MyPage() {
             <button className={s.homeBtn} onClick={() => navigate('/')}><ArrowLeft size="1em" /> 홈으로</button>
             <button className={s.logoutBtn} onClick={() => { logout(); navigate('/') }}>로그아웃</button>
           </div>
+
+          <p style={{ textAlign: 'center', fontSize: 12, margin: '18px 0 0' }}>
+            <a href="/terms" style={{ color: 'var(--text-muted)', marginRight: 14 }}>이용약관</a>
+            <a href="/privacy" style={{ color: 'var(--text-muted)' }}>개인정보처리방침</a>
+          </p>
+
+          {/* 회원 탈퇴 */}
+          {!withdrawOpen ? (
+            <button className={s.withdrawLink} onClick={() => setWithdrawOpen(true)}>회원 탈퇴</button>
+          ) : (
+            <div className={s.withdrawBox}>
+              <p className={s.withdrawTitle}>정말 탈퇴하시겠어요?</p>
+              <p className={s.withdrawDesc}>
+                회원 정보와 가격 알림이 모두 지워지고 되돌릴 수 없어요. 결제 내역은 법에 따라 5년간 회원 정보 없이 보관돼요.
+              </p>
+              <input
+                className={s.withdrawInput}
+                type={isSocial ? 'text' : 'password'}
+                placeholder={isSocial ? "확인을 위해 '탈퇴'를 입력해 주세요" : '현재 비밀번호를 입력해 주세요'}
+                value={withdrawInput}
+                onChange={e => setWithdrawInput(e.target.value)}
+                autoComplete={isSocial ? 'off' : 'current-password'}
+              />
+              {withdrawError && <p className={s.withdrawError}>{withdrawError}</p>}
+              <div className={s.btnRow}>
+                <button className={s.homeBtn} onClick={() => { setWithdrawOpen(false); setWithdrawInput(''); setWithdrawError('') }}>
+                  취소
+                </button>
+                <button className={s.logoutBtn} disabled={!withdrawInput || withdrawing} onClick={withdraw}>
+                  {withdrawing ? '탈퇴 처리 중…' : '탈퇴하기'}
+                </button>
+              </div>
+            </div>
+          )}
 
         </div>
       </div>
