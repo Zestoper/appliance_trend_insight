@@ -178,8 +178,8 @@ export default function Login() {
                     </a>
                 </div>
                 <p style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', margin: '10px 0 0', lineHeight: 1.6 }}>
-                    카카오 · Google로 처음 시작하면 <Link to="/terms" target="_blank">이용약관</Link>과{' '}
-                    <Link to="/privacy" target="_blank">개인정보 수집 · 이용</Link>에 동의하는 것으로 봅니다
+                    처음 시작하면 <Link to="/terms" target="_blank" style={{ textDecoration: 'underline' }}>이용약관</Link>과{' '}
+                    <Link to="/privacy" target="_blank" style={{ textDecoration: 'underline' }}>개인정보 수집 · 이용</Link> 동의 후 가입돼요
                 </p>
 
                 <p className={styles.signupRow}>

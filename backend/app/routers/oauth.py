@@ -4,8 +4,10 @@
   1. 프론트 버튼 → GET /api/auth/{provider}/login → 구글/카카오 로그인 화면으로 이동
   2. 로그인 후 구글/카카오가 GET /api/auth/{provider}/callback?code=...&state=... 로 돌려보냄
   3. code 를 구글/카카오 access token 으로 바꾸고, 그 토큰으로 사용자 정보(id · 이메일 · 이름) 조회
-  4. 연결된 계정이 있으면 그 계정, 없으면 같은 이메일 계정에 연결, 그것도 없으면 새로 가입
+  4. 연결된 계정이 있으면 그 계정, 없으면 같은 이메일 계정에 연결
   5. 기존 이메일 로그인과 똑같은 자체 JWT 를 만들어 프론트 /oauth/callback#token=... 으로 보냄
+  6. 처음 온 사람은 바로 가입시키지 않고 /oauth/callback#signup=가입티켓 으로 보낸다
+     → 프론트 약관 동의 화면 → POST /api/auth/social/complete 에서 동의를 확인하고 가입
 
 필요한 환경변수
   GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
@@ -19,8 +21,9 @@ from datetime import datetime, timedelta
 from urllib.parse import urlencode, quote
 
 import httpx
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import RedirectResponse
+from pydantic import BaseModel
 from jose import jwt
 
 from app.auth import make_token, hash_password, JWT_SECRET, JWT_ALGORITHM
@@ -111,8 +114,9 @@ async def _ensure_table():
     )
 
 
-async def _find_or_create_user(provider: str, info: dict) -> dict:
-    from app.database import fetchone, execute, get_user_by_email, create_user, create_b2c_profile
+async def _find_user(provider: str, info: dict) -> dict | None:
+    """이미 연결된 계정 또는 같은 (인증된) 이메일의 기존 계정. 없으면 None → 약관 동의 후 새로 가입."""
+    from app.database import fetchone, execute, get_user_by_email
     await _ensure_table()
 
     # 1) 이미 연결된 소셜 계정
@@ -124,31 +128,89 @@ async def _find_or_create_user(provider: str, info: dict) -> dict:
     if row:
         return row
 
-    # 2) 같은 이메일로 가입한 계정이 있으면 연결
+    # 2) 같은 이메일로 가입한 계정이 있으면 연결 (그 회원은 가입할 때 이미 약관에 동의했다)
     #    구글/카카오가 '인증된 이메일'이라고 확인해 준 경우만 — 아니면 남의 계정에 붙을 수 있다
-    user = None
     if info["email"] and info["email_verified"]:
         user = await get_user_by_email(info["email"])
+        if user:
+            await execute(
+                "INSERT INTO user_social_accounts (provider, provider_id, user_id) VALUES (%s, %s, %s) "
+                "ON CONFLICT DO NOTHING",
+                (provider, info["provider_id"], user["user_id"]),
+            )
+            return user
+    return None
 
-    # 3) 없으면 새로 가입 (일반 회원)
-    if not user:
-        # users.email 은 비울 수 없고 중복도 안 되므로, 이메일을 못 받았으면 고유한 자리표시 주소를 넣는다
-        email = info["email"] if info["email"] and not await get_user_by_email(info["email"]) \
-            else f"{provider}_{info['provider_id']}@social.local"
-        # 비밀번호로는 로그인할 수 없도록 아무도 모르는 임의 값을 해시해서 넣는다
-        user_id = await create_user(email, hash_password(secrets.token_urlsafe(32)), "b2c")
-        await create_b2c_profile(user_id, (info["name"] or "회원")[:100])
-        # 로그인 화면 소셜 버튼 아래 "처음 로그인하면 약관에 동의" 안내를 보고 시작한 것으로 기록
-        from app.routers.auth import record_terms_agreement
-        await record_terms_agreement(user_id)
-        user = await fetchone("SELECT * FROM users WHERE user_id = %s", (user_id,))
 
+async def _create_social_user(provider: str, info: dict, nickname: str) -> dict:
+    """약관 동의를 받은 뒤 새 회원을 만든다 (일반 회원)."""
+    from app.database import fetchone, execute, get_user_by_email, create_user, create_b2c_profile
+    from app.routers.auth import record_terms_agreement
+    await _ensure_table()
+    # users.email 은 비울 수 없고 중복도 안 되므로, 이메일을 못 받았으면 고유한 자리표시 주소를 넣는다
+    email = info["email"] if info["email"] and not await get_user_by_email(info["email"]) \
+        else f"{provider}_{info['provider_id']}@social.local"
+    # 비밀번호로는 로그인할 수 없도록 아무도 모르는 임의 값을 해시해서 넣는다
+    user_id = await create_user(email, hash_password(secrets.token_urlsafe(32)), "b2c")
+    await create_b2c_profile(user_id, (nickname or info["name"] or "회원")[:100])
     await execute(
         "INSERT INTO user_social_accounts (provider, provider_id, user_id) VALUES (%s, %s, %s) "
         "ON CONFLICT DO NOTHING",
-        (provider, info["provider_id"], user["user_id"]),
+        (provider, info["provider_id"], user_id),
     )
-    return user
+    await record_terms_agreement(user_id)
+    return await fetchone("SELECT * FROM users WHERE user_id = %s", (user_id,))
+
+
+# ── 소셜 첫 가입: 약관 동의 화면 ──────────────────────────────────────────
+# 처음 오는 사람은 바로 가입시키지 않고, 서버가 서명한 15분짜리 '가입 티켓'을 들려
+# 프론트 /oauth/callback#signup=... 으로 보낸다. 프론트가 약관 동의 화면을 보여주고
+# 동의하면 POST /api/auth/social/complete 로 티켓을 보내 그때 가입시킨다.
+# (티켓에 소셜 회원 번호가 서명돼 있어서 다른 사람이 위조할 수 없다)
+SIGNUP_TICKET_MINUTES = 15
+
+
+def _make_signup_ticket(provider: str, info: dict) -> str:
+    return jwt.encode(
+        {
+            "purpose": "social_signup", "p": provider, "id": info["provider_id"],
+            "email": info["email"], "ev": info["email_verified"], "name": info["name"],
+            "exp": datetime.utcnow() + timedelta(minutes=SIGNUP_TICKET_MINUTES),
+        },
+        JWT_SECRET, algorithm=JWT_ALGORITHM,
+    )
+
+
+def _read_signup_ticket(ticket: str) -> tuple[str, dict] | None:
+    try:
+        d = jwt.decode(ticket, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    except Exception:
+        return None
+    if d.get("purpose") != "social_signup" or d.get("p") not in PROVIDERS:
+        return None
+    return d["p"], {"provider_id": d["id"], "email": d.get("email"),
+                    "email_verified": bool(d.get("ev")), "name": d.get("name") or ""}
+
+
+class SocialCompleteRequest(BaseModel):
+    ticket: str
+    agree_terms: bool = False
+    nickname: str | None = None
+
+
+@router.post("/social/complete")
+async def social_complete(body: SocialCompleteRequest):
+    """소셜 첫 가입 마무리 — 약관에 동의해야 회원이 만들어진다. 웹과 앱이 같이 쓴다."""
+    from app.routers.auth import _require_terms
+    read = _read_signup_ticket(body.ticket)
+    if not read:
+        raise HTTPException(status_code=400, detail="가입 시간이 지났어요. 소셜 로그인을 다시 해주세요")
+    _require_terms(body.agree_terms)
+    provider, info = read
+    # 두 번 눌렀거나 그 사이 다른 창에서 가입됐으면 새로 만들지 않고 그 계정으로 로그인
+    user = await _find_user(provider, info) or await _create_social_user(provider, info, (body.nickname or "").strip())
+    token = make_token(user["user_id"], user["user_type"], role=user.get("role", "user"))
+    return {"token": token, "user_type": user["user_type"]}
 
 
 @router.get("/{provider}/login")
@@ -204,10 +266,17 @@ async def social_callback(provider: str, code: str = "", state: str = "", error:
         return _fail("소셜 로그인에 실패했습니다. 잠시 후 다시 시도해주세요")
 
     try:
-        user = await _find_or_create_user(provider, info)
+        user = await _find_user(provider, info)
     except Exception as e:
         print(f"[oauth] {provider} 계정 처리 실패: {type(e).__name__}: {e}")
         return _fail("계정 처리 중 오류가 발생했습니다")
+
+    if not user:
+        # 처음 온 사람 → 약관 동의 화면으로 (가입은 동의한 뒤에)
+        ticket = _make_signup_ticket(provider, info)
+        return RedirectResponse(
+            f"{FRONTEND_URL}/oauth/callback#signup={ticket}&provider={provider}&name={quote(info['name'] or '')}"
+        )
 
     # 이메일 로그인과 같은 계정 상태 검사
     if not user.get("is_active", True):

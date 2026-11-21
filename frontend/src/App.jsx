@@ -24,6 +24,7 @@ import PaymentFail from './pages/PaymentFail'
 import Chat from './pages/Chat'
 import Privacy from './pages/Privacy'
 import Terms from './pages/Terms'
+import SocialSignup from './pages/SocialSignup'
 
 export default function App() {
   return (
@@ -35,6 +36,7 @@ export default function App() {
             <Route path="/home"              element={<Home />} />
             <Route path="/login"             element={<Login />} />
             <Route path="/oauth/callback"    element={<OAuthCallback />} />
+            <Route path="/oauth/signup"      element={<SocialSignup />} />
             <Route path="/signup"            element={<Signup />} />
             <Route path="/find-password"     element={<FindPassword />} />
             <Route path="/reset-password"    element={<ResetPassword />} />
