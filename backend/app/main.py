@@ -64,6 +64,9 @@ async def _seed_rag(rag) -> None:
 async def lifespan(app: FastAPI):
     await get_pool()
     await _init_tables()
+    # 회원 관련 컬럼 · 테이블은 요청 중이 아니라 시작 때 한 번만 만든다
+    from app.routers.auth import ensure_account_tables
+    await ensure_account_tables()
     if _env_enabled("ENABLE_RAG"):
         try:
             from app.rag_service import RAGService

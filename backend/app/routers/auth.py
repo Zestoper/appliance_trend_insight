@@ -51,27 +51,55 @@ class SignupB2B(_EmailBody):
 # 약관이 바뀌면 TERMS_VERSION을 올린다 → 누가 어느 버전에 언제 동의했는지 users에 남는다
 # (프론트 frontend/src/legal/legalInfo.js 의 시행일과 맞춘다)
 TERMS_VERSION = "2026-11-21"
-_terms_columns_ready = False
 
 
-async def _ensure_terms_columns():
-    global _terms_columns_ready
-    if _terms_columns_ready:
-        return
+async def ensure_account_tables():
+    """회원 관련 컬럼 · 테이블을 서버 시작 때 한 번만 만든다 (main.py lifespan에서 호출).
+    예전에는 가입 요청 도중에 ALTER TABLE을 해서, 같은 요청의 다음 쿼리가 실패하고
+    회원만 만들어진 채 약관 기록이 빠지는 일이 있었다."""
     from app.database import execute
     await execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_agreed_at TIMESTAMPTZ")
     await execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_version VARCHAR(20)")
-    _terms_columns_ready = True
-
-
-async def record_terms_agreement(user_id: int):
-    """약관 동의 시각과 버전을 저장 (이메일 가입 · 소셜 첫 가입에서 호출)"""
-    from app.database import execute
-    await _ensure_terms_columns()
     await execute(
-        "UPDATE users SET terms_agreed_at = NOW(), terms_version = %s WHERE user_id = %s",
-        (TERMS_VERSION, user_id),
+        "CREATE TABLE IF NOT EXISTS user_social_accounts ("
+        " provider    VARCHAR(20)  NOT NULL,"
+        " provider_id VARCHAR(255) NOT NULL,"
+        " user_id     BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,"
+        " created_at  TIMESTAMPTZ DEFAULT NOW(),"
+        " PRIMARY KEY (provider, provider_id))"
     )
+
+
+async def create_member(email: str, password_hash: str, user_type: str, *, status: str = "active",
+                        nickname: str | None = None, b2b: tuple | None = None,
+                        social: tuple | None = None) -> int:
+    """회원 생성 · 프로필 · (소셜 연결) · 약관 동의 기록을 하나의 트랜잭션으로.
+    중간에 하나라도 실패하면 아무것도 남지 않는다 → '약관 기록 없는 회원'이 생기지 않는다.
+    b2b = (company_name, business_type, contact_phone) · social = (provider, provider_id)"""
+    from app.database import get_pool
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            user_id = await conn.fetchval(
+                "INSERT INTO users (email, password_hash, user_type, status, terms_agreed_at, terms_version) "
+                "VALUES ($1, $2, $3, $4, NOW(), $5) RETURNING user_id",
+                email, password_hash, user_type, status, TERMS_VERSION,
+            )
+            if b2b:
+                await conn.execute(
+                    "INSERT INTO user_b2b_profiles (user_id, company_name, business_type, contact_phone) "
+                    "VALUES ($1, $2, $3, $4)", user_id, *b2b,
+                )
+            else:
+                await conn.execute(
+                    "INSERT INTO user_b2c_profiles (user_id, nickname) VALUES ($1, $2)", user_id, nickname or "회원",
+                )
+            if social:
+                await conn.execute(
+                    "INSERT INTO user_social_accounts (provider, provider_id, user_id) VALUES ($1, $2, $3)",
+                    social[0], social[1], user_id,
+                )
+    return user_id
 
 
 def _require_terms(agree: bool):
@@ -125,25 +153,22 @@ async def verify_code(body: VerifyCodeRequest):
 
 @router.post("/signup/b2c")
 async def signup_b2c(body: SignupB2C):
-    from app.database import get_user_by_email, create_user, create_b2c_profile
+    from app.database import get_user_by_email
     _require_terms(body.agree_terms)
     if await get_user_by_email(body.email):
         raise HTTPException(status_code=409, detail="이미 가입된 이메일입니다")
-    user_id = await create_user(body.email, hash_password(body.password), "b2c")
-    await create_b2c_profile(user_id, body.nickname)
-    await record_terms_agreement(user_id)
+    user_id = await create_member(body.email, hash_password(body.password), "b2c", nickname=body.nickname)
     return {"token": make_token(user_id, "b2c"), "user_type": "b2c", "nickname": body.nickname}
 
 
 @router.post("/signup/b2b")
 async def signup_b2b(body: SignupB2B):
-    from app.database import get_user_by_email, create_user, create_b2b_profile
+    from app.database import get_user_by_email
     _require_terms(body.agree_terms)
     if await get_user_by_email(body.email):
         raise HTTPException(status_code=409, detail="이미 가입된 이메일입니다")
-    user_id = await create_user(body.email, hash_password(body.password), "b2b", status="pending")
-    await create_b2b_profile(user_id, body.company_name, body.business_type, body.contact_phone)
-    await record_terms_agreement(user_id)
+    user_id = await create_member(body.email, hash_password(body.password), "b2b", status="pending",
+                                  b2b=(body.company_name, body.business_type, body.contact_phone))
     return {"user_type": "b2b", "company_name": body.company_name, "status": "pending"}
 
 

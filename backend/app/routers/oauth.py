@@ -143,22 +143,18 @@ async def _find_user(provider: str, info: dict) -> dict | None:
 
 
 async def _create_social_user(provider: str, info: dict, nickname: str) -> dict:
-    """약관 동의를 받은 뒤 새 회원을 만든다 (일반 회원)."""
-    from app.database import fetchone, execute, get_user_by_email, create_user, create_b2c_profile
-    from app.routers.auth import record_terms_agreement
-    await _ensure_table()
+    """약관 동의를 받은 뒤 새 회원을 만든다 (일반 회원). 회원 · 프로필 · 소셜 연결 · 약관 기록이 한 트랜잭션"""
+    from app.database import fetchone, get_user_by_email
+    from app.routers.auth import create_member
     # users.email 은 비울 수 없고 중복도 안 되므로, 이메일을 못 받았으면 고유한 자리표시 주소를 넣는다
     email = info["email"] if info["email"] and not await get_user_by_email(info["email"]) \
         else f"{provider}_{info['provider_id']}@social.local"
     # 비밀번호로는 로그인할 수 없도록 아무도 모르는 임의 값을 해시해서 넣는다
-    user_id = await create_user(email, hash_password(secrets.token_urlsafe(32)), "b2c")
-    await create_b2c_profile(user_id, (nickname or info["name"] or "회원")[:100])
-    await execute(
-        "INSERT INTO user_social_accounts (provider, provider_id, user_id) VALUES (%s, %s, %s) "
-        "ON CONFLICT DO NOTHING",
-        (provider, info["provider_id"], user_id),
+    user_id = await create_member(
+        email, hash_password(secrets.token_urlsafe(32)), "b2c",
+        nickname=(nickname or info["name"] or "회원")[:100],
+        social=(provider, info["provider_id"]),
     )
-    await record_terms_agreement(user_id)
     return await fetchone("SELECT * FROM users WHERE user_id = %s", (user_id,))
 
 
