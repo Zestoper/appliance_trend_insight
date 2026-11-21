@@ -22,6 +22,8 @@ import B2BPricing from './pages/B2BPricing'
 import PaymentSuccess from './pages/PaymentSuccess'
 import PaymentFail from './pages/PaymentFail'
 import Chat from './pages/Chat'
+import Privacy from './pages/Privacy'
+import Terms from './pages/Terms'
 
 export default function App() {
   return (
@@ -51,6 +53,8 @@ export default function App() {
             <Route path="/b2b/payments/success" element={<PaymentSuccess />} />
             <Route path="/b2b/payments/fail"     element={<PaymentFail />} />
             <Route path="/chat"              element={<Chat />} />
+            <Route path="/privacy"           element={<Privacy />} />
+            <Route path="/terms"             element={<Terms />} />
           </Routes>
         </BrowserRouter>
       </AuthProvider>

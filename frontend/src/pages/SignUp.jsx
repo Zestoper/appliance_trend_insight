@@ -447,6 +447,10 @@ export default function Signup() {
           </button>
         </div>
 
+        <p style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', margin: '12px 0 0' }}>
+          가입하면 <Link to="/terms">이용약관</Link>과 <Link to="/privacy">개인정보처리방침</Link>에 동의하는 것으로 봅니다
+        </p>
+
         <p className={styles.signupRow}>
           이미 계정이 있으신가요?&nbsp;
           <Link to="/login" className={styles.signupLink}>로그인</Link>
