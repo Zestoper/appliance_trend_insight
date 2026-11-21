@@ -385,20 +385,30 @@ async def _trend_db_save(key: str, ts: float, result: dict):
         logger.warning("[trend] DB 캐시 저장 실패 [%s]: %s", key, e)
 
 
+TREND_MIN_ITEMS = 8   # 전체 TOP10은 이 개수 이상일 때만 저장 (검색 몇 개가 실패해도 이전 결과를 지킨다)
+
+
+def _trend_complete(key: str, result: dict | None) -> bool:
+    items = (result or {}).get("items") or []
+    return len(items) >= TREND_MIN_ITEMS if key == "전체" else bool(items)
+
+
 async def _trend_refresh(key: str, category: str | None) -> dict | None:
     """새 트렌드를 만들어 메모리 · DB에 저장. 같은 카테고리는 동시에 한 번만 만든다."""
     lock = _trend_locks.setdefault(key, asyncio.Lock())
     async with lock:
         hit = _trend_cache.get(key)
-        if hit and datetime.now().timestamp() - hit[0] < _TREND_TTL:
+        if hit and datetime.now().timestamp() - hit[0] < _TREND_TTL and _trend_complete(key, hit[1]):
             return hit[1]
         result = await _build_trend(category)
-        if result.get("items"):
+        if _trend_complete(key, result):
             ts = datetime.now().timestamp()
             _trend_cache[key] = (ts, result)
             await _trend_db_save(key, ts, result)
             return result
-        return None
+        # 모자란 결과는 저장하지 않는다 (이전 10개를 2개짜리로 덮어쓰지 않도록) — 다음 요청 때 다시 만든다
+        logger.warning("[trend] %s: 결과 %d개라 저장 안 함 (이전 결과 유지)", key, len(result.get("items") or []))
+        return result if result.get("items") and not hit else None
 
 
 def _trend_refresh_background(key: str, category: str | None):
@@ -426,7 +436,7 @@ async def warm_trend_cache():
     hit = await _trend_db_load("전체")
     if hit:
         _trend_cache["전체"] = hit
-    if not hit or datetime.now().timestamp() - hit[0] >= _TREND_TTL:
+    if not hit or datetime.now().timestamp() - hit[0] >= _TREND_TTL or not _trend_complete("전체", hit[1]):
         _trend_refresh_background("전체", None)
 
 
@@ -440,7 +450,7 @@ async def get_trend(category: str = Query(None)):
         if hit:
             _trend_cache[key] = hit
     if hit:
-        if datetime.now().timestamp() - hit[0] >= _TREND_TTL:
+        if datetime.now().timestamp() - hit[0] >= _TREND_TTL or not _trend_complete(key, hit[1]):
             _trend_refresh_background(key, cat)   # 오래됐으면 일단 보여주고 뒤에서 새로 만든다
         return hit[1]
     # 저장된 결과가 전혀 없을 때만 기다려서 만든다
@@ -449,6 +459,17 @@ async def get_trend(category: str = Query(None)):
 
 
 async def _build_trend(category: str | None):
+    # 트렌드는 다나와 검색 10개를 한꺼번에 하는 묶음 작업 → 사용자 검색을 밀어내지 않게 뒤쪽 줄을 쓰고
+    # 줄 서는 시간을 시간 초과로 세지 않는다 (처음 만들 때 사용자가 기다리는 경우에도 같다)
+    from app.services.danawa_search import background_fetch
+    token = background_fetch.set(True)
+    try:
+        return await _build_trend_inner(category)
+    finally:
+        background_fetch.reset(token)
+
+
+async def _build_trend_inner(category: str | None):
     try:
         from app.routers.b2b_utils import _groq_create as _gc
 
@@ -492,6 +513,12 @@ async def _build_trend(category: str | None):
                 except Exception:
                     dl_results.append({"data": []})
                 await asyncio.sleep(0.15)
+
+            failed = [cat for cat, r in zip(ALL_CATS, products_results)
+                      if isinstance(r, Exception) or not (r or {}).get("items")]
+            if failed:
+                logger.warning("[trend] 전체: %d개 중 %d개 검색 실패 %s", len(ALL_CATS), len(failed), failed)
+                print(f"[trend] 전체: {len(ALL_CATS)}개 중 {len(failed)}개 검색 실패 {failed}")
 
             all_items = []
             for cat, products_data, datalab in zip(ALL_CATS, products_results, dl_results):

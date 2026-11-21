@@ -122,6 +122,7 @@ async def _fetch_naver_raw(
 
 
 SEARCH_TIMEOUT = 20.0   # 상품 검색 전체 시간 제한(초) — 앱 대기 한도보다 충분히 짧게
+BACKGROUND_SEARCH_TIMEOUT = 180.0   # 백그라운드 작업용 (줄 서는 시간 포함)
 
 
 @router.get("/api/naver/products")
@@ -139,10 +140,14 @@ async def search_products(
         # 다나와가 느리거나 막히면 예전에는 35초 넘게 기다린 뒤 처리 안 된 예외로 500이 났다.
         # 전체 시간 제한을 두고, 넘거나 실패하면 앱이 읽을 수 있는 {"detail": ...} 503으로 돌려준다.
         # (네이버 쇼핑 검색은 점검 모드라 막혀 있어서 대신 쓸 수 없다)
+        from app.services.danawa_search import background_fetch
+        # 뒤에서 도는 작업(트렌드 미리 만들기)은 줄을 서서 기다리므로 사용자 요청용 20초 제한을 걸지 않는다
+        # (걸었더니 10개 중 뒤쪽 검색이 줄 서는 동안 전부 시간 초과가 나서 TOP10이 2개만 나왔다)
+        timeout = BACKGROUND_SEARCH_TIMEOUT if background_fetch.get() else SEARCH_TIMEOUT
         try:
             result = await asyncio.wait_for(
                 danawa_search_products(query=query, page=page, display=display, sort=sort, category=category),
-                timeout=SEARCH_TIMEOUT,
+                timeout=timeout,
             )
         except Exception as e:
             print(f"[search] 다나와 검색 실패 '{query}': {type(e).__name__}: {e}")

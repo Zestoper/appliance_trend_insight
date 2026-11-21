@@ -21,7 +21,7 @@ def test_재시작_직후에도_저장된_트렌드로_바로_응답():
     async def build(cat):
         calls.append(cat)
         await asyncio.sleep(0.2)
-        return {"items": [{"t": "new"}]}
+        return {"items": [{"t": "new"}] * 10}
 
     a._trend_db_load, a._trend_db_save, a._build_trend = load, save, build
     a._trend_cache.clear()
@@ -45,5 +45,56 @@ def test_재시작_직후에도_저장된_트렌드로_바로_응답():
         a._trend_cache.clear()
         await a.warm_trend_cache()
         assert "전체" in a._trend_cache and len(calls) == 2
+
+    asyncio.run(main())
+
+
+def test_모자란_결과는_저장하지_않고_이전_결과를_지킨다():
+    import time as _t
+    db = {"전체": (_t.time() - 3600, {"items": [{"t": "old"}] * 10})}
+
+    async def load(k):
+        return db.get(k)
+
+    async def save(k, ts, r):
+        db[k] = (ts, r)
+
+    async def build(cat):
+        return {"items": [{"t": "partial"}] * 2}   # 10개 중 8개 검색 실패
+
+    a._trend_db_load, a._trend_db_save, a._build_trend = load, save, build
+    a._trend_cache.clear()
+
+    async def main():
+        r = await a.get_trend(None)
+        assert len(r["items"]) == 10 and r["items"][0]["t"] == "old"
+        await asyncio.sleep(0.05)
+        assert len(db["전체"][1]["items"]) == 10    # 2개짜리로 덮어쓰지 않음
+
+    asyncio.run(main())
+
+
+def test_이미_저장된_2개짜리_결과는_바로_다시_만든다():
+    import time as _t
+    db = {"전체": (_t.time(), {"items": [{"t": "bad"}] * 2})}   # 방금 저장됐지만 모자람
+    calls = []
+
+    async def load(k):
+        return db.get(k)
+
+    async def save(k, ts, r):
+        db[k] = (ts, r)
+
+    async def build(cat):
+        calls.append(cat)
+        return {"items": [{"t": "good"}] * 10}
+
+    a._trend_db_load, a._trend_db_save, a._build_trend = load, save, build
+    a._trend_cache.clear()
+
+    async def main():
+        await a.get_trend(None)
+        await asyncio.sleep(0.05)
+        assert calls and len(db["전체"][1]["items"]) == 10
 
     asyncio.run(main())
