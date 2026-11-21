@@ -74,6 +74,10 @@ function useCountdown(initial) {
 
 export default function Signup() {
   const [step, setStep] = useState(0)
+  // [필수] 약관 동의 — 둘 다 체크해야 가입 완료 버튼이 켜진다
+  const [agreeTerms, setAgreeTerms] = useState(false)
+  const [agreePrivacy, setAgreePrivacy] = useState(false)
+  const agreeAll = agreeTerms && agreePrivacy
   const [userType, setUserType] = useState('b2c')
   const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -135,7 +139,7 @@ export default function Signup() {
     !!email,
     code.length === 6 && countdown.active,
     password.length >= 6 && confirmPw === password,
-    userType === 'b2c' ? !!nickname : !!companyName && !!businessType,
+    (userType === 'b2c' ? !!nickname : !!companyName && !!businessType) && agreeAll,
   ][step]
 
   // Step 0 → 인증코드 발송
@@ -184,8 +188,8 @@ export default function Signup() {
     setError('')
     const url  = `${API_BASE}/api/auth/signup/${userType}`
     const body = userType === 'b2c'
-      ? { email, password, nickname }
-      : { email, password, company_name: companyName, business_type: businessType, contact_phone: contactPhone }
+      ? { email, password, nickname, agree_terms: agreeAll }
+      : { email, password, company_name: companyName, business_type: businessType, contact_phone: contactPhone, agree_terms: agreeAll }
     try {
       const res  = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       const data = await res.json()
@@ -425,6 +429,25 @@ export default function Signup() {
                   </div>
                 </>
               )}
+
+              {/* 약관 동의 */}
+              <div className={s.agreeBox}>
+                <label className={`${s.agreeRow} ${s.agreeAll}`}>
+                  <input type="checkbox" checked={agreeAll}
+                    onChange={e => { setAgreeTerms(e.target.checked); setAgreePrivacy(e.target.checked) }} />
+                  전체 동의
+                </label>
+                <label className={s.agreeRow}>
+                  <input type="checkbox" checked={agreeTerms} onChange={e => setAgreeTerms(e.target.checked)} />
+                  <span>[필수] 이용약관 동의</span>
+                  <Link to="/terms" target="_blank" className={s.agreeView}>보기</Link>
+                </label>
+                <label className={s.agreeRow}>
+                  <input type="checkbox" checked={agreePrivacy} onChange={e => setAgreePrivacy(e.target.checked)} />
+                  <span>[필수] 개인정보 수집 · 이용 동의</span>
+                  <Link to="/privacy" target="_blank" className={s.agreeView}>보기</Link>
+                </label>
+              </div>
             </>
           )}
 
@@ -446,10 +469,6 @@ export default function Signup() {
               : <>다음 <ArrowRight size="1em" /></>}
           </button>
         </div>
-
-        <p style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', margin: '12px 0 0' }}>
-          가입하면 <Link to="/terms">이용약관</Link>과 <Link to="/privacy">개인정보처리방침</Link>에 동의하는 것으로 봅니다
-        </p>
 
         <p className={styles.signupRow}>
           이미 계정이 있으신가요?&nbsp;

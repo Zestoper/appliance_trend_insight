@@ -177,6 +177,10 @@ export default function Login() {
                         Google로 시작하기
                     </a>
                 </div>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', margin: '10px 0 0', lineHeight: 1.6 }}>
+                    카카오 · Google로 처음 시작하면 <Link to="/terms" target="_blank">이용약관</Link>과{' '}
+                    <Link to="/privacy" target="_blank">개인정보 수집 · 이용</Link>에 동의하는 것으로 봅니다
+                </p>
 
                 <p className={styles.signupRow}>
                     계정이 없으신가요?&nbsp;

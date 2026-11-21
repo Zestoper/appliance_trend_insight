@@ -138,6 +138,9 @@ async def _find_or_create_user(provider: str, info: dict) -> dict:
         # 비밀번호로는 로그인할 수 없도록 아무도 모르는 임의 값을 해시해서 넣는다
         user_id = await create_user(email, hash_password(secrets.token_urlsafe(32)), "b2c")
         await create_b2c_profile(user_id, (info["name"] or "회원")[:100])
+        # 로그인 화면 소셜 버튼 아래 "처음 로그인하면 약관에 동의" 안내를 보고 시작한 것으로 기록
+        from app.routers.auth import record_terms_agreement
+        await record_terms_agreement(user_id)
         user = await fetchone("SELECT * FROM users WHERE user_id = %s", (user_id,))
 
     await execute(

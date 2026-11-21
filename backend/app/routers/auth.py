@@ -36,6 +36,7 @@ class VerifyCodeRequest(_EmailBody):
 class SignupB2C(_EmailBody):
     password: str
     nickname: str
+    agree_terms: bool = False   # [필수] 이용약관 · 개인정보 수집 이용 동의
 
 
 class SignupB2B(_EmailBody):
@@ -43,6 +44,39 @@ class SignupB2B(_EmailBody):
     company_name: str
     business_type: str
     contact_phone: str
+    agree_terms: bool = False
+
+
+# ── 약관 동의 기록 ───────────────────────────────────────────────────────
+# 약관이 바뀌면 TERMS_VERSION을 올린다 → 누가 어느 버전에 언제 동의했는지 users에 남는다
+# (프론트 frontend/src/legal/legalInfo.js 의 시행일과 맞춘다)
+TERMS_VERSION = "2026-11-21"
+_terms_columns_ready = False
+
+
+async def _ensure_terms_columns():
+    global _terms_columns_ready
+    if _terms_columns_ready:
+        return
+    from app.database import execute
+    await execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_agreed_at TIMESTAMPTZ")
+    await execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_version VARCHAR(20)")
+    _terms_columns_ready = True
+
+
+async def record_terms_agreement(user_id: int):
+    """약관 동의 시각과 버전을 저장 (이메일 가입 · 소셜 첫 가입에서 호출)"""
+    from app.database import execute
+    await _ensure_terms_columns()
+    await execute(
+        "UPDATE users SET terms_agreed_at = NOW(), terms_version = %s WHERE user_id = %s",
+        (TERMS_VERSION, user_id),
+    )
+
+
+def _require_terms(agree: bool):
+    if not agree:
+        raise HTTPException(status_code=400, detail="이용약관과 개인정보 수집 · 이용에 동의해 주세요")
 
 
 class LoginRequest(_EmailBody):
@@ -92,20 +126,24 @@ async def verify_code(body: VerifyCodeRequest):
 @router.post("/signup/b2c")
 async def signup_b2c(body: SignupB2C):
     from app.database import get_user_by_email, create_user, create_b2c_profile
+    _require_terms(body.agree_terms)
     if await get_user_by_email(body.email):
         raise HTTPException(status_code=409, detail="이미 가입된 이메일입니다")
     user_id = await create_user(body.email, hash_password(body.password), "b2c")
     await create_b2c_profile(user_id, body.nickname)
+    await record_terms_agreement(user_id)
     return {"token": make_token(user_id, "b2c"), "user_type": "b2c", "nickname": body.nickname}
 
 
 @router.post("/signup/b2b")
 async def signup_b2b(body: SignupB2B):
     from app.database import get_user_by_email, create_user, create_b2b_profile
+    _require_terms(body.agree_terms)
     if await get_user_by_email(body.email):
         raise HTTPException(status_code=409, detail="이미 가입된 이메일입니다")
     user_id = await create_user(body.email, hash_password(body.password), "b2b", status="pending")
     await create_b2b_profile(user_id, body.company_name, body.business_type, body.contact_phone)
+    await record_terms_agreement(user_id)
     return {"user_type": "b2b", "company_name": body.company_name, "status": "pending"}
 
 
