@@ -21,7 +21,11 @@ def mark(ok):
 
 async def main(q: str):
     from app.routers.b2b_search_analysis import _search_analysis
-    r = await _search_analysis(q, "", True)
+    r = await _search_analysis(q, os.environ.get("HINT", ""), True)   # HINT=전자레인지 처럼 화면에서 처음 입력한 검색어
+    if os.environ.get("DEBUG_INFO"):
+        print("product_info:", r.get("product_info"))
+        print("price_position:", r.get("price_position"))
+        print("similar:", [(p.get("brand"), p.get("price")) for p in r.get("similar_products") or []])
     if r.get("unsupported"):
         print("지원하지 않는 카테고리:", r.get("message"))
         return

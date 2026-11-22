@@ -30,7 +30,8 @@ QUERIES = [
 ]
 PICKS = (0, 4, 9)   # 목록에서 1 · 5 · 10번째 (사용자가 위쪽만 고르지는 않으니)
 FULL = "--full" in sys.argv
-CONCURRENCY = 1 if FULL else 4
+CONCURRENCY = int(os.getenv("AUDIT_CONCURRENCY", "1" if FULL else "4"))
+ONLY = {int(x) for x in os.getenv("AUDIT_ONLY", "").split(",") if x.strip()}   # 예: AUDIT_ONLY=46,47,48
 
 
 def issues_of(r: dict, picked: dict) -> list[tuple[str, str]]:
@@ -58,8 +59,7 @@ def issues_of(r: dict, picked: dict) -> list[tuple[str, str]]:
     dm = r.get("demand_forecast") or {}
 
     # ── 기본 정보 ──
-    if not r.get("model_number"):
-        add("빈값", "모델명 없음 (가격 이력이 제품명 기준으로 쌓임)")
+    # 모델명이 없는 브랜드(모바 · 로보락 · 다이슨 등)는 화면에서 줄을 숨긴다 → 문제 아님
     for k, label in [("brand", "제조사"), ("release_date", "출시일"), ("image", "이미지"), ("current_price", "현재가")]:
         if not info.get(k):
             add("빈값", f"{label} 없음")
@@ -127,8 +127,7 @@ def issues_of(r: dict, picked: dict) -> list[tuple[str, str]]:
         add("빈값", "검색량 데이터 없음")
     else:
         mx = max(h["ratio"] for h in ih)
-        if abs(mx - 100) > 0.5:
-            add("이상", f"검색량 최댓값 {mx} (데이터랩은 100이어야 함)")
+        # 최댓값이 100보다 작으면 이번 주(덜 끝난 주)가 최고였던 것 → 정상 (이번 주는 빼고 보여줌)
         if len(ih) < 8:
             add("이상", f"검색량 {len(ih)}주뿐 (검색이 적어 빠진 주가 많음 · 그래프 신뢰 낮음)")
         if fc:
@@ -141,8 +140,7 @@ def issues_of(r: dict, picked: dict) -> list[tuple[str, str]]:
         add("이상", f"검색량 예측 문장이 1% 미만 변화를 상승/하락으로 씀: {reason[-40:]}")
 
     # ── 판매량 (품목 전체 기준) ──
-    if not (sf.get("history") or []):
-        add("빈값", "판매량(쇼핑 클릭) 데이터 없음")
+    # 판매량은 화면에 쓰지 않음
     sm = re.search(r"([+-]?\d+(?:\.\d+)?)% 변화", sf.get("reason") or "")
     if sm and abs(float(sm.group(1))) >= 40:
         add("이상", f"판매량 예측 {sm.group(1)}% (품목 전체 기준 · 과한 예측일 수 있음)")
@@ -158,6 +156,20 @@ def issues_of(r: dict, picked: dict) -> list[tuple[str, str]]:
             add("이상", f"경쟁 제품 가격 {c['price']:,}원이 현재가와 3배 넘게 차이")
         if FULL and not (comp.get("selected_pros") or comp.get("selected_cons")):
             add("빈값", "선택 제품 장단점 없음")
+
+    # ── 5개 구성 (가격 위치 · 비슷한 제품) ──
+    pp = r.get("price_position")
+    if not pp:
+        add("빈값", "같은 품목 가격 위치 없음")
+    elif cur and pp.get("current") != cur:
+        add("오류", f"가격 위치의 현재가 {pp.get('current')} ≠ 제품 카드 {cur}")
+    sims = r.get("similar_products") or []
+    if not sims:
+        add("빈값", "비슷한 제품 없음")
+    elif len(sims) < 3:
+        add("이상", f"비슷한 제품 {len(sims)}개뿐")
+    if any(sp.get("model_number") and sp["model_number"] == r.get("model_number") for sp in sims):
+        add("이상", "비슷한 제품에 같은 모델이 들어감")
 
     # ── 리뷰 ──
     n_rev = (rs.get("pos") or 0) + (rs.get("neg") or 0)
@@ -189,6 +201,9 @@ def short(r: dict) -> dict:
         "competitor": {k: ((r.get("competitor_comparison") or {}).get("competitor") or {}).get(k)
                        for k in ("title", "price", "model_number")},
         "reviews": {k: (r.get("review_sentiment") or {}).get(k) for k in ("score", "pos", "neg")},
+        "n_reviews": len((r.get("review_sentiment") or {}).get("reviews") or []),
+        "price_position": r.get("price_position"),
+        "similar": [(p.get("brand"), p.get("title"), p.get("price")) for p in (r.get("similar_products") or [])],
     }
 
 
@@ -228,7 +243,7 @@ async def main():
 
     async def one(n, q, it):
         title = it["title"]
-        if title in done:
+        if title in done or (ONLY and n not in ONLY):
             return
         async with sem:
             t0 = time.time()

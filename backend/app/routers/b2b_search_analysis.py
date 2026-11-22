@@ -9,10 +9,18 @@ from app.routers.naver import search_products
 from app.config import CATEGORY_RULES
 from app.auth import require_admin
 
+# B2B 분석 화면은 지금 '실제 데이터만' 보여준다 (매입 판단 · AI 리포트 · AI 리뷰 분류 · 예측은 끔)
+# AI를 부르지 않으면 분석 함수는 AI가 실패했을 때처럼 숫자로만 만든 문장을 쓴다 → 응답도 훨씬 빨라진다
+USE_AI = False
+
 # 예측은 순수 파이썬 Holt-Winters로 한다 (_run_forecast_sync) — 항상 사용 가능
 _FORECAST_AVAILABLE = True
 
 router = APIRouter()
+
+if not USE_AI:
+    async def _groq_create(*a, **k):   # noqa: F811 — 이 화면에서는 AI를 부르지 않는다
+        raise RuntimeError("B2B 분석은 실제 데이터만 보여줌 (USE_AI=False)")
 
 # 네이버 쇼핑인사이트(실제 쇼핑 클릭 동향) 카테고리 코드 — b2b_product.py와 동일한 매핑을 공유
 _SHOPPING_CAT_MAP = {
@@ -362,6 +370,8 @@ _NAVER_BLOG_RE = re.compile(r'https?://blog\.naver\.com/([\w-]+)/(\d+)')
 
 
 async def _fetch_full_review_text(url: str) -> str | None:
+    if not USE_AI:   # 원문은 AI 요약용이라 실제 데이터 화면에서는 읽지 않는다 (후기 목록은 검색 결과 그대로)
+        return None
     """리뷰 링크의 실제 본문 전체를 가져온다 — 네이버 검색 API가 주는 스니펫은 100~150자로
     짧아서 실제 단점/장점 내용이 나오기 직전에 잘리는 경우가 많다 (예: '단점까지 다 까발리는
     후기 시작해 볼게요!'처럼 본론 직전에 끊김). 네이버 블로그 PC 페이지는 본문이 iframe 안에
@@ -666,17 +676,19 @@ async def build_price_block(q: str, model: str | None, product_key: str, detecte
                         ({"date": h["period"], "min_price": h["price"], "avg_price": h["price"]} for h in _danawa_hist),
                         key=lambda r: r["date"],
                     )
-                    if len(_weekly) >= 4:   # 튀는 점 하나는 빼고 (위 _kept와 같은 기준)
-                        _wm = sorted(r["min_price"] for r in _weekly)[len(_weekly) // 2]
-                        _wk = [r for r in _weekly if _wm * 0.6 <= r["min_price"] <= _wm * 1.6]
-                        _weekly = _wk if len(_wk) >= 2 else _weekly
+                    # 그래프에는 다나와 주간 기록을 참고로 그대로 보여준다 (버리지 않음)
                     price_history = _weekly
-            judge_basis = "danawa_weekly" if history_mismatch and len(price_history) >= 2 else "listed"
-            if judge_basis == "danawa_weekly":
-                judge_price = price_history[-1]["min_price"]       # 최근 주간 최저가
-                prior_history = price_history[:-1]
+                    # 판단은 지금 살 수 있는 가격(대표가 기준)으로만 → 같은 기준으로 모은 우리 기록끼리 비교
+                    # (주간 기록의 62만원이 어떤 판매처 · 조건인지 확인되지 않아 '싸다 · 매입 추천' 근거로 쓰지 않는다)
+                    judge_history = [
+                        {"date": str(r["snapshot_date"]), "min_price": r["min_price"], "avg_price": r["avg_price"]}
+                        for r in history_rows if _lo <= r["min_price"] <= _hi
+                    ]
+            judge_basis = "listed"
+            judge_price = min_p
+            if history_mismatch:
+                prior_history = [r for r in judge_history if r["date"] != str(today)]
             else:
-                judge_price = min_p
                 prior_history = [r for r in price_history if r["date"] != str(today)]
             history_insufficient = not prior_history
             if prior_history:
@@ -746,6 +758,9 @@ async def build_price_block(q: str, model: str | None, product_key: str, detecte
                 "history_insufficient": history_insufficient, "history_mismatch": history_mismatch,
                 # 싸다 · 비싸다를 어떤 가격으로 판단했는지 (listed: 대표가 · danawa_weekly: 다나와 주간 최저가)
                 "judge_basis": judge_basis, "judge_price": judge_price,
+                # 그래프가 다나와 주간 기록(참고용)이면 화면에 붙일 안내
+                "history_note": (f"다나와 주간 최저가 기록이에요. 조건부 특가가 섞여 있을 수 있어 "
+                                 f"지금 살 수 있는 가격({min_p:,}원)과 다를 수 있어요." if history_mismatch else None),
             }
 
     return price_block, product_items, product_image, product_brand
@@ -873,8 +888,14 @@ async def _search_analysis(q: str, hint: str, force: bool):
         except Exception as e:
             logger.warning("[search-analysis] 검색 트렌드 조회 실패(%s): %s %s", keyword, type(e).__name__, e)
             data = []
-        if len(data) > 6:
-            data = data[:-1]
+        # 이번 주(덜 끝난 주)만 뺀다. 예전엔 마지막 점을 무조건 버려서, 마지막 점이 몇 주 전이면
+        # (검색이 적은 키워드) 멀쩡한 데이터를 버렸다
+        if data:
+            try:
+                if date.fromisoformat(str(data[-1]["period"])[:10]) > today - timedelta(days=7):
+                    data = data[:-1]
+            except ValueError:
+                pass
         return data
 
     def _trend_keyword_candidates(query: str, category: str) -> list[str]:
@@ -971,6 +992,11 @@ async def _search_analysis(q: str, hint: str, force: bool):
             if len(_probe_data) >= 6:
                 trend_keyword, trend_data = _cand, _probe_data
                 break
+        if not trend_data:
+            # 동시 요청이 몰려 시간 초과로 다 실패한 경우 품목 이름으로 한 번 더 (검색량 칸이 비지 않게)
+            _retry = await _fetch_search_trend(detected_category, 90)
+            if _retry:
+                trend_keyword, trend_data = detected_category, _retry
 
     (product_items, category_items, train_data,
      sales_trend_data, sales_train_data,
@@ -985,14 +1011,15 @@ async def _search_analysis(q: str, hint: str, force: bool):
         # sort="sim"(정확도순)으로 바꿔야 "단점" 키워드와 실제로 관련된 글이 우선 잡힌다 —
         # date순은 최신 글만 잡혀 리뷰 내용과 무관한 글이 섞이고, 표본이 작으면 부정 후기가
         # 거의 안 잡히는 문제가 있어 수집량도 늘렸다.
-        _fetch_review_snippets(f"{search_q_product} 사용후기 단점", 20, 15, sort="sim"),
-        _fetch_review_snippets(f"{search_q_category} 사용후기 단점", 20, 15, sort="sim") if detected_category else asyncio.sleep(0, result=[]),
+        # 검색어에 '단점'을 넣었더니 단점 글로 치우쳐서 뺐다 (실사용 후기를 있는 그대로)
+        _fetch_review_snippets(f"{search_q_product} 사용후기", 20, 15, sort="sim"),
+        _fetch_review_snippets(f"{search_q_category} 사용후기", 20, 15, sort="sim") if detected_category else asyncio.sleep(0, result=[]),
         _fetch_release_info(),
         _fetch_danawa(),
     )
 
     # 제품 자체 리뷰가 있으면 우선 사용하고, 부족하면 카테고리 리뷰로 보강 (실제 데이터 풀 확보).
-    # category_reviews는 "냉장고 사용후기 단점"처럼 카테고리명으로만 검색해서 전혀 다른
+    # category_reviews는 "냉장고 사용후기"처럼 카테고리명으로만 검색해서 전혀 다른
     # 브랜드/모델(LG, 스타리온 미니냉장고, 캠핑 쿨러 등)의 리뷰가 섞여 들어온다 — 이 남의
     # 제품 얘기가 선택한 제품의 감성 점수/배지에 그대로 반영되면 안 되니, 모델명(또는 용량)이
     # 실제로 일치하는 것만 보강 풀에 남긴다.
@@ -1030,6 +1057,10 @@ async def _search_analysis(q: str, hint: str, force: bool):
             logger.warning("[search-analysis] 예측 실패(%s): %s", forecast_model, e)
     if not prophet_forecast and trend_data:
         prophet_forecast, _ = _linear_forecast(trend_data)
+    # 예측은 기준을 다시 세울 때까지 끈다 (냉장고 전체로 고른 '최근값 유지'를 좁은 키워드에 써서 일자 선만 나왔다)
+    SHOW_FORECAST = False
+    if not SHOW_FORECAST:
+        prophet_forecast = []
     # 예측과 범위는 4년치로 학습해서 범위 상단이 과거 최고치 기준으로 부풀었다 (화면 최대 100인데 범위 542)
     # → 화면에 보이는 실제 값의 최댓값 1.3배까지만
     if prophet_forecast and trend_data:
@@ -1078,6 +1109,8 @@ async def _search_analysis(q: str, hint: str, force: bool):
             logger.warning("[search-analysis] 판매량 Holt-Winters 예측 실패: %s", e)
     if not sales_prophet_forecast and sales_trend_data:
         sales_prophet_forecast, _ = _linear_forecast(sales_trend_data, 8, step_days=30)
+    if not SHOW_FORECAST:
+        sales_prophet_forecast = []
 
     # 판매량 추이 한줄 평가 — AI 없이 실제 추세/예측 수치만으로 규칙 기반 생성.
     # 방향(상승/하락)은 반드시 '예측 변화율'과 같은 기준으로 계산해야 한다 — 서로 다른
@@ -1162,6 +1195,63 @@ async def _search_analysis(q: str, hint: str, force: bool):
 
         if competitor:
             competitor = {**competitor, "model_number": _extract_model_broad(competitor["title"])}
+
+    # ── 비슷한 제품 목록 (최대 5개 · 위 competitor와 같은 기준: 용량이 가까운 순 → 없으면 가격이 가까운 순) ──
+    similar_products = []
+    if category_items:
+        # 다른 브랜드를 먼저 · 모자라면 같은 브랜드의 다른 모델로 채운다 (LG가 대부분인 통돌이 세탁기처럼 다른 브랜드가 적은 품목)
+        _pool = [it for it in category_items if it.get("brand")
+                 and (not model or model.upper() not in it["title"].upper())]
+        _caps = [c for c in (_extract_capacity(it["title"]) for it in product_items) if c]
+        _sel_cap = _extract_capacity(q) or (max(set(_caps), key=_caps.count) if _caps else None)
+        _ref = price_block["min_price"] if price_block else None
+        ranked = []
+        for it in _pool:
+            cap = _extract_capacity(it["title"])
+            if _sel_cap and cap and abs(cap - _sel_cap) <= _sel_cap * 0.5:
+                ranked.append((0, abs(cap - _sel_cap), it, cap))
+            elif _ref and _ref * 0.5 <= it["price"] <= _ref * 2:
+                ranked.append((1, abs(it["price"] - _ref), it, cap))
+        _same = lambda it: bool(product_brand) and it["brand"] == product_brand
+        ranked.sort(key=lambda x: (_same(x[2]), x[0], x[1]))
+        _seen = set()
+        for _, _, it, cap in ranked:
+            if it["title"] in _seen:
+                continue
+            _seen.add(it["title"])
+            similar_products.append({
+                "title": it["title"], "brand": it["brand"], "price": it["price"], "link": it.get("link", ""),
+                "image": it.get("image", ""), "model_number": _extract_model_broad(it["title"]),
+                "capacity": cap if (_sel_cap and cap) else None,
+            })
+            if len(similar_products) == 5:
+                break
+        # 용량 · 가격대(절반 ~ 2배)로 3개가 안 되면 가격이 가까운 순으로 채운다 (예: 38,490원 전자레인지 · 품목 최저 84,840원)
+        if len(similar_products) < 3 and _ref:
+            for it in sorted(_pool, key=lambda it: (_same(it), abs(it["price"] - _ref))):
+                if it["title"] in _seen:
+                    continue
+                _seen.add(it["title"])
+                similar_products.append({
+                    "title": it["title"], "brand": it["brand"], "price": it["price"], "link": it.get("link", ""),
+                    "image": it.get("image", ""), "model_number": _extract_model_broad(it["title"]), "capacity": None,
+                })
+                if len(similar_products) == 5:
+                    break
+
+    # ── 같은 품목 안에서 이 제품의 가격 위치 (판단 없이 숫자만) ──
+    price_position = None
+    _cur = price_block["min_price"] if price_block else None
+    _cat_prices = sorted(it["price"] for it in (category_items or []) if it.get("price"))
+    if _cur and len(_cat_prices) >= 10:
+        price_position = {
+            "category": detected_category,
+            "count": len(_cat_prices),
+            "min": _cat_prices[0], "max": _cat_prices[-1], "median": _cat_prices[len(_cat_prices) // 2],
+            "current": _cur,
+            # 이 제품보다 싼 상품 비율 (0 = 가장 쌈 · 100 = 가장 비쌈)
+            "position_pct": round(sum(1 for p in _cat_prices if p < _cur) / len(_cat_prices) * 100),
+        }
 
     competitor_reviews = []
     if competitor:
@@ -1443,7 +1533,8 @@ async def _search_analysis(q: str, hint: str, force: bool):
     price_trend_pct = None
     demand_headline = None
     demand_reason = None
-    price_fc = forecast_model_price(price_block["price_history"], price_block["judge_price"]) if price_block else None
+    price_fc = (forecast_model_price(price_block["price_history"], price_block["judge_price"])
+                if price_block and SHOW_FORECAST else None)
     if price_block and len(price_block["price_history"]) >= 2:
         price_trend_pct = price_block["price_change_pct"]
         # 방향은 숫자(순변동)와 같은 기준으로 정한다 — 예전엔 회귀 기울기로 정해서
@@ -1586,6 +1677,7 @@ async def _search_analysis(q: str, hint: str, force: bool):
             "change_pct": price_block["price_change_pct"] if price_block else None,
             "range_pct": price_block["price_range_pct"] if price_block else None,
             "reason": price_change_reason,
+            "note": price_block.get("history_note") if price_block else None,   # 다나와 주간 기록(참고)이면 안내
         },
 
         # 5. 가격 적정성 분석
@@ -1614,6 +1706,10 @@ async def _search_analysis(q: str, hint: str, force: bool):
         },
 
         # 7. 경쟁 제품 비교
+        # 실제 데이터 화면용: 같은 품목 가격 위치 · 비슷한 제품 목록
+        "price_position": price_position,
+        "similar_products": similar_products,
+
         "competitor_comparison": {
             "competitor": competitor,
             "selected_pros": selected_pros,

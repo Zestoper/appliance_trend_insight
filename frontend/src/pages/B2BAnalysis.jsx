@@ -87,7 +87,7 @@ function ForecastChart({ history, linearTrend, prophetForecast, axisLabel = '관
       <div className={s.chartLegend}>
         <span className={s.dot} style={{ background: '#ef4444' }} /> {actualLabel}
         {linearTrend?.length > 0 && <><span className={s.dot} style={{ background: '#9ca3af', marginLeft: 10 }} /> 선형회귀 추세선</>}
-        <span className={s.dot} style={{ background: '#22c55e', marginLeft: 10 }} /> {modelLabel} 예측
+        {forecast.length > 0 && <><span className={s.dot} style={{ background: '#22c55e', marginLeft: 10 }} /> {modelLabel} 예측</>}
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: '100%', height: 260 }}>
         <YAxis minV={minV} maxV={maxV} pX={pX} pY={pY} H={H} W={W} axisLabel={axisLabel} tickFormat={tickFormat} />
@@ -540,74 +540,123 @@ export default function B2BAnalysis() {
                         <span className={s.infoLabel}>제품명</span>
                         <span className={s.infoValue}>{info?.name}</span>
                       </div>
-                      <div className={s.infoRow}>
-                        <span className={s.infoLabel}>제조사</span>
-                        <span className={s.infoValue}>{info?.brand || '확인 안됨'}</span>
-                      </div>
-                      <div className={s.infoRow}>
-                        <span className={s.infoLabel}>출시일</span>
-                        <span className={s.infoValue}>{info?.release_date || '확인 안됨'}</span>
-                      </div>
-                      {/* 진짜 출시가가 없으면 다나와 24개월 최고가를 '최고가'라고 밝혀서 보여준다 */}
-                      <div className={s.infoRow}>
-                        <span className={s.infoLabel}>{info?.launch_price || !info?.max_price_24m ? '출시가격' : '최고가 (최근 24개월)'}</span>
-                        <span className={s.infoValue}>
-                          {info?.launch_price ? fmtP(info.launch_price) : info?.max_price_24m ? fmtP(info.max_price_24m) : '확인 안됨'}
-                        </span>
-                      </div>
-                      <div className={s.infoRow}>
-                        <span className={s.infoLabel}>현재가격</span>
-                        <span className={s.infoValue} style={{ color: '#22c55e', fontWeight: 800 }}>
-                          {info?.current_price ? fmtP(info.current_price) : '데이터 부족'}
-                        </span>
-                      </div>
+                      {/* 실제로 수집된 값만 보여준다 (없는 항목은 줄째로 숨김 · '확인 안됨' 같은 빈 값 없음) */}
+                      {data.model_number && (
+                        <div className={s.infoRow}>
+                          <span className={s.infoLabel}>모델명</span>
+                          <span className={s.infoValue}>{data.model_number}</span>
+                        </div>
+                      )}
+                      {info?.brand && (
+                        <div className={s.infoRow}>
+                          <span className={s.infoLabel}>제조사</span>
+                          <span className={s.infoValue}>{info.brand}</span>
+                        </div>
+                      )}
+                      {info?.release_date && (
+                        <div className={s.infoRow}>
+                          <span className={s.infoLabel}>출시일 (다나와 등록월)</span>
+                          <span className={s.infoValue}>{info.release_date}</span>
+                        </div>
+                      )}
+                      {(info?.launch_price || info?.max_price_24m) && (
+                        <div className={s.infoRow}>
+                          {/* 진짜 출시가가 없으면 다나와 24개월 최고가를 '최고가'라고 밝혀서 보여준다 */}
+                          <span className={s.infoLabel}>{info.launch_price ? '출시가격' : '최고가 (최근 24개월)'}</span>
+                          <span className={s.infoValue}>{fmtP(info.launch_price || info.max_price_24m)}</span>
+                        </div>
+                      )}
+                      {info?.current_price && (
+                        <div className={s.infoRow}>
+                          <span className={s.infoLabel}>현재 최저가</span>
+                          <span className={s.infoValue} style={{ color: '#22c55e', fontWeight: 800 }}>{fmtP(info.current_price)}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
 
-                {/* 2. AI 종합 리포트 */}
-                <div className={`${s.card} ${sig ? s.cardAccent : ''}`}
-                  style={sig ? { borderLeftColor: sig.color, background: sig.bg } : undefined}>
-                  <div className={s.cardHead}>
-                    <div>
-                      <h2 className={s.cardTitle}>AI 종합 리포트</h2>
-                      <p className={s.cardSub}>가격·수요·리뷰를 종합한 AI 분석</p>
+                {/* 2. 같은 품목 안에서 가격 위치 (판단 없이 숫자만) */}
+                {data.price_position && (
+                  <div className={s.card}>
+                    <div className={s.cardHead}>
+                      <div>
+                        <h2 className={s.cardTitle}>같은 품목 가격 위치</h2>
+                        <p className={s.cardSub}>지금 판매 중인 {data.price_position.category} {data.price_position.count}개 기준</p>
+                      </div>
                     </div>
-                    {sig && (
-                      <span className={s.signalBadge} style={{ color: sig.color, background: sig.bg, border: `1px solid ${sig.border}` }}>
-                        <sig.icon size="1em" /> {report.conclusion_label}
-                      </span>
-                    )}
+                    <div className={s.priceStats}>
+                      <div className={s.priceStat}>
+                        <span className={s.psLabel}>최저</span>
+                        <span className={s.psValue}>{fmtP(data.price_position.min)}</span>
+                      </div>
+                      <div className={s.priceStat}>
+                        <span className={s.psLabel}>중간</span>
+                        <span className={s.psValue}>{fmtP(data.price_position.median)}</span>
+                      </div>
+                      <div className={s.priceStat}>
+                        <span className={s.psLabel}>최고</span>
+                        <span className={s.psValue}>{fmtP(data.price_position.max)}</span>
+                      </div>
+                    </div>
+                    {/* 위치 막대: 왼쪽 최저 · 오른쪽 최고 */}
+                    <div style={{ position: 'relative', height: 8, borderRadius: 4, background: 'rgba(99,102,241,0.15)', margin: '18px 4px 8px' }}>
+                      <div style={{ position: 'absolute', top: -4, left: `calc(${data.price_position.position_pct}% - 8px)`,
+                        width: 16, height: 16, borderRadius: '50%', background: '#6366f1' }} />
+                    </div>
+                    <div className={s.reasonBox}>
+                      이 제품 {fmtP(data.price_position.current)} · 같은 품목 {data.price_position.count}개 중{' '}
+                      {data.price_position.position_pct === 0
+                        ? '가장 낮은 가격'
+                        : `${data.price_position.position_pct}%가 이 제품보다 저렴해요`}
+                    </div>
                   </div>
-                  {report?.summary
-                    ? <p className={s.reportSummary}>{report.summary}</p>
-                    : <div className={s.noData}>리포트를 생성하는 데 필요한 데이터가 부족합니다</div>}
-                  {report?.conclusion_reason && (
-                    <div className={s.reasonBox} style={{ borderColor: sig?.border }}>
-                      <span style={{ marginRight: 6 }}>{sig?.icon && <sig.icon size="1em" />}</span>
-                      {report.conclusion_reason}
-                    </div>
-                  )}
-                </div>
+                )}
 
-                {/* 3-1. 검색량 추이 */}
+                {/* 3. 비슷한 제품 (실제 판매 중인 상품 · 같은 용량대 → 없으면 비슷한 가격대) */}
+                {data.similar_products?.length > 0 && (
+                  <div className={s.card}>
+                    <div className={s.cardHead}>
+                      <div>
+                        <h2 className={s.cardTitle}>비슷한 제품</h2>
+                        <p className={s.cardSub}>
+                          {data.similar_products.some(p => p.capacity) ? '다른 브랜드 같은 용량대 제품' : '다른 브랜드 비슷한 가격대 제품'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className={s.reviewList}>
+                      {data.similar_products.map((p, i) => (
+                        <a key={i} href={p.link} target="_blank" rel="noopener noreferrer" className={s.reviewItem}
+                          style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                          {p.image && <img src={p.image} alt="" className={s.compThumb} />}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p className={s.reviewText} style={{ margin: 0 }}>{p.title}</p>
+                            <span className={s.reviewSource}>
+                              {[p.brand, p.model_number, p.capacity && `${p.capacity}L`].filter(Boolean).join(' · ')}
+                            </span>
+                          </div>
+                          <strong style={{ whiteSpace: 'nowrap' }}>{fmtP(p.price)}</strong>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 4. 검색 관심도 추이 (네이버 데이터랩 실제 값 · 예측 없음) */}
                 <div className={s.card}>
                   <div className={s.cardHead}>
                     <div>
-                      <h2 className={s.cardTitle}>검색량 추이 · 예측</h2>
+                      <h2 className={s.cardTitle}>검색량 추이</h2>
                       <p className={s.cardSub}>
-                        &apos;{data.trend_keyword || data.category || '카테고리'}&apos; 검색 관심도 · week 단위 · DataLab + {data.interest_forecast?.model || 'Holt-Winters'}
+                        &apos;{data.trend_keyword || data.category || '카테고리'}&apos; 검색 관심도 · 최근 90일 · 네이버 데이터랩
                       </p>
                     </div>
-                    {data.interest_forecast?.rag_enhanced && (
-                      <span className={s.ragBadge}>RAG 강화</span>
-                    )}
                   </div>
                   <ForecastChart
                     history={data.interest_forecast?.history}
-                    linearTrend={data.interest_forecast?.linear_trend}
-                    prophetForecast={data.interest_forecast?.prophet_forecast}
-                    modelLabel={data.interest_forecast?.model}
+                    linearTrend={[]}
+                    prophetForecast={[]}
+                    actualLabel="주별 검색 관심도 (기간 최댓값 = 100)"
                   />
                   {data.interest_forecast?.reason && (
                     <div className={s.reasonBox}>
@@ -617,294 +666,32 @@ export default function B2BAnalysis() {
                   )}
                 </div>
 
-                {/* 3-2. 날씨 · 미세먼지와 검색량 (기상청 · 에어코리아) */}
-                {data.weather_signal && (
+                {/* 5. 실사용 후기 (블로그 · 카페 원문 링크만 · AI 감성 분석 없음) */}
+                {sentiment?.reviews?.length > 0 && (
                   <div className={s.card}>
                     <div className={s.cardHead}>
                       <div>
-                        <h2 className={s.cardTitle}>{data.weather_signal.title}</h2>
-                        <p className={s.cardSub}>
-                          {data.weather_signal.variable === 'pm25' ? '에어코리아 종로구 측정소' : '기상청 서울 관측소'} · 주 평균 · 최근 {data.weather_signal.weeks}주
-                        </p>
+                        <h2 className={s.cardTitle}>실사용 후기</h2>
+                        <p className={s.cardSub}>블로그 · 카페에서 찾은 후기 {sentiment.reviews.length}개</p>
                       </div>
                     </div>
-                    <WeatherChart series={data.weather_signal.series} label={data.weather_signal.label} unit={data.weather_signal.unit} keyword={data.weather_signal.keyword} />
-                    <div className={s.reasonBox}>{data.weather_signal.text}</div>
-                  </div>
-                )}
-
-                {/* 3-3. 소비자원 안전사고 접수 TOP 3 */}
-                {data.safety_top && (
-                  <div className={s.card}>
-                    <div className={s.cardHead}>
-                      <div>
-                        <h2 className={s.cardTitle}>안전사고 접수 TOP 3</h2>
-                        <p className={s.cardSub}>한국소비자원 위해정보 · {data.category} {data.safety_top.total}건 · {data.safety_top.basis}별</p>
-                      </div>
-                    </div>
-                    <div className={s.safetyList}>
-                      {data.safety_top.top.map((t, i) => (
-                        <div key={t.label} className={s.safetyRow}>
-                          <span className={s.safetyRank}>{i + 1}</span>
-                          <span className={s.safetyLabel}>{t.label}</span>
-                          <div className={s.safetyBarWrap}><div className={s.safetyBar} style={{ width: `${t.pct}%` }} /></div>
-                          <span className={s.safetyPct}>{t.count}건 · {t.pct}%</span>
-                        </div>
+                    <div className={s.reviewList}>
+                      {(reviewsExpanded ? sentiment.reviews : sentiment.reviews.slice(0, 4)).map((r, i) => (
+                        <a key={i} href={r.link} target="_blank" rel="noopener noreferrer" className={s.reviewItem}>
+                          <div className={s.reviewMeta}>
+                            <span className={s.reviewSource}>{r.source}</span>
+                          </div>
+                          <p className={s.reviewText}>{(r.title ? `${r.title} — ` : '') + r.text.slice(0, 80)}…</p>
+                        </a>
                       ))}
                     </div>
-                    <div className={s.reasonBox}>{data.safety_top.text} 구매 전 이 부분의 안전 기능을 확인해 보세요.</div>
+                    {sentiment.reviews.length > 4 && (
+                      <button className={s.showMoreBtn} onClick={() => setReviewsExpanded(e => !e)}>
+                        {reviewsExpanded ? '접기' : `${sentiment.reviews.length}개 전체 보기`}
+                      </button>
+                    )}
                   </div>
                 )}
-
-                {/* 4. 가격 변동 분석 */}
-                <div className={s.card}>
-                  <div className={s.cardHead}>
-                    <div>
-                      <h2 className={s.cardTitle}>가격 변동 분석</h2>
-                      <p className={s.cardSub}>
-                        {priceChg?.change_pct != null
-                          ? (priceChg.change_pct !== 0
-                              ? `이력 기간 중 ${priceChg.change_pct > 0 ? '+' : ''}${priceChg.change_pct}% 변동`
-                              : (priceChg.range_pct
-                                  ? `이력 기간 순변동 0% (최대 ${priceChg.range_pct}% 등락 있었음)`
-                                  : '이력 기간 중 변동 없음'))
-                          : '가격 이력 누적 중'}
-                      </p>
-                    </div>
-                  </div>
-                  <PriceHistoryChart history={priceChg?.history} />
-                  {priceChg?.reason && (
-                    <div className={s.reasonBox}>
-                      <span style={{ marginRight: 6 }}><TrendingDown size="1em" /></span>
-                      {priceChg.reason}
-                    </div>
-                  )}
-                </div>
-
-                {/* 5. 가격 적정성 분석 */}
-                <div className={`${s.card} ${fairSig ? s.cardAccent : ''}`}
-                  style={fairSig ? { borderLeftColor: fairSig.color, background: fairSig.bg } : undefined}>
-                  <div className={s.cardHead}>
-                    <div>
-                      <h2 className={s.cardTitle}>가격 적정성 분석</h2>
-                      <p className={s.cardSub}>
-                        {fairness?.basis === 'danawa_weekly'
-                          ? `다나와 주간 최저가 기준 · 지금 바로 살 수 있는 대표가 ${fmtP(fairness.listed_price)}`
-                          : '역대 평균가 대비 현재가 판단'}
-                      </p>
-                    </div>
-                    {fairSig && (
-                      <span className={s.signalBadge} style={{ color: fairSig.color, background: fairSig.bg, border: `1px solid ${fairSig.border}` }}>
-                        <fairSig.icon size="1em" /> {fairness.label}
-                      </span>
-                    )}
-                  </div>
-                  {fairness?.current_price ? (
-                    <div className={s.priceStats}>
-                      <div className={s.priceStat}>
-                        <span className={s.psLabel}>{fairness.basis === 'danawa_weekly' ? '최근 주간 최저가' : '현재가'}</span>
-                        <span className={s.psValue}>{fmtP(fairness.current_price)}</span>
-                      </div>
-                      <div className={s.priceStat}>
-                        <span className={s.psLabel}>{fairness.basis === 'danawa_weekly' ? '그 전 주간 평균' : '역대 평균가'}</span>
-                        <span className={s.psValue}>{fmtP(fairness.hist_avg_price)}</span>
-                      </div>
-                      <div className={s.priceStat}>
-                        <span className={s.psLabel}>평균 대비</span>
-                        <span className={s.psValue} style={{ color: fairSig?.color }}>
-                          {fairness.vs_hist_pct > 0 ? '+' : ''}{fairness.vs_hist_pct}%
-                        </span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className={s.noData}>가격 데이터가 부족합니다</div>
-                  )}
-                  {fairness?.reason && (
-                    <div className={s.reasonBox} style={{ borderColor: fairSig?.border }}>{fairness.reason}</div>
-                  )}
-                </div>
-
-                {/* 6. 이 모델 가격 예측 (모델별 판매량은 데이터가 없어 가격으로 예측) */}
-                <div className={s.card}>
-                  <div className={s.cardHead}>
-                    <div>
-                      <h2 className={s.cardTitle}>가격 예측</h2>
-                      <p className={s.cardSub}>
-                        {demand?.price_forecast
-                          ? `이 모델 주별 최저가 ${demand.price_forecast.weeks}주 · 다음 4주 예상 범위`
-                          : '이 모델의 실제 가격 이력 기반'}
-                      </p>
-                    </div>
-                  </div>
-                  {demand?.price_forecast ? (
-                    <>
-                      <p className={s.demandHeadline}>{demand.headline}</p>
-                      <ForecastChart
-                        history={demand.price_forecast.history}
-                        linearTrend={[]}
-                        prophetForecast={demand.price_forecast.forecast}
-                        axisLabel="가격(원)"
-                        actualLabel="주별 최저가"
-                        modelLabel={demand.price_forecast.method}
-                        tickFormat={fmtWonTick}
-                        zeroBase={false}
-                      />
-                    </>
-                  ) : demand?.headline ? (
-                    <div className={s.demandRow}>
-                      <p className={s.demandHeadline}>{demand.headline}</p>
-                      <Sparkline data={priceChg?.history?.map(h => ({ ratio: h.min_price }))} />
-                    </div>
-                  ) : (
-                    <div className={s.noData}>예측에 필요한 데이터가 부족합니다</div>
-                  )}
-                  {demand?.reason && <div className={s.reasonBox}>{demand.reason}</div>}
-                </div>
-
-                {/* 7. 경쟁 제품 비교 */}
-                <div className={s.card}>
-                  <div className={s.cardHead}>
-                    <div>
-                      <h2 className={s.cardTitle}>경쟁 제품 비교</h2>
-                      <p className={s.cardSub}>
-                        {comp?.competitor?.matched_capacity
-                          ? '비슷한 스펙(용량)의 다른 브랜드 제품과 1:1 비교'
-                          : '비슷한 가격대의 다른 브랜드 제품과 비교'}
-                      </p>
-                    </div>
-                  </div>
-                  {comp?.competitor ? (
-                    <>
-                      <div className={s.compGrid}>
-                        <div className={s.compCol}>
-                          <div className={s.compColHead}>
-                            {info?.image && <img src={info.image} alt="" className={s.compThumb} />}
-                            <p className={s.compColTitle}>검색하신 제품</p>
-                          </div>
-                          <p className={s.compMeta}>
-                            {data.model_number && <span>{data.model_number}</span>}
-                            {info?.current_price != null && <span> · {fmtP(info.current_price)}</span>}
-                          </p>
-                          <ul className={s.prosConsList}>
-                            {comp.selected_pros?.map((p, i) => <li key={`p${i}`} className={s.prosItem}>+ {p}</li>)}
-                            {comp.selected_cons?.map((c, i) => <li key={`c${i}`} className={s.consItem}>− {c}</li>)}
-                          </ul>
-                        </div>
-                        <div className={s.compCol}>
-                          <div className={s.compColHead}>
-                            {comp.competitor.image && <img src={comp.competitor.image} alt="" className={s.compThumb} />}
-                            <p className={s.compColTitle}>
-                              <a href={comp.competitor.link} target="_blank" rel="noopener noreferrer">
-                                {comp.competitor.brand} (경쟁 제품)
-                              </a>
-                              {comp.competitor.matched_capacity && (
-                                <span className={s.specNote}> · {comp.competitor.matched_capacity}L</span>
-                              )}
-                            </p>
-                          </div>
-                          <p className={s.compMeta}>
-                            {comp.competitor.model_number && <span>{comp.competitor.model_number}</span>}
-                            {comp.competitor.price != null && <span> · {fmtP(comp.competitor.price)}</span>}
-                          </p>
-                          <ul className={s.prosConsList}>
-                            {comp.competitor_pros?.map((p, i) => <li key={`p${i}`} className={s.prosItem}>+ {p}</li>)}
-                            {comp.competitor_cons?.map((c, i) => <li key={`c${i}`} className={s.consItem}>− {c}</li>)}
-                          </ul>
-                        </div>
-                      </div>
-                      {comp.recommended && (
-                        <div className={s.reasonBox}>
-                          <strong>{comp.recommended === 'selected' ? '검색하신 제품' : `${comp.competitor.brand} 제품`} 추천</strong>
-                          {comp.recommendation_reason && <> — {comp.recommendation_reason}</>}
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <div className={s.noData}>비교할 경쟁 제품을 찾지 못했습니다</div>
-                  )}
-                </div>
-
-                {/* 8. 소비자 리뷰 감성 분석 */}
-                <div className={s.card}>
-                  <div className={s.cardHead}>
-                    <div>
-                      <h2 className={s.cardTitle}>소비자 리뷰 감성 분석</h2>
-                      <p className={s.cardSub}>블로그·카페 실제 후기 기반</p>
-                    </div>
-                    {sentiment?.score != null && (
-                      <span className={s.sentScore}
-                        style={{ color: sentiment.score >= 60 ? '#22c55e' : sentiment.score >= 40 ? '#f59e0b' : '#f87171' }}>
-                        {sentiment.score}점
-                      </span>
-                    )}
-                  </div>
-                  {sentiment?.score != null ? (
-                    <>
-                      <div className={s.sentBar}>
-                        <div className={s.sentBarFill}
-                          style={{ width: `${sentiment.score}%`,
-                            background: sentiment.score >= 60
-                              ? 'linear-gradient(90deg,#22c55e,#16a34a)'
-                              : sentiment.score >= 40
-                              ? 'linear-gradient(90deg,#f59e0b,#d97706)'
-                              : 'linear-gradient(90deg,#f87171,#dc2626)' }} />
-                      </div>
-                      <div className={s.sentCount}>
-                        <button
-                          className={`${s.sentTab} ${sentimentTab === 'pos' ? s.sentTabActivePos : ''}`}
-                          onClick={() => { setSentimentTab('pos'); setReviewsExpanded(false) }}
-                        >
-                          긍정 {sentiment.pos}
-                        </button>
-                        <button
-                          className={`${s.sentTab} ${sentimentTab === 'neg' ? s.sentTabActiveNeg : ''}`}
-                          onClick={() => { setSentimentTab('neg'); setReviewsExpanded(false) }}
-                        >
-                          부정 {sentiment.neg}
-                        </button>
-                      </div>
-                      {sentimentReviews.length > 0 ? (
-                        <>
-                          <div className={s.reviewList}>
-                            {(reviewsExpanded ? sentimentReviews : sentimentReviews.slice(0, 4)).map((r, i) => (
-                              <a key={i} href={r.link} target="_blank" rel="noopener noreferrer" className={s.reviewItem}>
-                                <div className={s.reviewMeta}>
-                                  <span className={s.reviewSource}>{r.source}</span>
-                                </div>
-                                <p className={s.reviewText}>{r.text.slice(0, 80)}…</p>
-                              </a>
-                            ))}
-                          </div>
-                          {sentimentReviews.length > 4 && (
-                            <button className={s.showMoreBtn} onClick={() => setReviewsExpanded(e => !e)}>
-                              {reviewsExpanded ? '접기' : `${sentimentReviews.length}개 전체 보기`}
-                            </button>
-                          )}
-                        </>
-                      ) : (
-                        <div className={s.noData}>{sentimentTab === 'pos' ? '긍정' : '부정'} 리뷰가 없습니다</div>
-                      )}
-                      {(sentiment.positive_summary || sentiment.negative_summary) && (
-                        <div className={s.sentSummaryWrap}>
-                          {sentiment.positive_summary && (
-                            <div className={s.sentSummaryBox} style={{ borderColor: 'rgba(34,197,94,0.3)' }}>
-                              <p className={s.sentSummaryTitle} style={{ color: '#22c55e' }}><ThumbsUp size="1em" /> 긍정 의견 요약</p>
-                              <p className={s.sentSummaryText}>{sentiment.positive_summary}</p>
-                            </div>
-                          )}
-                          {sentiment.negative_summary && (
-                            <div className={s.sentSummaryBox} style={{ borderColor: 'rgba(248,113,113,0.3)' }}>
-                              <p className={s.sentSummaryTitle} style={{ color: '#f87171' }}><ThumbsDown size="1em" /> 부정 의견 요약</p>
-                              <p className={s.sentSummaryText}>{sentiment.negative_summary}</p>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <div className={s.noData}>수집된 리뷰가 부족합니다</div>
-                  )}
-                </div>
 
               </div>
             </div>
