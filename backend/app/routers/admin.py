@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.auth import require_admin
 from app.services.email_service import send_approval_email, send_rejection_email
+from app.services.push import push_in_background
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -90,6 +91,8 @@ async def admin_approve_user(user_id: int, _: dict = Depends(require_admin)):
     user_row    = await fetchone("SELECT email FROM users WHERE user_id = %s", (user_id,))
     company_row = await fetchone("SELECT company_name FROM user_b2b_profiles WHERE user_id = %s", (user_id,))
     await execute("UPDATE users SET status = 'active' WHERE user_id = %s", (user_id,))
+    push_in_background(user_id, "사업자 승인 완료", "가전무쌍 비즈니스 기능을 이제 이용할 수 있어요.",
+                       {"type": "b2b_status", "status": "active"})
     if user_row:
         _mail_in_background(send_approval_email, user_row["email"], company_row["company_name"] if company_row else "")
     return {"message": "승인 완료"}
@@ -106,6 +109,8 @@ async def admin_reject_user(user_id: int, admin: dict = Depends(require_admin)):
     user_row    = await fetchone("SELECT email FROM users WHERE user_id = %s", (user_id,))
     company_row = await fetchone("SELECT company_name FROM user_b2b_profiles WHERE user_id = %s", (user_id,))
     await execute("UPDATE users SET status = 'rejected' WHERE user_id = %s", (user_id,))
+    push_in_background(user_id, "사업자 승인 결과 안내", "사업자 승인이 거절됐어요. 자세한 내용은 메일을 확인해 주세요.",
+                       {"type": "b2b_status", "status": "rejected"})
     if user_row:
         _mail_in_background(send_rejection_email, user_row["email"], company_row["company_name"] if company_row else "")
     return {"message": "거절 완료"}

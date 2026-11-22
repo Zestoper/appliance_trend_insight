@@ -68,6 +68,8 @@ async def ensure_account_tables():
         " created_at  TIMESTAMPTZ DEFAULT NOW(),"
         " PRIMARY KEY (provider, provider_id))"
     )
+    from app.services.push import ensure_push_tables
+    await ensure_push_tables()
 
 
 async def create_member(email: str, password_hash: str, user_type: str, *, status: str = "active",

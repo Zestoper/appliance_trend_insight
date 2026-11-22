@@ -6,6 +6,30 @@ from app.auth import get_current_user
 router = APIRouter(prefix="/api/user", tags=["user"])
 
 
+class PushTokenBody(BaseModel):
+    token: str
+    platform: str = "android"
+
+
+@router.post("/push-token")
+async def register_push_token(body: PushTokenBody, payload: dict = Depends(get_current_user)):
+    """앱이 로그인 직후와 토큰이 바뀔 때(onNewToken) 호출한다."""
+    from app.services.push import save_token
+    token = body.token.strip()
+    if not token or len(token) > 4096:
+        raise HTTPException(status_code=400, detail="푸시 토큰이 올바르지 않습니다")
+    await save_token(int(payload["sub"]), token, (body.platform or "android")[:20])
+    return {"message": "푸시 토큰 등록 완료"}
+
+
+@router.post("/push-token/delete")
+async def unregister_push_token(body: PushTokenBody, payload: dict = Depends(get_current_user)):
+    """앱이 로그아웃 직전에 호출한다. 없는 토큰이어도 성공으로 응답한다."""
+    from app.services.push import delete_token
+    await delete_token(int(payload["sub"]), body.token.strip())
+    return {"message": "푸시 토큰 해제 완료"}
+
+
 class AlertCreate(BaseModel):
     product_name: str
     target_price: float
