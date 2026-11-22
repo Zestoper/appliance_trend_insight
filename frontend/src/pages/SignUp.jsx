@@ -72,6 +72,18 @@ function useCountdown(initial) {
   return { display: `${mm}:${ss}`, active: sec > 0, start }
 }
 
+// 사업자 업종 목록 — 안드로이드 앱 회원가입과 같은 목록을 쓴다 (바꾸면 앱도 같이)
+export const BUSINESS_TYPES = [
+  '가전 유통 · 판매점',
+  '온라인 쇼핑몰',
+  '가전 제조 · 브랜드',
+  '렌탈 · 구독',
+  '설치 · 수리 · A/S',
+  '중고 · 리퍼',
+  '시장 조사 · 컨설팅',
+  '기타',
+]
+
 export default function Signup() {
   const [step, setStep] = useState(0)
   // [필수] 약관 동의 — 둘 다 체크해야 가입 완료 버튼이 켜진다
@@ -123,7 +135,10 @@ export default function Signup() {
   const [showConfirmPw, setShowConfirmPw] = useState(false)
   const [nickname, setNickname] = useState('')
   const [companyName, setCompanyName] = useState('')
-  const [businessType, setBusinessType] = useState('')
+  // 업종: 목록에서 고르고 '기타'면 직접 입력 (앱 회원가입과 같은 목록)
+  const [bizSelect, setBizSelect] = useState('')
+  const [bizEtc, setBizEtc] = useState('')
+  const businessType = bizSelect === '기타' ? bizEtc.trim() : bizSelect
   const [contactPhone, setContactPhone] = useState('')
 
   const pwStrength = getPwStrength(password)
@@ -417,11 +432,21 @@ export default function Signup() {
                       value={companyName} onChange={e => setCompanyName(e.target.value)} />
                     <label htmlFor="company" className={styles.floatLabel}>회사명</label>
                   </div>
-                  <div className={styles.field}>
-                    <input id="bizType" type="text" className={styles.input} placeholder=" "
-                      value={businessType} onChange={e => setBusinessType(e.target.value)} />
-                    <label htmlFor="bizType" className={styles.floatLabel}>업종 (예: 유통, 제조)</label>
+                  <div style={{ marginBottom: 14 }}>
+                    <label htmlFor="bizType" style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', margin: '0 0 6px 4px' }}>업종</label>
+                    <select id="bizType" className={styles.input} value={bizSelect}
+                      onChange={e => setBizSelect(e.target.value)} style={{ cursor: 'pointer' }}>
+                      <option value="" disabled>업종을 선택하세요</option>
+                      {BUSINESS_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
                   </div>
+                  {bizSelect === '기타' && (
+                    <div className={styles.field}>
+                      <input id="bizEtc" type="text" className={styles.input} placeholder=" " maxLength={50}
+                        value={bizEtc} onChange={e => setBizEtc(e.target.value)} />
+                      <label htmlFor="bizEtc" className={styles.floatLabel}>업종 직접 입력</label>
+                    </div>
+                  )}
                   <div className={styles.field}>
                     <input id="phone" type="text" className={styles.input} placeholder=" "
                       value={contactPhone} onChange={e => setContactPhone(e.target.value)} />

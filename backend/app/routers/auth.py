@@ -165,6 +165,8 @@ async def signup_b2c(body: SignupB2C):
 async def signup_b2b(body: SignupB2B):
     from app.database import get_user_by_email
     _require_terms(body.agree_terms)
+    if not body.company_name.strip() or not body.business_type.strip():
+        raise HTTPException(status_code=400, detail="회사명과 업종을 입력해 주세요")
     if await get_user_by_email(body.email):
         raise HTTPException(status_code=409, detail="이미 가입된 이메일입니다")
     user_id = await create_member(body.email, hash_password(body.password), "b2b", status="pending",
