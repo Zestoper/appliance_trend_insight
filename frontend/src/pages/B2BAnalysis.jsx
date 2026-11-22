@@ -26,6 +26,9 @@ function fmtP(p) {
 }
 
 // ── Y축 눈금 + 라벨 (공용) ────────────────────────────────────────────────
+// 가격 축 눈금 (예: 114만)
+const fmtWonTick = v => v >= 10000 ? `${Math.round(v / 10000)}만` : Math.round(v)
+
 function YAxis({ minV, maxV, pX, pY, H, W, axisLabel, tickFormat }) {
   const fmt = tickFormat || Math.round
   const ticks = [maxV, (minV + maxV) / 2, minV]
@@ -46,7 +49,7 @@ function YAxis({ minV, maxV, pX, pY, H, W, axisLabel, tickFormat }) {
 }
 
 // ── 관심도 추세 + 예측 차트 (실제 데이터 · 선형회귀 추세선 · Holt-Winters 예측) ──
-function ForecastChart({ history, linearTrend, prophetForecast, axisLabel = '관심도 지수', modelLabel = 'Holt-Winters' }) {
+function ForecastChart({ history, linearTrend, prophetForecast, axisLabel = '관심도 지수', modelLabel = 'Holt-Winters', tickFormat, actualLabel = '실제 데이터', zeroBase = true }) {
   if (!history || history.length < 2) return <div className={s.noData}>예측에 필요한 데이터가 부족합니다</div>
   const forecast = prophetForecast || []
   const n = history.length + forecast.length
@@ -56,7 +59,8 @@ function ForecastChart({ history, linearTrend, prophetForecast, axisLabel = '관
     ...(linearTrend || []).map(d => d.ratio),
     ...forecast.flatMap(d => [d.ratio, d.lower, d.upper]),
   ]
-  const minV = 0, maxV = Math.max(...vals, 1)
+  // 가격은 0부터 그리면 움직임이 납작해져서 최저값 조금 아래부터 그린다
+  const minV = zeroBase ? 0 : Math.max(0, Math.min(...vals) * 0.9), maxV = Math.max(...vals, minV + 1)
   const toX = i => pX + (i / Math.max(n - 1, 1)) * (W - pX - 8)
   const toY = v => pY + (H - pY * 2) * (1 - (v - minV) / (maxV - minV))
 
@@ -81,12 +85,12 @@ function ForecastChart({ history, linearTrend, prophetForecast, axisLabel = '관
   return (
     <div>
       <div className={s.chartLegend}>
-        <span className={s.dot} style={{ background: '#ef4444' }} /> 실제 데이터
-        <span className={s.dot} style={{ background: '#9ca3af', marginLeft: 10 }} /> 선형회귀 추세선
+        <span className={s.dot} style={{ background: '#ef4444' }} /> {actualLabel}
+        {linearTrend?.length > 0 && <><span className={s.dot} style={{ background: '#9ca3af', marginLeft: 10 }} /> 선형회귀 추세선</>}
         <span className={s.dot} style={{ background: '#22c55e', marginLeft: 10 }} /> {modelLabel} 예측
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: '100%', height: 260 }}>
-        <YAxis minV={minV} maxV={maxV} pX={pX} pY={pY} H={H} W={W} axisLabel={axisLabel} />
+        <YAxis minV={minV} maxV={maxV} pX={pX} pY={pY} H={H} W={W} axisLabel={axisLabel} tickFormat={tickFormat} />
         {forecast.length > 0 && <polygon points={band} fill="rgba(34,197,94,0.1)" />}
         <line x1={nowX} y1={pY} x2={nowX} y2={H - pY} stroke="#818cf8" strokeWidth="1"
           strokeDasharray="3,3" vectorEffect="non-scaling-stroke" />
@@ -716,22 +720,36 @@ export default function B2BAnalysis() {
                   )}
                 </div>
 
-                {/* 6. AI 수요 예측 */}
+                {/* 6. 이 모델 가격 예측 (모델별 판매량은 데이터가 없어 가격으로 예측) */}
                 <div className={s.card}>
                   <div className={s.cardHead}>
                     <div>
-                      <h2 className={s.cardTitle}>AI 수요 예측</h2>
+                      <h2 className={s.cardTitle}>가격 예측</h2>
                       <p className={s.cardSub}>
-                        {demand?.price_trend_pct != null
-                          ? `이 제품 가격 이력 순변동 ${demand.price_trend_pct > 0 ? '+' : ''}${demand.price_trend_pct}%`
-                          : '이 제품의 실제 가격 이력 기반'}
+                        {demand?.price_forecast
+                          ? `이 모델 주별 최저가 ${demand.price_forecast.weeks}주 · 다음 4주 예상 범위`
+                          : '이 모델의 실제 가격 이력 기반'}
                       </p>
                     </div>
                   </div>
-                  {demand?.headline ? (
+                  {demand?.price_forecast ? (
+                    <>
+                      <p className={s.demandHeadline}>{demand.headline}</p>
+                      <ForecastChart
+                        history={demand.price_forecast.history}
+                        linearTrend={[]}
+                        prophetForecast={demand.price_forecast.forecast}
+                        axisLabel="가격(원)"
+                        actualLabel="주별 최저가"
+                        modelLabel={demand.price_forecast.method}
+                        tickFormat={fmtWonTick}
+                        zeroBase={false}
+                      />
+                    </>
+                  ) : demand?.headline ? (
                     <div className={s.demandRow}>
                       <p className={s.demandHeadline}>{demand.headline}</p>
-                      <Sparkline data={priceChg?.history?.map(h => ({ ratio: h.avg_price }))} />
+                      <Sparkline data={priceChg?.history?.map(h => ({ ratio: h.min_price }))} />
                     </div>
                   ) : (
                     <div className={s.noData}>예측에 필요한 데이터가 부족합니다</div>

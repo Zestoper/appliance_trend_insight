@@ -450,6 +450,52 @@ async def _classify_reviews_sentiment(items: list[dict]) -> list[str] | None:
         return None
 
 
+def forecast_model_price(history: list[dict], current: int, weeks_ahead: int = 4) -> dict | None:
+    """이 모델 하나의 가격 예상 범위 (화면 '가격 예측' 칸).
+
+    판매량은 모델별 데이터가 없어서 예측하지 않는다. 대신 이 모델만의 실제 최저가 이력으로
+    - 주별 최저가로 묶고 (다나와 주간 · 우리 일별 기록이 섞여 있어서)
+    - 가운데 값: 최근 3주 최저가의 중앙값 (조건부 특가 한 주에 끌려가지 않게)
+    - 범위: 주간 변동폭(절댓값)의 80% 지점 × √주차 → 멀리 볼수록 넓어진다
+    가격이 오를지 내릴지 방향을 맞히는 모델이 아니라 '이 정도 안에서 움직일 것'이라는 범위다.
+    6주 미만이면 예측하지 않는다."""
+    from datetime import date as _d
+    weekly: dict = {}
+    for h in history or []:
+        try:
+            d = _d.fromisoformat(str(h["date"])[:10])
+        except ValueError:
+            continue
+        wk = d - timedelta(days=d.weekday())
+        p = int(h["min_price"])
+        weekly[wk] = min(weekly.get(wk, p), p)
+    pts = sorted(weekly.items())
+    if len(pts) < 6 or not current:
+        return None
+    prices = [p for _, p in pts]
+    center = sorted(prices[-3:])[1]
+    changes = sorted(abs(b / a - 1) for a, b in zip(prices, prices[1:]) if a > 0)
+    q80 = changes[min(len(changes) - 1, int(len(changes) * 0.8))] if changes else 0.02
+    q80 = min(max(q80, 0.02), 0.3)
+    last_wk = pts[-1][0]
+    fc = []
+    for h in range(1, weeks_ahead + 1):
+        band = min(q80 * math.sqrt(h), 0.4)
+        fc.append({"period": (last_wk + timedelta(days=7 * h)).isoformat(),
+                   "ratio": round(center, -1),
+                   "lower": round(center * (1 - band), -1), "upper": round(center * (1 + band), -1)})
+    past = prices[:-1]
+    cheaper = sum(1 for p in past if p <= current * 0.95)
+    return {
+        "history": [{"period": wk.isoformat(), "ratio": p} for wk, p in pts],
+        "forecast": fc,
+        "weeks": len(pts), "cheaper_weeks": cheaper,
+        "low": min(prices), "high": max(prices),
+        "range_low": fc[-1]["lower"], "range_high": fc[-1]["upper"],
+        "method": "최근 3주 최저가 수준 · 범위는 주간 변동폭 기준",
+    }
+
+
 # 상품명 앞쪽에 흔히 나오는 가전 브랜드 (긴 이름 먼저 · 표기는 화면에 보여줄 이름)
 _BRAND_NAMES = [
     ("삼성전자", "삼성전자"), ("삼성", "삼성전자"), ("SAMSUNG", "삼성전자"),
@@ -525,7 +571,17 @@ async def build_price_block(q: str, model: str | None, product_key: str, detecte
         ref = danawa_ref_price or med
         # 0.5배는 휘센 냉난방기의 69.8만원(다나와 137만원의 0.51배)이 통과해 '평균 대비 -50%'가 됐다 → 0.6배
         lo_k, hi_k = (0.6, 1.6) if danawa_ref_price else (0.5, 2.0)
+        # 다나와 대표 최저가는 이 모델의 모든 쇼핑몰 중 최저가다 → 그보다 10% 넘게 싼 상품은 다른 상품이거나 조건부 특가
+        # (LG T876MEE1H1: 대표가 약 183만 · 이력 210만대인데 116만원 상품이 현재가로 잡혀 '평균 대비 -44% 저렴'이 됐다)
+        if danawa_lowest:
+            lo_k = 0.9
         filt = [it for it in product_items if ref * lo_k <= it["price"] <= ref * hi_k]
+        if not filt and danawa_lowest:
+            # 쇼핑 결과에 대표가 근처 상품이 없으면 다나와 대표 최저가 자체를 현재가로 쓴다
+            _pc = (danawa_result or {}).get("pcode")
+            filt = [{"mall": "다나와 최저가", "brand": (danawa_result or {}).get("maker") or "", "title": q,
+                     "price": danawa_lowest, "image": "",
+                     "link": f"https://prod.danawa.com/info/?pcode={_pc}" if _pc else ""}]
         if filt:
             fp = sorted(it["price"] for it in filt)
             # 평균가는 튀는 값에 끌려가지 않게 중앙값으로 저장한다
@@ -582,10 +638,9 @@ async def build_price_block(q: str, model: str | None, product_key: str, detecte
             price_history = [merged_history[k] for k in sorted(merged_history.keys())]
             # 예전에 저장된 튀는 값(묶음 상품 평균 · 다른 모델 최저가)은 그래프와 계산에서 뺀다
             if len(price_history) >= 4:
-                _avgs = sorted(r["avg_price"] for r in price_history)
-                _mh = _avgs[len(_avgs) // 2]
-                _kept = [r for r in price_history
-                         if _mh * 0.6 <= r["avg_price"] <= _mh * 1.6 and r["min_price"] >= _mh * 0.5]
+                _mins = sorted(r["min_price"] for r in price_history)
+                _mh = _mins[len(_mins) // 2]
+                _kept = [r for r in price_history if _mh * 0.6 <= r["min_price"] <= _mh * 1.6]
                 if len(_kept) >= 2:
                     price_history = _kept
 
@@ -616,7 +671,9 @@ async def build_price_block(q: str, model: str | None, product_key: str, detecte
             prior_history = [r for r in price_history if r["date"] != str(today)]
             history_insufficient = not prior_history
             if prior_history:
-                hist_avg = int(sum(r["avg_price"] for r in prior_history) / len(prior_history))
+                # 역대 평균 = 과거 '최저가'들의 평균 (현재가도 최저가라 같은 기준끼리 비교한다)
+                # 예전엔 평균가를 썼는데 다나와 이력은 최저가 · 우리 DB는 쇼핑 결과 중앙값이라 기준이 섞였다
+                hist_avg = int(sum(r["min_price"] for r in prior_history) / len(prior_history))
                 hist_min = min(r["min_price"] for r in prior_history)
                 vs_pct = round((min_p - hist_avg) / max(hist_avg, 1) * 100, 1)
             else:
@@ -656,10 +713,10 @@ async def build_price_block(q: str, model: str | None, product_key: str, detecte
             price_range_pct = None
             hist_max_price = None
             if len(price_history) >= 2:
-                first_avg = price_history[0]["avg_price"]
-                last_avg  = price_history[-1]["avg_price"]
+                first_avg = price_history[0]["min_price"]   # 변동 · 변동폭도 최저가 기준 (위 역대 평균과 같은 기준)
+                last_avg  = price_history[-1]["min_price"]
                 price_change_pct = round((last_avg - first_avg) / max(first_avg, 1) * 100, 1)
-                avgs = [r["avg_price"] for r in price_history]
+                avgs = [r["min_price"] for r in price_history]
                 lo_avg, hi_avg = min(avgs), max(avgs)
                 hist_max_price = hi_avg
                 price_range_pct = round((hi_avg - lo_avg) / max(lo_avg, 1) * 100, 1)
@@ -789,12 +846,21 @@ async def _search_analysis(q: str, hint: str, force: bool):
                 "keywordGroups": [{"groupName": keyword, "keywords": [keyword]}],
             }
             headers = {**NAVER_HEADERS, "Content-Type": "application/json"}
-            async with httpx.AsyncClient(timeout=(15.0 if days > 90 else 10.0)) as client:
-                resp = await client.post("https://openapi.naver.com/v1/datalab/search", json=body, headers=headers)
-            results = resp.json().get("results", [])
-            data = results[0]["data"] if results else []
+            data = []
+            # 시간 초과(오류 문구가 비어 있음)로 검색량이 통째로 빠지는 일이 있어 한 번 더 시도한다
+            for attempt in range(2):
+                try:
+                    async with httpx.AsyncClient(timeout=(15.0 if days > 90 else 10.0)) as client:
+                        resp = await client.post("https://openapi.naver.com/v1/datalab/search", json=body, headers=headers)
+                    results = resp.json().get("results", [])
+                    data = results[0]["data"] if results else []
+                    break
+                except (httpx.TimeoutException, httpx.TransportError):
+                    if attempt == 1:
+                        raise
+                    await asyncio.sleep(1.0)
         except Exception as e:
-            logger.warning("[search-analysis] 검색 트렌드 조회 실패(%s): %s", keyword, e)
+            logger.warning("[search-analysis] 검색 트렌드 조회 실패(%s): %s %s", keyword, type(e).__name__, e)
             data = []
         if len(data) > 6:
             data = data[:-1]
@@ -1353,6 +1419,7 @@ async def _search_analysis(q: str, hint: str, force: bool):
     price_trend_pct = None
     demand_headline = None
     demand_reason = None
+    price_fc = forecast_model_price(price_block["price_history"], price_block["min_price"]) if price_block else None
     if price_block and len(price_block["price_history"]) >= 2:
         price_trend_pct = price_block["price_change_pct"]
         # 방향은 숫자(순변동)와 같은 기준으로 정한다 — 예전엔 회귀 기울기로 정해서
@@ -1375,6 +1442,14 @@ async def _search_analysis(q: str, hint: str, force: bool):
             # → 해석 없이 지금 가격이 역대 평균과 어떤지만 말한다 (매입 판단은 결론 칸이 한다)
             + f"지금 가격은 역대 평균가보다 {abs(price_block['vs_hist_pct'])}% "
             + ("낮습니다." if price_block["vs_hist_pct"] < 0 else "높습니다." if price_block["vs_hist_pct"] > 0 else "같습니다.")
+        )
+    if price_fc:
+        # '수요 예측' 칸은 이 모델의 가격 예상 범위로 보여준다 (모델별 판매량은 구할 수 있는 데이터가 없다)
+        demand_headline = f"다음 4주 이 모델 가격은 {int(price_fc['range_low']):,}원~{int(price_fc['range_high']):,}원 사이로 예상돼요."
+        demand_reason = (
+            f"최근 {price_fc['weeks']}주 동안 최저가는 {price_fc['low']:,}원~{price_fc['high']:,}원이었고, "
+            + (f"지금보다 5% 이상 싼 주가 {price_fc['cheaper_weeks']}번 있었어요."
+               if price_fc["cheaper_weeks"] else "지금보다 5% 이상 싼 주는 없었어요.")
         )
 
     selected_pros = _drop_raw_echo_items(_drop_fairness_leak(_clean_list(ai_result.get("selected_pros"))), pos_reviews + neg_reviews)
@@ -1505,6 +1580,8 @@ async def _search_analysis(q: str, hint: str, force: bool):
             "headline": demand_headline,
             "reason": demand_reason,
             "price_trend_pct": price_trend_pct,
+            # 이 모델 가격 예측 (주별 최저가 · 4주 예상 범위) — 6주 미만이면 null
+            "price_forecast": price_fc,
         },
 
         # 7. 경쟁 제품 비교

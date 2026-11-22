@@ -48,8 +48,8 @@ async def main(q: str):
     for h in ph:
         print(f"  {h['date']}  최저 {h['min_price']:>10,}  평균 {h['avg_price']:>10,}")
     if len(ph) >= 2:
-        avgs = [h["avg_price"] for h in ph]
-        c = pct(ph[-1]["avg_price"], ph[0]["avg_price"])
+        avgs = [h["min_price"] for h in ph]
+        c = pct(ph[-1]["min_price"], ph[0]["min_price"])
         rg = round((max(avgs) - min(avgs)) / max(min(avgs), 1) * 100, 1)
         print(f"순변동 화면 {pc['change_pct']}% / 재계산 {c}% {mark(c == pc['change_pct'])}")
         print(f"변동폭 화면 {pc['range_pct']}% / 재계산 {rg}% {mark(rg == pc['range_pct'])}")
@@ -61,7 +61,7 @@ async def main(q: str):
     today = str(_dt.date.today())
     prior = [h for h in ph if h["date"] != today]
     if prior and pf["current_price"]:
-        ha = int(sum(h["avg_price"] for h in prior) / len(prior))
+        ha = int(sum(h["min_price"] for h in prior) / len(prior))
         v = pct(pf["current_price"], ha)
         print(f"현재가 {pf['current_price']:,} · 역대 평균 화면 {pf['hist_avg_price']:,} / 재계산 {ha:,} {mark(ha == pf['hist_avg_price'])}")
         print(f"평균 대비 화면 {pf['vs_hist_pct']}% / 재계산 {v}% {mark(v == pf['vs_hist_pct'])}")

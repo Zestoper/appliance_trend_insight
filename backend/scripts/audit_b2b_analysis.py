@@ -1,8 +1,10 @@
 """B2B 분석 화면 일괄 점검: 여러 품목에서 상품 50개 정도를 골라 실제 분석을 돌리고
 비어 있는 값 · 서로 안 맞는 값 · 이상한 값을 자동으로 찾아 보고서로 남긴다.
 
-실행 (맥 터미널 · 30~50분 걸림 · 중간에 끊겨도 다시 실행하면 이어서 함):
-  cd backend && NAVER_MAINTENANCE_MODE=true python scripts/audit_b2b_analysis.py
+실행 (맥 터미널 · 중간에 끊겨도 다시 실행하면 이어서 함):
+  cd backend && NAVER_MAINTENANCE_MODE=true python scripts/audit_b2b_analysis.py          # 빠른 모드 (5분 안팎)
+  cd backend && NAVER_MAINTENANCE_MODE=true python scripts/audit_b2b_analysis.py --full   # AI 리포트까지 (30~50분)
+빠른 모드는 AI 리포트 · 리뷰 감성 AI · 블로그 원문 읽기를 건너뛰고 데이터 값만 점검한다.
 결과: 저장소 맨 위 b2b_audit/ 폴더 (report.md · results.jsonl) — 커밋하지 말 것
 주의: 화면에서 분석을 연 것과 같아서 상품마다 오늘 가격 한 줄이 가격 이력에 저장된다.
 """
@@ -27,6 +29,8 @@ QUERIES = [
     "TV 65인치", "에어프라이어", "전기밥솥", "전자레인지", "제습기",
 ]
 PICKS = (0, 4, 9)   # 목록에서 1 · 5 · 10번째 (사용자가 위쪽만 고르지는 않으니)
+FULL = "--full" in sys.argv
+CONCURRENCY = 1 if FULL else 4
 
 
 def issues_of(r: dict, picked: dict) -> list[tuple[str, str]]:
@@ -72,7 +76,7 @@ def issues_of(r: dict, picked: dict) -> list[tuple[str, str]]:
         add("이상", f"출시일 {rd}이 미래")
     if rd and re.match(r"\d{4}-\d{2}", rd):
         months = (date.today().year - int(rd[:4])) * 12 + date.today().month - int(rd[5:7])
-        if months > 12 and "신제품" in (ai.get("summary") or ""):
+        if FULL and months > 12 and "신제품" in (ai.get("summary") or ""):
             add("이상", f"출시 {months}개월 된 제품을 AI가 '신제품'이라고 씀")
 
     # ── 가격 적정성 · 결론 ──
@@ -86,10 +90,10 @@ def issues_of(r: dict, picked: dict) -> list[tuple[str, str]]:
         add("이상", "결론 매입 추천인데 적정성은 비싼 편")
     if concl == "avoid" and pf.get("type") == "cheap":
         add("이상", "결론 매입 비추천인데 적정성은 저렴한 편")
-    summ = ai.get("summary") or ""
-    if not summ:
+    summ = (ai.get("summary") or "") if FULL else ""
+    if FULL and not summ:
         add("빈값", "AI 종합 리포트 요약 없음 (AI 호출 실패일 수 있음)")
-    if not ai.get("conclusion_reason"):
+    if FULL and not ai.get("conclusion_reason"):
         add("빈값", "결론 이유 없음")
     if vs is not None and summ:
         if vs <= -5 and re.search(r"(높은 편|비싼 편|비싸)", summ):
@@ -102,8 +106,8 @@ def issues_of(r: dict, picked: dict) -> list[tuple[str, str]]:
     if len(ph) < 2:
         add("빈값", f"가격 변동 이력 {len(ph)}개 (그래프 비어 보임)")
     else:
-        avgs = [h["avg_price"] for h in ph]
-        chg = round((ph[-1]["avg_price"] - ph[0]["avg_price"]) / max(ph[0]["avg_price"], 1) * 100, 1)
+        avgs = [h["min_price"] for h in ph]   # 서버와 같이 최저가 기준
+        chg = round((ph[-1]["min_price"] - ph[0]["min_price"]) / max(ph[0]["min_price"], 1) * 100, 1)
         if pc.get("change_pct") is not None and chg != pc["change_pct"]:
             add("오류", f"순변동 화면 {pc['change_pct']}% · 재계산 {chg}%")
         rng = round((max(avgs) - min(avgs)) / max(min(avgs), 1) * 100, 1)
@@ -152,7 +156,7 @@ def issues_of(r: dict, picked: dict) -> list[tuple[str, str]]:
             add("이상", f"경쟁 제품이 같은 모델 ({c.get('model_number')})")
         if cur and c.get("price") and not (0.3 <= c["price"] / cur <= 3):
             add("이상", f"경쟁 제품 가격 {c['price']:,}원이 현재가와 3배 넘게 차이")
-        if not (comp.get("selected_pros") or comp.get("selected_cons")):
+        if FULL and not (comp.get("selected_pros") or comp.get("selected_cons")):
             add("빈값", "선택 제품 장단점 없음")
 
     # ── 리뷰 ──
@@ -161,7 +165,7 @@ def issues_of(r: dict, picked: dict) -> list[tuple[str, str]]:
         add("빈값", "리뷰 감성 분석 0건")
     elif n_rev < 3:
         add("이상", f"리뷰 {n_rev}건뿐 (감성 점수 신뢰 낮음)")
-    if n_rev and not (rs.get("positive_summary") or rs.get("negative_summary")):
+    if FULL and n_rev and not (rs.get("positive_summary") or rs.get("negative_summary")):
         add("빈값", "리뷰 요약 없음")
     return out
 
@@ -189,7 +193,18 @@ def short(r: dict) -> dict:
 
 
 async def main():
+    from app.routers import b2b_search_analysis as sa
     from app.routers.b2b_search_analysis import get_product_search, _search_analysis
+    if not FULL:
+        # 빠른 모드: AI · 블로그 원문은 건너뛴다 (분석 함수는 AI가 실패한 것처럼 규칙 문장으로 채운다)
+        async def _no_ai(*a, **k):
+            raise RuntimeError("audit fast mode")
+
+        async def _none(*a, **k):
+            return None
+        sa._groq_create = _no_ai
+        sa._fetch_full_review_text = _none
+        sa._classify_reviews_sentiment = _none
     os.makedirs(OUT_DIR, exist_ok=True)
     done = set()
     if os.path.exists(RESULTS):
@@ -208,23 +223,31 @@ async def main():
                 targets.append((q, items[i]))
     print(f"점검 대상 {len(targets)}개 · 이미 끝난 것 {len(done)}개\n")
 
-    for n, (q, it) in enumerate(targets, 1):
+    sem = asyncio.Semaphore(CONCURRENCY)
+    lock = asyncio.Lock()
+
+    async def one(n, q, it):
         title = it["title"]
         if title in done:
-            continue
-        t0 = time.time()
-        try:
-            r = await asyncio.wait_for(_search_analysis(title, q, True), timeout=180)
-        except Exception as e:
-            r = {"_error": f"{type(e).__name__}: {e}"[:200]}
-        iss = issues_of(r, it)
-        row = {"n": n, "query": q, "title": title, "list_price": it["price"], "sec": round(time.time() - t0),
-               "issues": iss, "data": short(r) if not r.get("_error") and not r.get("unsupported") else r}
-        with open(RESULTS, "a", encoding="utf-8") as f:
-            f.write(json.dumps(row, ensure_ascii=False, default=str) + "\n")
-        print(f"[{n}/{len(targets)}] {row['sec']}초 · 문제 {len(iss)}개 · {title[:40]}")
-        await asyncio.sleep(3)   # AI · 네이버 호출 한도 보호
+            return
+        async with sem:
+            t0 = time.time()
+            try:
+                r = await asyncio.wait_for(_search_analysis(title, q, True), timeout=180)
+            except Exception as e:
+                r = {"_error": f"{type(e).__name__}: {e}"[:200]}
+            iss = issues_of(r, it)
+            row = {"n": n, "query": q, "title": title, "list_price": it["price"], "sec": round(time.time() - t0),
+                   "mode": "full" if FULL else "fast", "issues": iss,
+                   "data": short(r) if not r.get("_error") and not r.get("unsupported") else r}
+            async with lock:
+                with open(RESULTS, "a", encoding="utf-8") as f:
+                    f.write(json.dumps(row, ensure_ascii=False, default=str) + "\n")
+            print(f"[{n}/{len(targets)}] {row['sec']}초 · 문제 {len(iss)}개 · {title[:40]}")
+            if FULL:
+                await asyncio.sleep(3)   # AI 호출 한도 보호
 
+    await asyncio.gather(*[one(n, q, it) for n, (q, it) in enumerate(targets, 1)])
     write_report()
 
 

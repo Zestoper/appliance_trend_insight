@@ -137,3 +137,51 @@ def test_product_search_has_sort_fields(monkeypatch):
     monkeypatch.setattr(pd, "get_kemco_model_info_cached", no_kemco)
     it = asyncio.run(sa.get_product_search("냉장고", {}))["items"][0]
     assert it["release"] == "2025-06" and it["review_count"] == 120 and it["review_score"] == 4.6
+
+
+def test_current_price_not_below_danawa_lowest(monkeypatch):
+    """다나와 대표가(183만)보다 10% 넘게 싼 상품(116만)은 현재가로 쓰지 않는다 · 통계는 최저가 기준"""
+    import asyncio
+    from datetime import date
+    import app.database as db
+    from app.routers import b2b_search_analysis as sa
+    import app.utils.price_guard as pg
+
+    async def fetchall(sql, args=None):
+        return []
+
+    async def execute(sql, args=None):
+        return 1
+
+    async def plausible(*a, **k):
+        return True
+    monkeypatch.setattr(db, "fetchall", fetchall)
+    monkeypatch.setattr(db, "execute", execute)
+    monkeypatch.setattr(pg, "is_plausible_price", plausible)
+    hist = [("2026-10-06", 2145810), ("2026-10-13", 1962450), ("2026-11-10", 2103270), ("2026-11-17", 1827860)]
+    danawa = {"history": [{"period": d, "price": p} for d, p in hist], "lowest_price": 1827870}
+    items = [{"mall": "a", "brand": "", "title": "LG T876MEE1H1", "price": 1166880, "link": "", "image": ""},
+             {"mall": "b", "brand": "LG전자", "title": "LG T876MEE1H1", "price": 1827870, "link": "", "image": ""},
+             {"mall": "c", "brand": "LG전자", "title": "LG T876MEE1H1", "price": 2400000, "link": "", "image": ""}]
+    block, _, _, _ = asyncio.run(sa.build_price_block("LG전자 디오스 T876MEE1H1", "T876MEE1H1", "T876MEE1H1", "냉장고",
+                                                      items, danawa, 0.0, date(2026, 11, 22)))
+    assert block["min_price"] == 1827870
+    assert block["hist_avg_price"] == int((2145810 + 1962450 + 2103270 + 1827860) / 4)
+    # 지난주부터 실제로 210만대 → 183만원으로 내렸으니 -9%대 (예전엔 116만원 상품 때문에 -44%)
+    assert -10 < block["vs_hist_pct"] < -8
+
+
+def test_forecast_model_price():
+    from app.routers.b2b_search_analysis import forecast_model_price
+    hist = [{"date": d, "min_price": p} for d, p in [
+        ("2026-09-08", 1199950), ("2026-09-22", 1173120), ("2026-09-29", 903270), ("2026-10-06", 903270),
+        ("2026-10-13", 1197670), ("2026-10-20", 1150000), ("2026-10-21", 1140000),   # 같은 주는 최저가 하나로
+        ("2026-11-17", 1160000), ("2026-11-22", 1143750)]]
+    fc = forecast_model_price(hist, 1143750)
+    assert fc["weeks"] == 7 and len(fc["forecast"]) == 4   # 11-17(화) · 11-22(일)도 같은 주
+    assert fc["history"][5]["ratio"] == 1140000 and fc["history"][-1]["ratio"] == 1143750
+    first, last = fc["forecast"][0], fc["forecast"][-1]
+    assert first["lower"] <= first["ratio"] <= first["upper"]
+    assert (last["upper"] - last["lower"]) > (first["upper"] - first["lower"])   # 멀리 볼수록 넓게
+    assert fc["cheaper_weeks"] == 2   # 903,270원 두 주
+    assert forecast_model_price(hist[:4], 1143750) is None   # 6주 미만은 예측 안 함

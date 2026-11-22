@@ -15,7 +15,8 @@ async def main(q: str):
     from app.services.price_service import _danawa_search_pcode, _danawa_fetch_product_meta, get_danawa_price_history
 
     model, key = product_key_for(q)
-    cat = next((c for kw, c in _CATEGORY_MAP.items() if kw in q), None)
+    hint = os.environ.get("HINT", "")   # 화면에서 처음 입력한 검색어 (예: HINT=전자레인지)
+    cat = next((c for kw, c in _CATEGORY_MAP.items() if kw in q or (hint and kw in hint)), None)
     print(f"모델명: {model} · 키: {key} · 카테고리: {cat}\n")
 
     items = await fetch_product_price_items(model or q)
@@ -33,9 +34,15 @@ async def main(q: str):
     if hist:
         print("  최근:", [(h['period'], h['price']) for h in sorted(hist, key=lambda h: h['period'])[-5:]])
 
-    ref = max(hist, key=lambda h: h["period"])["price"] if hist else None
+    # 서버(build_price_block)와 같은 기준: 다나와 대표 최저가 → 없으면 이력 마지막 값
+    lowest = dn.get("lowest_price")
+    ref = lowest or (max(hist, key=lambda h: h["period"])["price"] if hist else None)
     cleaned = _clean_product_items(items, cat, ref)
-    print(f"\n[걸러낸 뒤] 다나와 기준가 {ref} → {len(cleaned)}개 · 최저 {min((i['price'] for i in cleaned), default=None)}")
+    lo_k, hi_k = (0.9 if lowest else 0.6, 1.6) if ref else (0.5, 2.0)
+    if ref:
+        cleaned = [it for it in cleaned if ref * lo_k <= it["price"] <= ref * hi_k]
+    print(f"\n[현재가 후보] 기준가 {ref} ({'다나와 대표 최저가' if lowest else '이력 마지막 값'}) · "
+          f"{lo_k}~{hi_k}배 → {len(cleaned)}개 · 현재가 {min((i['price'] for i in cleaned), default=None)}")
     for it in sorted(cleaned, key=lambda x: x["price"])[:5]:
         print(f"  {it['price']:>10,}원 | {it['title'][:60]}")
 
