@@ -78,6 +78,8 @@ export default function Admin() {
       fetchUsers(tab)
     } catch {
       showToast('처리 중 오류가 발생했습니다', 'error')
+    } finally {
+      // 성공해도 목록에 그대로 남는 탭(전체 등)에서는 버튼이 '처리중…'에 멈춰 있었다 → 항상 풀어준다
       setBusy(prev => ({ ...prev, [userId]: false }))
     }
   }

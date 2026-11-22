@@ -64,6 +64,23 @@ async def admin_all_b2b(status: str = "all", _: dict = Depends(require_admin)):
     return {"users": result, "counts": counts}
 
 
+_mail_tasks: set = set()
+
+
+def _mail_in_background(send, email: str, company: str):
+    """승인 · 거절 안내 메일은 뒤에서 보낸다.
+    예전에는 메일을 다 보낼 때까지 응답을 기다려서 관리자 화면 버튼이 '처리중…'에 오래 멈췄고,
+    메일이 실패하면 상태는 이미 바뀌었는데 화면에는 오류가 떴다."""
+    async def run():
+        try:
+            await asyncio.to_thread(send, email, company)
+        except Exception as e:
+            print(f"[admin] 안내 메일 실패 {email}: {type(e).__name__}: {e}")
+    task = asyncio.create_task(run())
+    _mail_tasks.add(task)
+    task.add_done_callback(_mail_tasks.discard)
+
+
 @router.post("/users/{user_id}/approve")
 async def admin_approve_user(user_id: int, _: dict = Depends(require_admin)):
     from app.database import execute, fetchone
@@ -74,11 +91,7 @@ async def admin_approve_user(user_id: int, _: dict = Depends(require_admin)):
     company_row = await fetchone("SELECT company_name FROM user_b2b_profiles WHERE user_id = %s", (user_id,))
     await execute("UPDATE users SET status = 'active' WHERE user_id = %s", (user_id,))
     if user_row:
-        await asyncio.to_thread(
-            send_approval_email,
-            user_row["email"],
-            company_row["company_name"] if company_row else "",
-        )
+        _mail_in_background(send_approval_email, user_row["email"], company_row["company_name"] if company_row else "")
     return {"message": "승인 완료"}
 
 
@@ -94,9 +107,5 @@ async def admin_reject_user(user_id: int, admin: dict = Depends(require_admin)):
     company_row = await fetchone("SELECT company_name FROM user_b2b_profiles WHERE user_id = %s", (user_id,))
     await execute("UPDATE users SET status = 'rejected' WHERE user_id = %s", (user_id,))
     if user_row:
-        await asyncio.to_thread(
-            send_rejection_email,
-            user_row["email"],
-            company_row["company_name"] if company_row else "",
-        )
+        _mail_in_background(send_rejection_email, user_row["email"], company_row["company_name"] if company_row else "")
     return {"message": "거절 완료"}
