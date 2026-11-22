@@ -223,17 +223,26 @@ async def get_me(payload: dict = Depends(get_current_user)):
     if user["user_type"] == "b2c":
         profile = await fetchone("SELECT nickname FROM user_b2c_profiles WHERE user_id = %s", (user["user_id"],))
         extra["nickname"] = profile["nickname"] if profile else ""
+        extra["tier"] = "free"
+        extra["tier_expires_at"] = None
     else:
         profile = await fetchone("SELECT company_name FROM user_b2b_profiles WHERE user_id = %s", (user["user_id"],))
         extra["company_name"] = profile["company_name"] if profile else ""
         extra["tier"] = await get_user_tier(user["user_id"])
         extra["tier_expires_at"] = user["tier_expires_at"].isoformat() if user.get("tier_expires_at") else None
 
+    # 앱이 이 API 하나로 회원 정보를 다 받을 수 있게 (예전에는 /api/user/me를 따로 불렀다)
+    #  social_providers: 비어 있지 않으면 소셜로 연결된 회원 → 탈퇴 시 "탈퇴" 입력
+    #  has_password: False면 소셜로 가입한 회원 → 비밀번호 변경 메뉴 숨김
     return {
-        "user_type": user["user_type"],
-        "role":      user.get("role", "user"),
-        "status":    user.get("status", "active"),
-        "email":     user["email"],
+        "user_id":          user["user_id"],
+        "user_type":        user["user_type"],
+        "role":             user.get("role", "user"),
+        "status":           user.get("status", "active"),
+        "email":            user["email"],
+        "created_at":       user["created_at"].isoformat() if user.get("created_at") else None,
+        "social_providers": await social_providers(user["user_id"]),
+        "has_password":     await has_password_login(user["user_id"]),
         **extra,
     }
 
