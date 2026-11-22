@@ -94,7 +94,7 @@ async def _danawa_fetch_product_meta(pcode: str) -> dict:
         return {"launch_price": None, "release_date": None, "maker": None, "lowest_price": None}
 
 
-async def get_danawa_price_history(query: str, product_name: str) -> dict:
+async def get_danawa_price_history(query: str, product_name: str, only_real_launch: bool = False) -> dict:
     """
     반환: {"history": [...], "launch_price": int|None}
     launch_price: 출시가 (다나와 제품 페이지 scrape → 없으면 24개월 최고가로 근사)
@@ -203,18 +203,21 @@ async def get_danawa_price_history(query: str, product_name: str) -> dict:
     # 출시가: 1) 다나와 제품 페이지 스크래핑  2) 24·12·6개월 최고가로 대체
     # 출시일: 다나와 등록월 (없으면 None — 지어내지 않음)
     meta = await _danawa_fetch_product_meta(pcode)
+    # 24 · 12 · 6개월 최고가 — 출시가가 없을 때 '출시가'라고 속이지 않고 '24개월 최고가'로 따로 보여준다
+    max_price_24m = None
+    for period_key in ["24", "12", "6"]:
+        period_items = data.get(period_key, {}).get("result", [])
+        prices = [it.get("minPrice", 0) for it in period_items if it.get("minPrice", 0) > 0]
+        if prices:
+            max_price_24m = max(prices)
+            break
     launch_price = meta["launch_price"]
-    if not launch_price:
-        for period_key in ["24", "12", "6"]:
-            period_items = data.get(period_key, {}).get("result", [])
-            if period_items:
-                prices = [it.get("minPrice", 0) for it in period_items if it.get("minPrice", 0) > 0]
-                if prices:
-                    launch_price = max(prices)
-                    break
+    if not launch_price and not only_real_launch:
+        launch_price = max_price_24m   # 다른 화면(구매 타이밍)은 예전처럼 최고가를 출시가 대신 쓴다
 
     return {"history": history, "launch_price": launch_price, "release_date": meta["release_date"],
-            "maker": meta.get("maker"), "lowest_price": meta.get("lowest_price"), "pcode": pcode}
+            "maker": meta.get("maker"), "lowest_price": meta.get("lowest_price"), "pcode": pcode,
+            "max_price_24m": max_price_24m}
 
 
 async def _init_tables():

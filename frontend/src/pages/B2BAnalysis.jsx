@@ -223,6 +223,7 @@ export default function B2BAnalysis() {
   const [brandFilter, setBrandFilter]   = useState('')
   const [priceMax,    setPriceMax]      = useState('')
   const [energyFilter, setEnergyFilter] = useState('')
+  const [sortKey, setSortKey] = useState('')   // '' 추천순(검색 결과 순서) · popular · newest · price_asc · price_desc · energy
   const [refreshing, setRefreshing] = useState(false)
 
   const isB2BActive = (user?.user_type === 'b2b' && user?.status === 'active') || user?.role === 'admin'
@@ -326,6 +327,28 @@ export default function B2BAnalysis() {
     (!priceMax || p.price <= Number(priceMax) * 10000) &&
     (!energyFilter || p.energy_grade === Number(energyFilter))
   )
+  // 정렬은 받은 결과(최대 30개) 안에서 한다 — 서버에서 가격순으로 받으면 3만원짜리 필터 · 부품이 맨 위로 온다
+  // 값이 없는 상품(리뷰 수 · 출시월 · 등급 모름)은 항상 맨 뒤
+  const hasPopular = (products || []).some(p => p.review_count)
+  const hasNewest  = (products || []).some(p => p.release)
+  const hasEnergy  = (products || []).some(p => p.energy_grade)
+  const SORTS = {
+    popular:    { label: '인기순 (리뷰 많은 순)', key: p => p.review_count, desc: true },
+    newest:     { label: '최신순 (출시월)',       key: p => p.release, desc: true },
+    price_asc:  { label: '낮은 가격순',           key: p => p.price, desc: false },
+    price_desc: { label: '높은 가격순',           key: p => p.price, desc: true },
+    energy:     { label: '에너지 효율순',         key: p => p.energy_grade, desc: false },
+  }
+  const sortedProducts = sortKey && SORTS[sortKey]
+    ? [...filteredProducts].sort((a, b) => {
+        const { key, desc } = SORTS[sortKey]
+        const va = key(a), vb = key(b)
+        if (va == null || va === '') return 1
+        if (vb == null || vb === '') return -1
+        if (va === vb) return 0
+        return (va < vb ? -1 : 1) * (desc ? -1 : 1)
+      })
+    : filteredProducts
   const sentimentReviews = (sentiment?.reviews || []).filter(r => r.sentiment === sentimentTab)
 
   return (
@@ -380,6 +403,14 @@ export default function B2BAnalysis() {
             products.length > 0 ? (
               <>
                 <div className={s.filterBar}>
+                  <select className={s.filterSelect} value={sortKey} onChange={e => setSortKey(e.target.value)} aria-label="정렬">
+                    <option value="">추천순</option>
+                    {hasPopular && <option value="popular">{SORTS.popular.label}</option>}
+                    {hasNewest && <option value="newest">{SORTS.newest.label}</option>}
+                    <option value="price_asc">{SORTS.price_asc.label}</option>
+                    <option value="price_desc">{SORTS.price_desc.label}</option>
+                    {hasEnergy && <option value="energy">{SORTS.energy.label}</option>}
+                  </select>
                   <select className={s.filterSelect} value={brandFilter} onChange={e => setBrandFilter(e.target.value)}>
                     <option value="">브랜드 전체</option>
                     {brandOptions.map(b => <option key={b} value={b}>{b}</option>)}
@@ -406,7 +437,7 @@ export default function B2BAnalysis() {
                 </div>
                 {filteredProducts.length > 0 ? (
                   <div className={s.pickGrid}>
-                    {filteredProducts.map((p, i) => (
+                    {sortedProducts.map((p, i) => (
                       <button key={i} className={s.pickCard} onClick={() => analyzeProduct(p)}>
                         <div className={s.pickImageWrap}>
                           {p.image
@@ -418,6 +449,12 @@ export default function B2BAnalysis() {
                           <span className={s.pickTitle}>{p.title}</span>
                           <span className={s.pickPrice}>{fmtP(p.price)}</span>
                           {energyText(p) && <span className={s.pickEnergy}>{energyText(p)}</span>}
+                          {(p.release || p.review_count > 0) && (
+                            <span className={s.pickEnergy}>
+                              {[p.release && `${p.release.replace('-', '.')} 출시`, p.review_count > 0 && `리뷰 ${p.review_count.toLocaleString()}`]
+                                .filter(Boolean).join(' · ')}
+                            </span>
+                          )}
                         </div>
                       </button>
                     ))}
@@ -507,9 +544,12 @@ export default function B2BAnalysis() {
                         <span className={s.infoLabel}>출시일</span>
                         <span className={s.infoValue}>{info?.release_date || '확인 안됨'}</span>
                       </div>
+                      {/* 진짜 출시가가 없으면 다나와 24개월 최고가를 '최고가'라고 밝혀서 보여준다 */}
                       <div className={s.infoRow}>
-                        <span className={s.infoLabel}>출시가격</span>
-                        <span className={s.infoValue}>{info?.launch_price ? fmtP(info.launch_price) : '확인 안됨'}</span>
+                        <span className={s.infoLabel}>{info?.launch_price || !info?.max_price_24m ? '출시가격' : '최고가 (최근 24개월)'}</span>
+                        <span className={s.infoValue}>
+                          {info?.launch_price ? fmtP(info.launch_price) : info?.max_price_24m ? fmtP(info.max_price_24m) : '확인 안됨'}
+                        </span>
                       </div>
                       <div className={s.infoRow}>
                         <span className={s.infoLabel}>현재가격</span>

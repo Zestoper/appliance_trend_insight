@@ -319,6 +319,10 @@ async def get_product_search(q: str = Query(..., min_length=1), _: dict = Depend
             "link":  it.get("link", ""),
             "energy_grade": energy_grade,
             "monthly_cost": month_won,
+            # 앱 · 웹 정렬용 (다나와 검색일 때만 있음 · 네이버면 null)
+            "release": it.get("release"),                 # 출시(제조)년월 "2025-06" → 최신순
+            "review_count": it.get("reviewCount"),        # 리뷰 수 → 인기순
+            "review_score": it.get("reviewScore") or None,
             # 공기청정기 전기료는 하루 사용 시간을 가정한 값이라 기준을 같이 내려준다
             "monthly_cost_basis": (f"하루 {AIR_PURIFIER_HOURS_PER_DAY}시간 기준"
                                    if month_won and detected_category == "공기청정기" else None),
@@ -591,20 +595,39 @@ async def build_price_block(q: str, model: str | None, product_key: str, detecte
             # 자기 자신과 비교하는 꼴이 되어 신호가 무뎌진다. (차트에 쓰는 price_history 자체는
             # 오늘 포인트를 포함해야 하므로 그대로 두고, 기준선 계산에서만 오늘을 뺀다.)
             # 다나와 주간 최저가 이력에서 조건부 특가처럼 튀는 점을 뺀다 (대표 최저가의 0.7~1.5배만)
+            history_mismatch = False
             if danawa_lowest:
-                _band = [r for r in price_history if danawa_lowest * 0.7 <= r["min_price"] <= danawa_lowest * 1.5]
+                _lo, _hi = danawa_lowest * 0.7, danawa_lowest * 1.5
+                _band = [r for r in price_history if _lo <= r["min_price"] <= _hi]
                 if len(_band) >= 2:
                     price_history = _band
+                else:
+                    # 다나와 주간 최저가 이력 전체가 대표가와 기준이 다르다 (예: J3EW 대표가 109만 · 이력 62~78만)
+                    # → 섞으면 '109만 ÷ 65만 = +68% 비싼 편' 같은 엉터리 비교가 된다
+                    # → 같은 방식(쇼핑 최저가)으로 모은 우리 DB 기록만 쓴다
+                    history_mismatch = True
+                    price_history = [
+                        {"date": str(r["snapshot_date"]), "min_price": r["min_price"], "avg_price": r["avg_price"]}
+                        for r in history_rows if _lo <= r["min_price"] <= _hi
+                    ]
+                    if not any(r["date"] == str(today) for r in price_history):
+                        price_history.append({"date": str(today), "min_price": min_p, "avg_price": avg_p})
+                    price_history.sort(key=lambda r: r["date"])
             prior_history = [r for r in price_history if r["date"] != str(today)]
+            history_insufficient = not prior_history
             if prior_history:
                 hist_avg = int(sum(r["avg_price"] for r in prior_history) / len(prior_history))
                 hist_min = min(r["min_price"] for r in prior_history)
+                vs_pct = round((min_p - hist_avg) / max(hist_avg, 1) * 100, 1)
             else:
+                # 비교할 과거 가격이 없으면 판단하지 않는다 (예전엔 오늘 최저가 vs 오늘 중앙값을 비교해 '저렴한 편'이 나왔다)
                 hist_avg, hist_min = avg_p, min_p
-            vs_pct = round((min_p - hist_avg) / max(hist_avg, 1) * 100, 1)
+                vs_pct = 0.0
 
             # 가격 신호 + 관심도(수요) 추세를 함께 봐서 최종 결론을 낸다
-            if vs_pct <= -5:
+            if history_insufficient:
+                signal_type = "wait"          # 비교할 이력이 없으면 관심도만으로 매입을 권하지 않는다
+            elif vs_pct <= -5:
                 signal_type = "buy"
             elif vs_pct >= 5 and slope <= 0:
                 signal_type = "avoid"
@@ -653,6 +676,8 @@ async def build_price_block(q: str, model: str | None, product_key: str, detecte
                 "price_change_pct": price_change_pct, "price_range_pct": price_range_pct,
                 "hist_max_price": hist_max_price, "history_points": len(price_history),
                 "launch_price": danawa_launch_price,
+                "max_price_24m": (danawa_result or {}).get("max_price_24m"),
+                "history_insufficient": history_insufficient, "history_mismatch": history_mismatch,
             }
 
     return price_block, product_items, product_image, product_brand
@@ -826,7 +851,7 @@ async def _search_analysis(q: str, hint: str, force: bool):
 
     async def _fetch_danawa():
         try:
-            return await get_danawa_price_history(search_q_product, q)
+            return await get_danawa_price_history(search_q_product, q, only_real_launch=True)
         except Exception as e:
             logger.warning("[search-analysis] 다나와 조회 실패: %s", e)
             return {"history": [], "launch_price": None}
@@ -1137,8 +1162,11 @@ async def _search_analysis(q: str, hint: str, force: bool):
     ai_result: dict = {}
     try:
         price_summary = (
-            f"현재 최저가 {price_block['min_price']:,}원, 역대 평균가 {price_block['hist_avg_price']:,}원 "
-            f"({price_block['vs_hist_pct']}% 대비), 가격 적정성 판단: {price_block['fairness_label']}"
+            (f"현재 최저가 {price_block['min_price']:,}원, 역대 가격 이력이 부족해 평균가와 비교할 수 없음 "
+             f"(싸다 · 비싸다고 쓰지 말 것), 가격 적정성 판단: {price_block['fairness_label']}"
+             if price_block.get("history_insufficient") else
+             f"현재 최저가 {price_block['min_price']:,}원, 역대 평균가 {price_block['hist_avg_price']:,}원 "
+             f"({price_block['vs_hist_pct']}% 대비), 가격 적정성 판단: {price_block['fairness_label']}")
             + (
                 f", 이력 기간 순변동 {price_block['price_change_pct']}%, "
                 f"최저 {price_block['hist_min_price']:,}원~최고 {price_block['hist_max_price']:,}원 사이 "
@@ -1203,6 +1231,8 @@ async def _search_analysis(q: str, hint: str, force: bool):
             '종합한 2~3문장 요약. 리뷰가 \'단점을 알려주겠다/까발리겠다\'는 말만 있고 실제 구체적인 내용이 '
             '스니펫에 안 담겨 있으면 그런 리뷰는 무시하고, 구체적인 내용이 하나도 없으면 null"}\n'
             "conclusion_reason과 price_fairness_reason은 반드시 시스템이 낸 결론/적정성 판단과 같은 방향으로 쓰세요. "
+            + f"이 제품의 다나와 등록월(출시 시점 근사)은 {(danawa_result or {}).get('release_date') or '확인 안됨'}이고 오늘은 {today.isoformat()}입니다. "
+            "출시 후 1년이 지났거나 출시 시점을 모르면 '신제품'이라고 쓰지 마세요. "
             "positive_summary/negative_summary는 위에 제공된 리뷰 내용에 없는 내용은 절대 지어내지 마세요. "
             + (
                 "selected_pros/selected_cons/competitor_pros/competitor_cons에는 가격이나 '가격 적정성' "
@@ -1280,6 +1310,7 @@ async def _search_analysis(q: str, hint: str, force: bool):
 
     # 출시가는 다나와 실스크래핑 값을 최우선으로 신뢰 — AI 추출은 실제 검색 결과가 있을 때만 보조로 사용
     launch_price = price_block.get("launch_price") if price_block else None
+    launch_price_source = "danawa" if launch_price else None
     if launch_price is None:
         ai_launch_price = ai_result.get("launch_price")
         if isinstance(ai_launch_price, str):
@@ -1287,6 +1318,8 @@ async def _search_analysis(q: str, hint: str, force: bool):
             launch_price = int(digits) if digits else None
         elif isinstance(ai_launch_price, (int, float)):
             launch_price = int(ai_launch_price)
+        if launch_price:
+            launch_price_source = "news"   # 출시 관련 뉴스 · 블로그에서 AI가 찾은 값
 
     report_summary = _clean_ai_text(ai_result.get("report_summary"))
     conclusion_reason = _clean_ai_text(ai_result.get("conclusion_reason")) or (
@@ -1305,6 +1338,10 @@ async def _search_analysis(q: str, hint: str, force: bool):
         if price_block and price_block.get("price_change_pct") is not None and price_block.get("price_range_pct") is not None
         else None
     )
+    if price_block and price_block.get("history_insufficient"):
+        _insufficient_msg = "가격 이력이 아직 부족해 지금 가격이 싼지 비싼지 판단하기 어려워요. 매일 가격을 모으고 있어요."
+        conclusion_reason = _insufficient_msg + " 그래서 지금은 관망을 권합니다."
+        ai_result["price_fairness_reason"] = _insufficient_msg
     price_fairness_reason = _clean_ai_text(ai_result.get("price_fairness_reason")) or (
         f"현재가가 이력 평균 대비 {price_block['vs_hist_pct']}%로 {price_block['fairness_label']}입니다." if price_block else None
     )
@@ -1414,7 +1451,9 @@ async def _search_analysis(q: str, hint: str, force: bool):
             "brand": product_brand,
             "image": product_image,
             "release_date": release_date,
-            "launch_price": launch_price,
+            "launch_price": launch_price,             # 진짜 출시가만 (다나와 출시가 · 출시 기사) — 없으면 null
+            "launch_price_source": launch_price_source,
+            "max_price_24m": price_block.get("max_price_24m") if price_block else None,   # 출시가가 없을 때 대신 보여줄 값
             "current_price": price_block["min_price"] if price_block else None,
         },
 

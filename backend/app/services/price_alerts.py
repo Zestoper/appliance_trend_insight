@@ -287,7 +287,7 @@ async def check_price_alerts():
             try:
                 items = await fetch_product_price_items(model or name)
                 try:
-                    danawa = await get_danawa_price_history(model or name, name)
+                    danawa = await get_danawa_price_history(model or name, name, only_real_launch=True)
                 except Exception:
                     danawa = {"history": [], "launch_price": None}
                 slope = st.get("demand_slope") or 0.0

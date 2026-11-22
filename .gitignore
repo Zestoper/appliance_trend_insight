@@ -30,3 +30,5 @@ venv/
 # ChromaDB
 chroma_db/
 chromadb/
+# B2B 분석 일괄 점검 결과 (scripts/audit_b2b_analysis.py)
+b2b_audit/

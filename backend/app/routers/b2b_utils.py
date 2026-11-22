@@ -52,7 +52,7 @@ def _calc_risk(growth: float) -> str:
 _GROQ_MODELS = (GROQ_PRIMARY_MODEL, GROQ_FALLBACK_MODEL, "qwen/qwen3.8-27b")
 _GROQ_CACHE: dict = {}
 _GROQ_TTL   = GROQ_CACHE_TTL
-_CACHE_VER  = "v11"   # v11: 다나와 대표 최저가 기준 · 예측 범위 · 보합 · 가격 변동 이유 (예전 분석 결과 버림)
+_CACHE_VER  = "v12"   # v12: 기준이 다른 다나와 이력 섞지 않기 · 출시가와 24개월 최고가 구분
 
 # 모델별 일일 한도 소진 시각 (epoch) — 2시간 뒤 자동 재시도
 _GROQ_MODEL_EXHAUSTED: dict[str, float] = {}

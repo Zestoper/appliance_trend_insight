@@ -88,3 +88,52 @@ def test_price_block_uses_danawa_lowest(monkeypatch):
     assert block["min_price"] == 1143750
     assert all(h["min_price"] >= 1143750 * 0.7 for h in block["price_history"])
     assert block["signal_type"] != "buy" and brand == "삼성전자"
+
+
+def test_history_mismatch_uses_own_records(monkeypatch):
+    """다나와 주간 이력(62~78만)이 대표가(109만)와 기준이 다르면 섞지 않고, 비교할 기록이 없으면 판단 보류"""
+    import asyncio
+    from datetime import date
+    import app.database as db
+    from app.routers import b2b_search_analysis as sa
+    import app.utils.price_guard as pg
+
+    async def fetchall(sql, args=None):
+        return []
+
+    async def execute(sql, args=None):
+        return 1
+
+    async def plausible(*a, **k):
+        return True
+    monkeypatch.setattr(db, "fetchall", fetchall)
+    monkeypatch.setattr(db, "execute", execute)
+    monkeypatch.setattr(pg, "is_plausible_price", plausible)
+    hist = [("2026-09-15", 779990), ("2026-10-06", 640000), ("2026-10-27", 615990), ("2026-11-17", 615990)]
+    danawa = {"history": [{"period": d, "price": p} for d, p in hist], "launch_price": None,
+              "lowest_price": 1087460, "max_price_24m": 1260000}
+    items = [{"mall": "a", "brand": "삼성전자", "title": "삼성전자 비스포크 김치플러스 RQ33DG71J3EW", "price": 1087460,
+              "link": "", "image": ""}]
+    block, _, _, _ = asyncio.run(sa.build_price_block("삼성전자 비스포크 김치플러스 RQ33DG71J3EW", "RQ33DG71J3EW",
+                                                      "RQ33DG71J3EW", "냉장고", items, danawa, 2.0, date(2026, 11, 22)))
+    assert block["history_mismatch"] and block["history_insufficient"]
+    assert block["vs_hist_pct"] == 0.0 and block["signal_type"] == "wait" and block["fairness_type"] == "fair"
+    assert all(h["min_price"] >= 1087460 * 0.7 for h in block["price_history"])
+    assert block["launch_price"] is None and block["max_price_24m"] == 1260000
+
+
+def test_product_search_has_sort_fields(monkeypatch):
+    import asyncio
+    from app.routers import b2b_search_analysis as sa
+
+    async def fake_search(**kw):
+        return {"items": [{"title": "삼성 비스포크 냉장고 RS84DB5002CW", "brand": "삼성전자", "price": 1500000,
+                           "image": "", "link": "", "release": "2025-06", "reviewCount": 120, "reviewScore": 4.6}]}
+
+    async def no_kemco(cat):
+        return {}
+    monkeypatch.setattr(sa, "search_products", fake_search)
+    import app.services.public_data as pd
+    monkeypatch.setattr(pd, "get_kemco_model_info_cached", no_kemco)
+    it = asyncio.run(sa.get_product_search("냉장고", {}))["items"][0]
+    assert it["release"] == "2025-06" and it["review_count"] == 120 and it["review_score"] == 4.6
