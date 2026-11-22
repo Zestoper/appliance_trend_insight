@@ -576,43 +576,6 @@ export default function B2BAnalysis() {
                   </div>
                 </div>
 
-                {/* 2. 같은 품목 안에서 가격 위치 (판단 없이 숫자만) */}
-                {data.price_position && (
-                  <div className={s.card}>
-                    <div className={s.cardHead}>
-                      <div>
-                        <h2 className={s.cardTitle}>같은 품목 가격 위치</h2>
-                        <p className={s.cardSub}>지금 판매 중인 {data.price_position.category} {data.price_position.count}개 기준</p>
-                      </div>
-                    </div>
-                    <div className={s.priceStats}>
-                      <div className={s.priceStat}>
-                        <span className={s.psLabel}>최저</span>
-                        <span className={s.psValue}>{fmtP(data.price_position.min)}</span>
-                      </div>
-                      <div className={s.priceStat}>
-                        <span className={s.psLabel}>중간</span>
-                        <span className={s.psValue}>{fmtP(data.price_position.median)}</span>
-                      </div>
-                      <div className={s.priceStat}>
-                        <span className={s.psLabel}>최고</span>
-                        <span className={s.psValue}>{fmtP(data.price_position.max)}</span>
-                      </div>
-                    </div>
-                    {/* 위치 막대: 왼쪽 최저 · 오른쪽 최고 */}
-                    <div style={{ position: 'relative', height: 8, borderRadius: 4, background: 'rgba(99,102,241,0.15)', margin: '18px 4px 8px' }}>
-                      <div style={{ position: 'absolute', top: -4, left: `calc(${data.price_position.position_pct}% - 8px)`,
-                        width: 16, height: 16, borderRadius: '50%', background: '#6366f1' }} />
-                    </div>
-                    <div className={s.reasonBox}>
-                      이 제품 {fmtP(data.price_position.current)} · 같은 품목 {data.price_position.count}개 중{' '}
-                      {data.price_position.position_pct === 0
-                        ? '가장 낮은 가격'
-                        : `${data.price_position.position_pct}%가 이 제품보다 저렴해요`}
-                    </div>
-                  </div>
-                )}
-
                 {/* 3. 비슷한 제품 (실제 판매 중인 상품 · 같은 용량대 → 없으면 비슷한 가격대) */}
                 {data.similar_products?.length > 0 && (
                   <div className={s.card}>
@@ -639,6 +602,63 @@ export default function B2BAnalysis() {
                         </a>
                       ))}
                     </div>
+                  </div>
+                )}
+
+                {/* 3-2. 다른 제품과 비교 (장단점은 실제 후기를 AI가 요약 · 추천 · 판단 문구 없음) */}
+                {comp?.competitor && (
+                  <div className={s.card}>
+                    <div className={s.cardHead}>
+                      <div>
+                        <h2 className={s.cardTitle}>경쟁 제품 비교</h2>
+                        <p className={s.cardSub}>
+                          {comp?.competitor?.matched_capacity
+                            ? '비슷한 스펙(용량)의 다른 브랜드 제품과 1:1 비교 · 장단점은 실사용 후기 요약'
+                            : '비슷한 가격대의 다른 브랜드 제품과 비교 · 장단점은 실사용 후기 요약'}
+                        </p>
+                      </div>
+                    </div>
+                    {comp?.competitor ? (
+                      <>
+                        <div className={s.compGrid}>
+                          <div className={s.compCol}>
+                            <div className={s.compColHead}>
+                              {info?.image && <img src={info.image} alt="" className={s.compThumb} />}
+                              <p className={s.compColTitle}>검색하신 제품</p>
+                            </div>
+                            <p className={s.compMeta}>
+                              {data.model_number && <span>{data.model_number}</span>}
+                              {info?.current_price != null && <span> · {fmtP(info.current_price)}</span>}
+                            </p>
+                            <ul className={s.prosConsList}>
+                              {comp.selected_pros?.map((p, i) => <li key={`p${i}`} className={s.prosItem}>+ {p}</li>)}
+                              {comp.selected_cons?.map((c, i) => <li key={`c${i}`} className={s.consItem}>− {c}</li>)}
+                            </ul>
+                          </div>
+                          <div className={s.compCol}>
+                            <div className={s.compColHead}>
+                              {comp.competitor.image && <img src={comp.competitor.image} alt="" className={s.compThumb} />}
+                              <p className={s.compColTitle}>
+                                <a href={comp.competitor.link} target="_blank" rel="noopener noreferrer">
+                                  {comp.competitor.brand} (경쟁 제품)
+                                </a>
+                                {comp.competitor.matched_capacity && (
+                                  <span className={s.specNote}> · {comp.competitor.matched_capacity}L</span>
+                                )}
+                              </p>
+                            </div>
+                            <p className={s.compMeta}>
+                              {comp.competitor.model_number && <span>{comp.competitor.model_number}</span>}
+                              {comp.competitor.price != null && <span> · {fmtP(comp.competitor.price)}</span>}
+                            </p>
+                            <ul className={s.prosConsList}>
+                              {comp.competitor_pros?.map((p, i) => <li key={`p${i}`} className={s.prosItem}>+ {p}</li>)}
+                              {comp.competitor_cons?.map((c, i) => <li key={`c${i}`} className={s.consItem}>− {c}</li>)}
+                            </ul>
+                          </div>
+                        </div>
+                      </>
+                    ) : null}
                   </div>
                 )}
 

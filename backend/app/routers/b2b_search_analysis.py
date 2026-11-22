@@ -9,9 +9,11 @@ from app.routers.naver import search_products
 from app.config import CATEGORY_RULES
 from app.auth import require_admin
 
-# B2B 분석 화면은 지금 '실제 데이터만' 보여준다 (매입 판단 · AI 리포트 · AI 리뷰 분류 · 예측은 끔)
-# AI를 부르지 않으면 분석 함수는 AI가 실패했을 때처럼 숫자로만 만든 문장을 쓴다 → 응답도 훨씬 빨라진다
-USE_AI = False
+# B2B 분석 화면은 실제 데이터 위주로 보여준다 (매입 판단 · AI 리포트 · 예측은 화면에서 뺌)
+# AI는 '다른 제품과 비교' 카드의 장단점(실사용 후기 요약)에만 쓴다
+USE_AI = True
+# 출시일 · 출시가는 다나와 값만 쓴다 (AI가 뉴스에서 찾은 값은 확인되지 않아 쓰지 않음)
+AI_FACTS = False
 
 # 예측은 순수 파이썬 Holt-Winters로 한다 (_run_forecast_sync) — 항상 사용 가능
 _FORECAST_AVAILABLE = True
@@ -1477,13 +1479,13 @@ async def _search_analysis(q: str, hint: str, force: bool):
     # 출시일도 다나와 등록월(실제 스크래핑 값)을 최우선으로 신뢰 — 뉴스/블로그 검색은 대부분
     # "출시일"을 명시하지 않아 신뢰도가 낮으므로 다나와에 없을 때만 보조로 사용
     release_date = (danawa_result or {}).get("release_date")
-    if not release_date:
+    if not release_date and AI_FACTS:
         release_date = ai_result.get("release_date") if isinstance(ai_result.get("release_date"), str) else None
 
     # 출시가는 다나와 실스크래핑 값을 최우선으로 신뢰 — AI 추출은 실제 검색 결과가 있을 때만 보조로 사용
     launch_price = price_block.get("launch_price") if price_block else None
     launch_price_source = "danawa" if launch_price else None
-    if launch_price is None:
+    if launch_price is None and AI_FACTS:
         ai_launch_price = ai_result.get("launch_price")
         if isinstance(ai_launch_price, str):
             digits = re.sub(r'[^\d]', '', ai_launch_price)

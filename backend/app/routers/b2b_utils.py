@@ -52,7 +52,7 @@ def _calc_risk(growth: float) -> str:
 _GROQ_MODELS = (GROQ_PRIMARY_MODEL, GROQ_FALLBACK_MODEL, "qwen/qwen3.8-27b")
 _GROQ_CACHE: dict = {}
 _GROQ_TTL   = GROQ_CACHE_TTL
-_CACHE_VER  = "v18"   # v18: B2B 분석 5개 구성 (가격 위치 · 비슷한 제품 목록)
+_CACHE_VER  = "v19"   # v19: 가격 위치 삭제 · 다른 제품 비교 장단점 복원
 
 # 모델별 일일 한도 소진 시각 (epoch) — 2시간 뒤 자동 재시도
 _GROQ_MODEL_EXHAUSTED: dict[str, float] = {}
