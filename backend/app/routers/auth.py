@@ -171,7 +171,9 @@ async def signup_b2b(body: SignupB2B):
         raise HTTPException(status_code=409, detail="이미 가입된 이메일입니다")
     user_id = await create_member(body.email, hash_password(body.password), "b2b", status="pending",
                                   b2b=(body.company_name, body.business_type, body.contact_phone))
-    return {"user_type": "b2b", "company_name": body.company_name, "status": "pending"}
+    # 승인 전에도 로그인 상태로 개인 기능은 쓸 수 있게 토큰을 준다 (B2B API는 require_b2b가 승인 여부로 막는다)
+    return {"token": make_token(user_id, "b2b"), "user_type": "b2b", "company_name": body.company_name,
+            "status": "pending", "tier": "free", "tier_expires_at": None}
 
 
 @router.post("/login")
@@ -184,10 +186,8 @@ async def login(body: LoginRequest):
         raise HTTPException(status_code=401, detail="이메일 또는 비밀번호가 올바르지 않습니다")
     if not user["is_active"]:
         raise HTTPException(status_code=403, detail="비활성화된 계정입니다")
-    if user.get("status") == "pending":
-        raise HTTPException(status_code=403, detail="PENDING")
-    if user.get("status") == "rejected":
-        raise HTTPException(status_code=403, detail="사업자 인증이 거절되었습니다. 관리자에게 문의해주세요")
+    # 승인 대기(pending) · 거절(rejected)도 로그인은 된다 → 개인 기능은 계속 쓰고
+    # 응답의 status로 화면에서 안내한다 (B2B API는 require_b2b가 승인된 회원만 통과시킨다)
 
     extra = {}
     if user["user_type"] == "b2c":

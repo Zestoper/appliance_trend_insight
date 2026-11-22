@@ -210,6 +210,13 @@ export default function Signup() {
       const data = await res.json()
       if (!res.ok) { setError(data.detail || '가입 실패'); setLoading(false); return }
       if (data.status === 'pending') {
+        // 승인 전에도 로그인 상태로 개인 기능은 쓸 수 있다 (B2B 기능은 승인 후)
+        if (data.token) {
+          login(data.token, {
+            user_type: 'b2b', company_name: data.company_name || '', email,
+            status: 'pending', tier: data.tier || 'free', tier_expires_at: null,
+          })
+        }
         navigate('/signup/pending', { state: { company_name: data.company_name, email } })
         return
       }

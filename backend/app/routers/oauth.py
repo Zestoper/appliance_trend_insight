@@ -162,10 +162,6 @@ def _account_blocked(user: dict) -> str | None:
     """이메일 로그인과 같은 계정 상태 검사. 막혀 있으면 안내 문구"""
     if not user.get("is_active", True):
         return "비활성화된 계정입니다"
-    if user.get("status") == "pending":
-        return "사업자 인증 검토 중인 계정입니다"
-    if user.get("status") == "rejected":
-        return "사업자 인증이 거절되었습니다. 관리자에게 문의해주세요"
     return None
 
 

@@ -27,6 +27,10 @@ export default function SignupPending() {
           관리자 검토 후 <strong style={{ color: '#818cf8' }}>{state?.email}</strong>으로<br />
           1~2일 내 결과를 안내해드릴게요.
         </p>
+        <p className={s.pendingDesc} style={{ marginTop: 8 }}>
+          승인 전에도 제품 검색 · 구매 타이밍 · 가격 알림 같은 개인 기능은 바로 쓸 수 있어요.<br />
+          B2B 분석 기능은 승인되면 열려요.
+        </p>
 
         <div className={s.pendingSteps}>
           {[

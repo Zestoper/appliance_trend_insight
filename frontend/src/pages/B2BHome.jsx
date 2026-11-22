@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { LEGAL } from '../legal/legalInfo'
 import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/common/Navbar'
 import { useAuth } from '../context/AuthContext'
@@ -156,12 +157,21 @@ function AccessGate({ user, navigate }) {
       </div>
     )
   }
+  if (user.status === 'rejected') {
+    return (
+      <div className={s.gate}>
+        <div className={s.gateIcon}><Building2 size="1em" /></div>
+        <p className={s.gateTitle}>사업자 승인이 거절됐어요</p>
+        <p className={s.gateDesc}>개인 기능은 계속 이용할 수 있어요. 문의: {LEGAL.contactEmail}</p>
+      </div>
+    )
+  }
   if (user.status === 'pending') {
     return (
       <div className={s.gate}>
         <div className={s.gateIcon}><Hourglass size="1em" /></div>
         <p className={s.gateTitle}>승인 대기 중</p>
-        <p className={s.gateDesc}>관리자 승인 후 모든 B2B 기능을 이용할 수 있어요. 보통 1~2 영업일이 소요됩니다</p>
+        <p className={s.gateDesc}>관리자 승인 후 모든 B2B 기능을 이용할 수 있어요. 보통 1~2 영업일이 소요됩니다. 그동안 개인 기능은 바로 쓸 수 있어요</p>
       </div>
     )
   }

@@ -115,10 +115,10 @@ export default function Navbar() {
     // (B2B 유저가 수동으로 B2C 전환 후 페이지 이동해도 유지됨)
     if (sessionStorage.getItem('navModeSet')) return
 
-    if (user.user_type === 'b2b') {
+    if (user.user_type === 'b2b' && (user.status ?? 'active') === 'active') {
       setMode('b2b')
       localStorage.setItem('navMode', 'b2b')
-    } else if (user.user_type !== 'b2b' && user.role !== 'admin') {
+    } else if (user.role !== 'admin') {   // 개인 회원 · 승인 전/거절된 사업자 → 개인 기능부터
       setMode('b2c')
       localStorage.setItem('navMode', 'b2c')
     }

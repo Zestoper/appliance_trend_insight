@@ -8,6 +8,7 @@ JWT_SECRET = os.getenv("JWT_SECRET")
 if not JWT_SECRET:
     raise RuntimeError("JWT_SECRET 환경변수가 설정되지 않았습니다")
 JWT_ALGORITHM = "HS256"
+CONTACT_EMAIL = os.getenv("CONTACT_EMAIL", "gajeonmussang@gmail.com")   # 서비스 문의 메일 (웹 legalInfo.js와 같게)
 JWT_EXPIRE_HOURS = 24 * 7
 
 
@@ -45,9 +46,22 @@ async def require_admin(payload: dict = Depends(get_current_user)) -> dict:
 
 
 async def require_b2b(payload: dict = Depends(get_current_user)) -> dict:
-    if payload.get("role") == "admin" or payload.get("type") == "b2b":
+    """B2B 전용 API. 토큰의 회원 유형만이 아니라 DB의 승인 상태까지 확인한다.
+    (사업자 가입 신청 후 승인 전에도 로그인해서 개인 기능은 쓸 수 있게 바뀌었기 때문에
+     토큰만 보면 승인 전 회원이 B2B API를 쓸 수 있다)"""
+    if payload.get("role") == "admin":
         return payload
-    raise HTTPException(status_code=403, detail="B2B 회원만 접근할 수 있습니다")
+    if payload.get("type") != "b2b":
+        raise HTTPException(status_code=403, detail="B2B 회원만 접근할 수 있습니다")
+    from app.database import fetchone
+    user = await fetchone("SELECT status, is_active FROM users WHERE user_id = %s", (int(payload["sub"]),))
+    if not user or not user.get("is_active", True):
+        raise HTTPException(status_code=401, detail="유효하지 않은 사용자입니다")
+    if user.get("status") == "rejected":
+        raise HTTPException(status_code=403, detail=f"사업자 승인이 거절됐어요. 문의: {CONTACT_EMAIL}")
+    if user.get("status") != "active":
+        raise HTTPException(status_code=403, detail="사업자 승인 후 이용할 수 있어요")
+    return payload
 
 
 _TIER_RANK = {"free": 0, "silver": 1, "gold": 2, "platinum": 3}

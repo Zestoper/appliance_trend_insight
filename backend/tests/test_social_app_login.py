@@ -88,8 +88,13 @@ def test_카카오_기존_회원(monkeypatch):
     assert login("kakao", "kakao-access-token")["token"]
 
 
-def test_승인_대기_사업자는_403(monkeypatch):
+def test_승인_대기_사업자도_로그인은_된다(monkeypatch):
     setup(monkeypatch, existing={"user_id": 3, "user_type": "b2b", "status": "pending"})
+    assert login("google", google_token())["token"]      # B2B API는 require_b2b가 막는다
+
+
+def test_비활성_계정은_403(monkeypatch):
+    setup(monkeypatch, existing={"user_id": 3, "user_type": "b2c", "is_active": False})
     with pytest.raises(HTTPException) as e:
         login("google", google_token())
     assert e.value.status_code == 403
