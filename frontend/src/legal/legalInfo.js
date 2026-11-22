@@ -4,6 +4,7 @@ export const LEGAL = {
   service: '가전무쌍',
   operator: '가전무쌍 팀',                 // 사업자 등록 후에는 상호로 바꾸기
   privacyOfficer: '박준영',                 // 개인정보 보호책임자
+  privacyManager: '박민규',                 // 개인정보 보호 담당자
   contactEmail: 'gajeonmussang@gmail.com', // 서비스 전용 문의 메일 (문의 · 탈퇴 · 개인정보 요청)
   effectiveDate: '2026년 11월 21일',
 }

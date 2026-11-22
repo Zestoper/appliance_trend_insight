@@ -7,7 +7,7 @@ import { LEGAL } from '../legal/legalInfo'
 // 실제로 저장하는 항목은 backend 코드(users · user_b2c_profiles · user_b2b_profiles · price_alert · payments ·
 // user_social_accounts · password_resets 테이블) 기준으로 적었다. 저장 항목이 바뀌면 여기도 고친다.
 export default function Privacy() {
-  const { service, operator, privacyOfficer, contactEmail, effectiveDate } = LEGAL
+  const { service, operator, privacyOfficer, privacyManager, contactEmail, effectiveDate } = LEGAL
   return (
     <div className={s.page}>
       <Navbar />
@@ -125,9 +125,10 @@ export default function Privacy() {
         <h2>9. 만 14세 미만 아동</h2>
         <p>서비스는 만 14세 미만 아동의 회원가입을 받지 않습니다.</p>
 
-        <h2>10. 개인정보 보호책임자</h2>
+        <h2>10. 개인정보 보호책임자 및 담당자</h2>
         <ul>
           <li>책임자: {privacyOfficer}</li>
+          {privacyManager && <li>담당자: {privacyManager}</li>}
           <li>연락처: <a href={`mailto:${contactEmail}`}>{contactEmail}</a></li>
         </ul>
         <p>
