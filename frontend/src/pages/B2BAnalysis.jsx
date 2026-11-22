@@ -687,7 +687,11 @@ export default function B2BAnalysis() {
                   <div className={s.cardHead}>
                     <div>
                       <h2 className={s.cardTitle}>가격 적정성 분석</h2>
-                      <p className={s.cardSub}>역대 평균가 대비 현재가 판단</p>
+                      <p className={s.cardSub}>
+                        {fairness?.basis === 'danawa_weekly'
+                          ? `다나와 주간 최저가 기준 · 지금 바로 살 수 있는 대표가 ${fmtP(fairness.listed_price)}`
+                          : '역대 평균가 대비 현재가 판단'}
+                      </p>
                     </div>
                     {fairSig && (
                       <span className={s.signalBadge} style={{ color: fairSig.color, background: fairSig.bg, border: `1px solid ${fairSig.border}` }}>
@@ -698,11 +702,11 @@ export default function B2BAnalysis() {
                   {fairness?.current_price ? (
                     <div className={s.priceStats}>
                       <div className={s.priceStat}>
-                        <span className={s.psLabel}>현재가</span>
+                        <span className={s.psLabel}>{fairness.basis === 'danawa_weekly' ? '최근 주간 최저가' : '현재가'}</span>
                         <span className={s.psValue}>{fmtP(fairness.current_price)}</span>
                       </div>
                       <div className={s.priceStat}>
-                        <span className={s.psLabel}>역대 평균가</span>
+                        <span className={s.psLabel}>{fairness.basis === 'danawa_weekly' ? '그 전 주간 평균' : '역대 평균가'}</span>
                         <span className={s.psValue}>{fmtP(fairness.hist_avg_price)}</span>
                       </div>
                       <div className={s.priceStat}>

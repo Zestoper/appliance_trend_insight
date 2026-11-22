@@ -657,25 +657,34 @@ async def build_price_block(q: str, model: str | None, product_key: str, detecte
                 if len(_band) >= 2:
                     price_history = _band
                 else:
-                    # 다나와 주간 최저가 이력 전체가 대표가와 기준이 다르다 (예: J3EW 대표가 109만 · 이력 62~78만)
-                    # → 섞으면 '109만 ÷ 65만 = +68% 비싼 편' 같은 엉터리 비교가 된다
-                    # → 같은 방식(쇼핑 최저가)으로 모은 우리 DB 기록만 쓴다
+                    # 다나와 주간 최저가 기록 전체가 대표가와 기준이 다르다 (예: J3EW 대표가 109만 · 주간 기록 62~78만)
+                    # → 대표가와 섞으면 '109만 ÷ 65만 = +68% 비싼 편' 같은 엉터리 비교가 된다
+                    # → 주간 기록은 버리지 않고 그래프에 그대로 보여주고, 판단은 주간 기록끼리 한다
+                    #   (최근 주간 최저가 ÷ 그 전 주간 최저가 평균). 대표가는 '지금 바로 살 수 있는 가격'으로 따로 보여준다
                     history_mismatch = True
-                    price_history = [
-                        {"date": str(r["snapshot_date"]), "min_price": r["min_price"], "avg_price": r["avg_price"]}
-                        for r in history_rows if _lo <= r["min_price"] <= _hi
-                    ]
-                    if not any(r["date"] == str(today) for r in price_history):
-                        price_history.append({"date": str(today), "min_price": min_p, "avg_price": avg_p})
-                    price_history.sort(key=lambda r: r["date"])
-            prior_history = [r for r in price_history if r["date"] != str(today)]
+                    _weekly = sorted(
+                        ({"date": h["period"], "min_price": h["price"], "avg_price": h["price"]} for h in _danawa_hist),
+                        key=lambda r: r["date"],
+                    )
+                    if len(_weekly) >= 4:   # 튀는 점 하나는 빼고 (위 _kept와 같은 기준)
+                        _wm = sorted(r["min_price"] for r in _weekly)[len(_weekly) // 2]
+                        _wk = [r for r in _weekly if _wm * 0.6 <= r["min_price"] <= _wm * 1.6]
+                        _weekly = _wk if len(_wk) >= 2 else _weekly
+                    price_history = _weekly
+            judge_basis = "danawa_weekly" if history_mismatch and len(price_history) >= 2 else "listed"
+            if judge_basis == "danawa_weekly":
+                judge_price = price_history[-1]["min_price"]       # 최근 주간 최저가
+                prior_history = price_history[:-1]
+            else:
+                judge_price = min_p
+                prior_history = [r for r in price_history if r["date"] != str(today)]
             history_insufficient = not prior_history
             if prior_history:
-                # 역대 평균 = 과거 '최저가'들의 평균 (현재가도 최저가라 같은 기준끼리 비교한다)
+                # 역대 평균 = 과거 '최저가'들의 평균 (판단 가격도 최저가라 같은 기준끼리 비교한다)
                 # 예전엔 평균가를 썼는데 다나와 이력은 최저가 · 우리 DB는 쇼핑 결과 중앙값이라 기준이 섞였다
                 hist_avg = int(sum(r["min_price"] for r in prior_history) / len(prior_history))
                 hist_min = min(r["min_price"] for r in prior_history)
-                vs_pct = round((min_p - hist_avg) / max(hist_avg, 1) * 100, 1)
+                vs_pct = round((judge_price - hist_avg) / max(hist_avg, 1) * 100, 1)
             else:
                 # 비교할 과거 가격이 없으면 판단하지 않는다 (예전엔 오늘 최저가 vs 오늘 중앙값을 비교해 '저렴한 편'이 나왔다)
                 hist_avg, hist_min = avg_p, min_p
@@ -735,6 +744,8 @@ async def build_price_block(q: str, model: str | None, product_key: str, detecte
                 "launch_price": danawa_launch_price,
                 "max_price_24m": (danawa_result or {}).get("max_price_24m"),
                 "history_insufficient": history_insufficient, "history_mismatch": history_mismatch,
+                # 싸다 · 비싸다를 어떤 가격으로 판단했는지 (listed: 대표가 · danawa_weekly: 다나와 주간 최저가)
+                "judge_basis": judge_basis, "judge_price": judge_price,
             }
 
     return price_block, product_items, product_image, product_brand
@@ -1093,7 +1104,8 @@ async def _search_analysis(q: str, hint: str, force: bool):
     if price_block:
         try:
             from app.services.price_alerts import save_signal_state
-            await save_signal_state(product_key, price_block, slope, detected_category, product_image)
+            await save_signal_state(product_key, price_block, slope, detected_category, product_image,
+                                    product_name=q, viewed=True)
         except Exception as e:
             logger.warning("[search-analysis] 알림 상태 저장 실패: %s", e)
 
@@ -1231,6 +1243,10 @@ async def _search_analysis(q: str, hint: str, force: bool):
             (f"현재 최저가 {price_block['min_price']:,}원, 역대 가격 이력이 부족해 평균가와 비교할 수 없음 "
              f"(싸다 · 비싸다고 쓰지 말 것), 가격 적정성 판단: {price_block['fairness_label']}"
              if price_block.get("history_insufficient") else
+             f"지금 바로 살 수 있는 대표 최저가 {price_block['min_price']:,}원. 가격 판단은 다나와 주간 최저가 기준: "
+             f"최근 주간 최저가 {price_block['judge_price']:,}원, 그 전 평균 {price_block['hist_avg_price']:,}원 "
+             f"({price_block['vs_hist_pct']}% 대비, 대표가와 섞어 비교하지 말 것), 가격 적정성 판단: {price_block['fairness_label']}"
+             if price_block.get("judge_basis") == "danawa_weekly" else
              f"현재 최저가 {price_block['min_price']:,}원, 역대 평균가 {price_block['hist_avg_price']:,}원 "
              f"({price_block['vs_hist_pct']}% 대비), 가격 적정성 판단: {price_block['fairness_label']}")
             + (
@@ -1404,6 +1420,14 @@ async def _search_analysis(q: str, hint: str, force: bool):
         if price_block and price_block.get("price_change_pct") is not None and price_block.get("price_range_pct") is not None
         else None
     )
+    if price_block and price_block.get("judge_basis") == "danawa_weekly" and not price_block.get("history_insufficient"):
+        _vs = price_block["vs_hist_pct"]
+        ai_result["price_fairness_reason"] = (
+            f"다나와 주간 최저가 기준으로 판단했어요. 최근 주간 최저가 {price_block['judge_price']:,}원이 "
+            f"그 전 평균 {price_block['hist_avg_price']:,}원보다 {abs(_vs)}% {'낮아요' if _vs < 0 else '높아요' if _vs > 0 else '같아요'}. "
+            f"주간 최저가에는 지역 한정 · 카드 할인 같은 조건부 특가가 섞여 있어서 "
+            f"지금 바로 살 수 있는 대표 최저가({price_block['min_price']:,}원)와는 차이가 있어요."
+        )
     if price_block and price_block.get("history_insufficient"):
         _insufficient_msg = "가격 이력이 아직 부족해 지금 가격이 싼지 비싼지 판단하기 어려워요. 매일 가격을 모으고 있어요."
         conclusion_reason = _insufficient_msg + " 그래서 지금은 관망을 권합니다."
@@ -1419,7 +1443,7 @@ async def _search_analysis(q: str, hint: str, force: bool):
     price_trend_pct = None
     demand_headline = None
     demand_reason = None
-    price_fc = forecast_model_price(price_block["price_history"], price_block["min_price"]) if price_block else None
+    price_fc = forecast_model_price(price_block["price_history"], price_block["judge_price"]) if price_block else None
     if price_block and len(price_block["price_history"]) >= 2:
         price_trend_pct = price_block["price_change_pct"]
         # 방향은 숫자(순변동)와 같은 기준으로 정한다 — 예전엔 회귀 기울기로 정해서
@@ -1569,7 +1593,12 @@ async def _search_analysis(q: str, hint: str, force: bool):
             "type":  price_block["fairness_type"] if price_block else None,
             "label": price_block["fairness_label"] if price_block else "데이터 부족",
             "vs_hist_pct": price_block["vs_hist_pct"] if price_block else None,
-            "current_price": price_block["min_price"] if price_block else None,
+            # 카드의 '현재가'는 판단에 쓴 가격 (주간 기준이면 최근 주간 최저가) · 대표가는 listed_price
+            "current_price": price_block["judge_price"] if price_block else None,
+            "listed_price": price_block["min_price"] if price_block else None,
+            "basis": price_block["judge_basis"] if price_block else None,
+            "basis_label": ("다나와 주간 최저가 기준" if price_block and price_block["judge_basis"] == "danawa_weekly"
+                            else "현재 최저가 기준") if price_block else None,
             "hist_avg_price": price_block["hist_avg_price"] if price_block else None,
             "malls": price_block["malls"] if price_block else [],
             "reason": price_fairness_reason,

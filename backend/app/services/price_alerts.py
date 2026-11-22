@@ -17,6 +17,8 @@ TIER_LIMITS = {"free": 3, "silver": 10, "gold": 30, "platinum": 100}
 TIER_LABELS = {"free": "무료", "silver": "실버", "gold": "골드", "platinum": "플래티넘"}
 PERSONAL_LIMIT = 20          # 개인 회원 (등급 없음)
 MAX_DAILY_PRODUCTS = 200     # 매일 확인하는 제품 수 상한 (Render 512MB · tracked_products 150개와 별도)
+RECENT_ANALYZED_DAYS = 14     # B2B 분석에서 최근 이 기간 안에 열린 모델도 매일 가격을 모은다
+MAX_ANALYZED_PRODUCTS = 80    # 그중 최대 (알림 걸린 제품이 먼저)
 SIGNAL_COOLDOWN_DAYS = 7     # 매입 적기 푸시는 같은 알림에 7일에 한 번만
 HISTORY_POINTS = 60          # 목록 그래프 점 개수
 
@@ -49,26 +51,34 @@ async def ensure_alert_tables():
         " history        TEXT,"               # [{date, min_price}] JSON
         " updated_at     TIMESTAMPTZ DEFAULT NOW())"
     )
+    await execute("ALTER TABLE product_signal_state ADD COLUMN IF NOT EXISTS product_name TEXT")
+    await execute("ALTER TABLE product_signal_state ADD COLUMN IF NOT EXISTS viewed_at TIMESTAMPTZ")
 
 
 # ── 신호 상태 (검색 분석 · 매일 확인이 저장 · 목록이 읽음) ─────────────────────
 
 async def save_signal_state(product_key: str, block: dict, slope: float | None,
-                            category: str | None, image: str | None):
+                            category: str | None, image: str | None,
+                            product_name: str | None = None, viewed: bool = False):
+    """viewed=True: B2B 분석 화면에서 연 것 (매일 가격 모으기 대상이 된다)"""
     from app.database import execute
     history = [{"date": h["date"], "min_price": h["min_price"]} for h in block.get("price_history", [])][-HISTORY_POINTS:]
     await execute(
         "INSERT INTO product_signal_state "
-        "(product_key, category, image, min_price, hist_avg_price, vs_hist_pct, signal_type, demand_slope, history, updated_at) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NOW()) "
+        "(product_key, category, image, min_price, hist_avg_price, vs_hist_pct, signal_type, demand_slope, history, updated_at,"
+        " product_name, viewed_at) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), %s, CASE WHEN %s THEN NOW() END) "
         "ON CONFLICT (product_key) DO UPDATE SET "
+        " product_name = COALESCE(EXCLUDED.product_name, product_signal_state.product_name),"
+        " viewed_at = COALESCE(EXCLUDED.viewed_at, product_signal_state.viewed_at),"
         " category = COALESCE(EXCLUDED.category, product_signal_state.category),"
         " image = COALESCE(EXCLUDED.image, product_signal_state.image),"
         " min_price = EXCLUDED.min_price, hist_avg_price = EXCLUDED.hist_avg_price,"
         " vs_hist_pct = EXCLUDED.vs_hist_pct, signal_type = EXCLUDED.signal_type,"
         " demand_slope = EXCLUDED.demand_slope, history = EXCLUDED.history, updated_at = NOW()",
         (product_key, category, image or None, block["min_price"], block["hist_avg_price"],
-         block["vs_hist_pct"], block["signal_type"], float(slope or 0), json.dumps(history)),
+         block["vs_hist_pct"], block["signal_type"], float(slope or 0), json.dumps(history),
+         (product_name or None) and product_name[:300], bool(viewed)),
     )
 
 
@@ -253,9 +263,6 @@ async def check_price_alerts():
         "SELECT pa.*, u.user_type, u.status FROM price_alert pa JOIN users u ON u.user_id = pa.user_id "
         "WHERE pa.is_active = TRUE AND COALESCE(u.is_active, TRUE) ORDER BY pa.created_at",
     )
-    if not rows:
-        print("[alerts] 확인할 가격 알림 없음")
-        return True
 
     groups: dict = {}
     for r in rows:
@@ -267,6 +274,19 @@ async def check_price_alerts():
                           (key, model, r["alert_id"]))
         groups.setdefault(key, []).append(r)
     keys = sorted(groups, key=lambda k: -len(groups[k]))
+    # 알림은 없지만 최근 B2B 분석에서 열린 모델도 매일 가격을 모은다
+    # (화면에 '매일 가격을 모으고 있어요'라고 안내하는데 예전엔 누가 다시 열 때만 한 줄 쌓였다)
+    analyzed = await fetchall(
+        "SELECT product_key, product_name, category FROM product_signal_state "
+        "WHERE viewed_at >= NOW() - make_interval(days => %s) AND product_name IS NOT NULL "
+        "ORDER BY viewed_at DESC LIMIT %s",
+        (RECENT_ANALYZED_DAYS, MAX_ANALYZED_PRODUCTS),
+    )
+    for a in analyzed:
+        if a["product_key"] not in groups:
+            groups[a["product_key"]] = [{"product_name": a["product_name"], "category": a.get("category"),
+                                         "_no_alert": True}]
+            keys.append(a["product_key"])
     if len(keys) > MAX_DAILY_PRODUCTS:
         print(f"[alerts] 제품 {len(keys)}개 중 {MAX_DAILY_PRODUCTS}개만 확인 (상한)")
         keys = keys[:MAX_DAILY_PRODUCTS]
@@ -299,6 +319,8 @@ async def check_price_alerts():
                 await save_signal_state(key, block, slope, category, image)
                 now = datetime.now(timezone.utc)
                 for row in groups[key]:
+                    if row.get("_no_alert"):   # 가격만 모으는 제품
+                        continue
                     push = await _evaluate(row, block, now)
                     if push:
                         reason, title, body = push

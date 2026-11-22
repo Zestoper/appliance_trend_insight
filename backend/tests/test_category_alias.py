@@ -91,7 +91,7 @@ def test_price_block_uses_danawa_lowest(monkeypatch):
 
 
 def test_history_mismatch_uses_own_records(monkeypatch):
-    """다나와 주간 이력(62~78만)이 대표가(109만)와 기준이 다르면 섞지 않고, 비교할 기록이 없으면 판단 보류"""
+    """다나와 주간 기록(62~78만)이 대표가(109만)와 기준이 다르면 섞지 않고 주간 기록끼리 판단한다"""
     import asyncio
     from datetime import date
     import app.database as db
@@ -116,9 +116,13 @@ def test_history_mismatch_uses_own_records(monkeypatch):
               "link": "", "image": ""}]
     block, _, _, _ = asyncio.run(sa.build_price_block("삼성전자 비스포크 김치플러스 RQ33DG71J3EW", "RQ33DG71J3EW",
                                                       "RQ33DG71J3EW", "냉장고", items, danawa, 2.0, date(2026, 11, 22)))
-    assert block["history_mismatch"] and block["history_insufficient"]
-    assert block["vs_hist_pct"] == 0.0 and block["signal_type"] == "wait" and block["fairness_type"] == "fair"
-    assert all(h["min_price"] >= 1087460 * 0.7 for h in block["price_history"])
+    # 주간 기록은 버리지 않고 그래프에 그대로 · 판단은 주간 기록끼리 (최근 615,990 vs 그 전 평균)
+    assert block["history_mismatch"] and not block["history_insufficient"]
+    assert block["judge_basis"] == "danawa_weekly" and block["judge_price"] == 615990
+    assert [h["min_price"] for h in block["price_history"]] == [779990, 640000, 615990, 615990]
+    assert block["hist_avg_price"] == int((779990 + 640000 + 615990) / 3)
+    assert block["vs_hist_pct"] == round((615990 - block["hist_avg_price"]) / block["hist_avg_price"] * 100, 1)
+    assert block["min_price"] == 1087460   # 지금 살 수 있는 대표가는 그대로
     assert block["launch_price"] is None and block["max_price_24m"] == 1260000
 
 
