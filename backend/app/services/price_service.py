@@ -493,6 +493,9 @@ async def price_snapshot_loop():
     await asyncio.sleep(5)
     while True:
         await run_once_per_day("snapshot", _collect_daily_prices)
+        # 알림 걸린 제품 가격 확인 · 푸시 (수집과 겹치면 메모리가 모자라서 수집이 끝난 뒤에 돈다)
+        from app.services.price_alerts import check_price_alerts
+        await run_once_per_day("price_alerts", check_price_alerts)
         await asyncio.sleep(6 * 3600)  # 서버가 계속 깨어 있으면 6시간마다 확인 (실제 수집은 하루 1회)
 
 
@@ -583,68 +586,15 @@ async def backfill_category_price_history(category: str, today: date) -> None:
     logger.info("[backfill] %s 완료 — %d일치 삽입", category, inserted)
 
 
-async def _check_price_alerts():
-    """활성 가격 알림을 현재 price_history 평균가와 비교해 조건 충족 시 이메일 발송 후 비활성화"""
-    from app.database import fetchall, execute
-    from app.services.email_service import send_price_alert_email
-
-    alerts = await fetchall(
-        """SELECT pa.alert_id, pa.user_id, pa.product_name AS category, pa.target_price,
-                  u.email, p.company_name
-           FROM price_alert pa
-           JOIN users u ON u.user_id = pa.user_id
-           LEFT JOIN user_b2b_profiles p ON p.user_id = pa.user_id
-           WHERE pa.is_active = TRUE AND pa.alert_type = 'below'""",
-    )
-    if not alerts:
-        return
-
-    triggered = 0
-    for a in alerts:
-        row = await fetchall(
-            "SELECT avg_price FROM price_history WHERE category = %s ORDER BY snapshot_date DESC LIMIT 1",
-            (a["category"],),
-        )
-        if not row:
-            continue
-        current = int(row[0]["avg_price"])
-        if current <= int(a["target_price"]):
-            send_price_alert_email(
-                to_email=a["email"],
-                company_name=a.get("company_name", ""),
-                category=a["category"],
-                target_price=int(a["target_price"]),
-                current_price=current,
-            )
-            await execute(
-                "UPDATE price_alert SET is_active=FALSE, triggered_at=NOW() WHERE alert_id=%s",
-                (a["alert_id"],),
-            )
-            triggered += 1
-            logger.info("[alert] 발송 완료 → %s | %s 현재 %d원 (목표 %d원)",
-                        a["email"], a["category"], current, int(a["target_price"]))
-
-    if triggered:
-        logger.info("[alert] 총 %d건 발송", triggered)
-
-
 async def price_alert_loop():
-    """6시간마다 가격 알림 체크 + 매일 예측 검증"""
+    """매일 예측 검증 (가격 알림 확인은 price_snapshot_loop에서 매일 수집 뒤에 돈다 — services/price_alerts.py)"""
     import asyncio
-    run_count = 0
     while True:
+        await asyncio.sleep(24 * 3600)
         try:
-            await _check_price_alerts()
+            await verify_predictions()
         except Exception as e:
-            logger.warning("[alert] 체크 실패: %s", e)
-        # 4번 실행(24시간)마다 예측 검증
-        run_count += 1
-        if run_count % 4 == 0:
-            try:
-                await verify_predictions()
-            except Exception as e:
-                logger.warning("[prediction] 검증 실패: %s", e)
-        await asyncio.sleep(6 * 3600)
+            logger.warning("[prediction] 검증 실패: %s", e)
 
 
 # ── 예측 적중률 트래킹 ──────────────────────────────────────────────────────

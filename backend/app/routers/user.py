@@ -32,10 +32,12 @@ async def unregister_push_token(body: PushTokenBody, payload: dict = Depends(get
 
 class AlertCreate(BaseModel):
     product_name: str
-    target_price: float
-    current_price: float
+    target_price: float | None = None   # 개인 회원은 필수 · 승인된 사업자는 선택
+    current_price: float = 0
     product_url: str = ""
     alert_type: str = "below"
+    hint: str = ""                      # 검색 분석에서 등록할 때 원래 검색어 (카테고리 찾기용)
+    image: str | None = None
 
 
 @router.get("/me")
@@ -88,27 +90,19 @@ async def get_my_profile(payload: dict = Depends(get_current_user)):
 
 @router.get("/alerts")
 async def get_my_alerts(payload: dict = Depends(get_current_user)):
-    from app.database import get_user_alerts
-    user_id = int(payload["sub"])
-    rows = await get_user_alerts(user_id)
-    return {"alerts": [dict(r) for r in rows]}
+    """개인: 지금 최저가 · 목표가 / 승인된 사업자: + 매입 신호 · 역대 평균 대비 · 그래프"""
+    from app.services.price_alerts import list_alerts
+    return {"alerts": await list_alerts(int(payload["sub"]))}
 
 
 @router.post("/alerts")
 async def create_my_alert(body: AlertCreate, payload: dict = Depends(get_current_user)):
-    from app.database import create_alert, fetchall
-    user_id = int(payload["sub"])
-    existing = await fetchall(
-        "SELECT alert_id FROM price_alert WHERE user_id=%s AND product_name=%s AND is_active=TRUE",
-        (user_id, body.product_name),
+    from app.services.price_alerts import create_alert
+    item = await create_alert(
+        int(payload["sub"]), body.product_name, body.target_price, body.current_price,
+        body.product_url, body.alert_type, body.hint, body.image,
     )
-    if existing:
-        raise HTTPException(status_code=409, detail="이미 등록된 알림입니다")
-    alert_id = await create_alert(
-        user_id, body.product_name, body.target_price,
-        body.current_price, body.product_url, body.alert_type,
-    )
-    return {"alert_id": alert_id, "message": "알림이 등록됐습니다"}
+    return {"alert_id": item["alert_id"], "alert": item, "message": "알림이 등록됐습니다"}
 
 
 @router.delete("/alerts/{alert_id}")

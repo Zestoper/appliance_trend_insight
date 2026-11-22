@@ -446,13 +446,208 @@ async def _classify_reviews_sentiment(items: list[dict]) -> list[str] | None:
         return None
 
 
+def product_key_for(q: str) -> tuple[str | None, str]:
+    """가격 이력 · 가격 알림이 같이 쓰는 제품 키 (모델명, 없으면 공백 정리한 제품명 100자)."""
+    model = extract_model_number(q) or _extract_model_broad(q)
+    return model, (model if model else re.sub(r'\s+', ' ', q.strip())[:100])
+
+
+async def fetch_product_price_items(query: str) -> list[dict]:
+    """모델명(또는 제품명)으로 쇼핑 가격을 가져온다 (렌탈 · 업소용 제외). 매일 가격 알림 확인도 이걸 쓴다."""
+    try:
+        result = await search_products(query=query, page=1, display=40, sort="sim")
+        raw = result.get("items", [])
+    except Exception as e:
+        logger.warning("[search-analysis] 제품 가격 조회 실패: %s", e)
+        raw = []
+    return [
+        {
+            "mall":  it.get("mallName", ""),
+            "brand": it.get("brand", ""),
+            "title": it.get("title", ""),
+            "price": it["price"],
+            "link":  it.get("link", ""),
+            "image": it.get("image", ""),
+        }
+        for it in raw
+        if it.get("price", 0) > 0
+        and not any(k in it.get("mallName", "") for k in _RENTAL_KW)
+        and not any(k in it.get("title", "") for k in _RENTAL_KW)
+    ]
+
+
+async def build_price_block(q: str, model: str | None, product_key: str, detected_category: str | None,
+                            product_items: list[dict], danawa_result: dict | None, slope: float, today: date):
+    """현재가 · 역대 평균 · 매입 신호(buy · wait · avoid)를 계산하고 오늘 가격을 이력에 저장한다.
+    검색 분석 화면과 매일 가격 알림 확인이 이 함수 하나를 같이 써서 화면마다 결론이 달라지지 않는다.
+    slope는 관심도(검색량) 추세 기울기 — 매일 확인에서는 마지막 분석 때 값을 쓴다.
+    돌려주는 값: (price_block 또는 None, 정리된 product_items, 대표 이미지, 브랜드)"""
+    from app.database import fetchall, execute as db_exec
+    # ── 제품 단위 가격 인텔리전스 (#1 기본정보, #4 가격변동, #5 가격적정성의 토대) ──
+    _danawa_hist = (danawa_result or {}).get("history") or []
+    danawa_ref_price = max(_danawa_hist, key=lambda h: h["period"])["price"] if _danawa_hist else None
+    product_items = _clean_product_items(product_items, detected_category, danawa_ref_price)
+    price_block = None
+    product_image = None
+    product_brand = None
+    if product_items:
+        prices = sorted(it["price"] for it in product_items)
+        med = prices[len(prices) // 2]
+        # 예전엔 중앙값의 0.2~5배까지 받아서 부품 · 다른 모델(70만원)이나 묶음 상품(286만원)이 섞였다
+        # → 다나와 최근 가격이 있으면 그 기준 0.6~1.6배 · 없으면 중앙값 기준 0.5~2배만 쓴다
+        ref = danawa_ref_price or med
+        # 0.5배는 휘센 냉난방기의 69.8만원(다나와 137만원의 0.51배)이 통과해 '평균 대비 -50%'가 됐다 → 0.6배
+        lo_k, hi_k = (0.6, 1.6) if danawa_ref_price else (0.5, 2.0)
+        filt = [it for it in product_items if ref * lo_k <= it["price"] <= ref * hi_k]
+        if filt:
+            fp = sorted(it["price"] for it in filt)
+            # 평균가는 튀는 값에 끌려가지 않게 중앙값으로 저장한다
+            min_p, max_p, avg_p = fp[0], fp[-1], fp[len(fp) // 2]
+            mall_map: dict[str, int] = {}
+            for it in filt:
+                m = it["mall"]
+                if m and (m not in mall_map or it["price"] < mall_map[m]):
+                    mall_map[m] = it["price"]
+            malls = sorted([{"mall": m, "price": p} for m, p in mall_map.items()], key=lambda x: x["price"])[:8]
+            cheapest = min(filt, key=lambda x: x["price"])
+            with_image = next((it for it in filt if it.get("image")), None)
+            product_image = with_image["image"] if with_image else None
+            product_brand = next((it["brand"] for it in filt if it.get("brand")), None)
+
+            mall_json = json.dumps(malls, ensure_ascii=False)
+            try:
+                from app.utils.price_guard import is_plausible_price
+                if not await is_plausible_price(product_key, q, min_p, str(today)):
+                    raise ValueError("최근 가격과 너무 달라 저장하지 않음")
+                await db_exec(
+                    """
+                    INSERT INTO product_price_history
+                        (product_key, product_name, model_number, min_price, max_price, avg_price, snapshot_date, snapshot_hour, mall_data)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, 0, %s)
+                    ON CONFLICT (product_key, snapshot_date, snapshot_hour) DO UPDATE SET
+                        min_price = EXCLUDED.min_price,
+                        max_price = EXCLUDED.max_price,
+                        avg_price = EXCLUDED.avg_price,
+                        mall_data = EXCLUDED.mall_data
+                    """,
+                    (product_key, q[:500], model, min_p, max_p, avg_p, today, mall_json),
+                )
+            except Exception as e:
+                logger.warning("[search-analysis] 가격 DB 저장 실패 [%s]: %s", q[:50], e)
+
+            history_rows = await fetchall(
+                "SELECT snapshot_date, min_price, avg_price FROM product_price_history "
+                "WHERE product_key = %s ORDER BY snapshot_date ASC LIMIT 60",
+                (product_key,),
+            )
+            # 다나와 실제 과거 가격 이력(최대 24개월) + 우리 DB에 쌓인 최근 스냅샷을 합쳐 진짜 이력 그래프를 만든다
+            merged_history: dict[str, dict] = {}
+            for h in (danawa_result or {}).get("history", []):
+                merged_history[h["period"]] = {"date": h["period"], "min_price": h["price"], "avg_price": h["price"]}
+            for r in history_rows:
+                d = str(r["snapshot_date"])
+                merged_history[d] = {"date": d, "min_price": r["min_price"], "avg_price": r["avg_price"]}
+            price_history = [merged_history[k] for k in sorted(merged_history.keys())]
+            # 예전에 저장된 튀는 값(묶음 상품 평균 · 다른 모델 최저가)은 그래프와 계산에서 뺀다
+            if len(price_history) >= 4:
+                _avgs = sorted(r["avg_price"] for r in price_history)
+                _mh = _avgs[len(_avgs) // 2]
+                _kept = [r for r in price_history
+                         if _mh * 0.6 <= r["avg_price"] <= _mh * 1.6 and r["min_price"] >= _mh * 0.5]
+                if len(_kept) >= 2:
+                    price_history = _kept
+
+            # "역대 평균가"는 오늘 이전의 진짜 과거 이력만으로 계산해야 한다 — 위에서 오늘
+            # 스냅샷을 이미 DB에 저장한 뒤 이 history_rows를 다시 읽어오기 때문에, 필터링
+            # 안 하면 오늘 가격 자신이 "역대 평균"에 섞여 들어가 "현재가 vs 역대 평균" 비교가
+            # 자기 자신과 비교하는 꼴이 되어 신호가 무뎌진다. (차트에 쓰는 price_history 자체는
+            # 오늘 포인트를 포함해야 하므로 그대로 두고, 기준선 계산에서만 오늘을 뺀다.)
+            prior_history = [r for r in price_history if r["date"] != str(today)]
+            if prior_history:
+                hist_avg = int(sum(r["avg_price"] for r in prior_history) / len(prior_history))
+                hist_min = min(r["min_price"] for r in prior_history)
+            else:
+                hist_avg, hist_min = avg_p, min_p
+            vs_pct = round((min_p - hist_avg) / max(hist_avg, 1) * 100, 1)
+
+            # 가격 신호 + 관심도(수요) 추세를 함께 봐서 최종 결론을 낸다
+            if vs_pct <= -5:
+                signal_type = "buy"
+            elif vs_pct >= 5 and slope <= 0:
+                signal_type = "avoid"
+            elif vs_pct >= 5:
+                signal_type = "wait"
+            elif slope > 1:
+                signal_type = "buy"
+            else:
+                signal_type = "wait"
+            signal = {"buy": "매입 추천", "wait": "관망 권장", "avoid": "매입 추천하지 않음"}[signal_type]
+
+            # 가격 적정성(#5)은 가격만으로 판단 — 수요 추세는 섞지 않는다
+            if vs_pct <= -5:
+                fairness_type = "cheap"
+            elif vs_pct >= 5:
+                fairness_type = "expensive"
+            else:
+                fairness_type = "fair"
+            fairness_label = {"cheap": "저렴한 편", "fair": "적정 가격", "expensive": "비싼 편"}[fairness_type]
+
+            # 가격 변동(#4) — 실제 이력(다나와 + 우리 DB)이 2개 이상 쌓였을 때만 변동률 계산.
+            # 처음~마지막 시점만 비교하면 중간에 오르내림이 있어도 우연히 같은 값이면 0%로
+            # 보여 "그래프는 변동이 있는데 왜 0%야"라는 오해가 생긴다 — 순변동(net)과 별개로
+            # 이력 중 최저~최고 변동폭(range)도 같이 계산해 실제 변동을 정확히 반영한다.
+            price_change_pct = None
+            price_range_pct = None
+            hist_max_price = None
+            if len(price_history) >= 2:
+                first_avg = price_history[0]["avg_price"]
+                last_avg  = price_history[-1]["avg_price"]
+                price_change_pct = round((last_avg - first_avg) / max(first_avg, 1) * 100, 1)
+                avgs = [r["avg_price"] for r in price_history]
+                lo_avg, hi_avg = min(avgs), max(avgs)
+                hist_max_price = hi_avg
+                price_range_pct = round((hi_avg - lo_avg) / max(lo_avg, 1) * 100, 1)
+
+            danawa_launch_price = (danawa_result or {}).get("launch_price")
+
+            price_block = {
+                "min_price": min_p, "max_price": max_p, "avg_price": avg_p,
+                "hist_avg_price": hist_avg, "hist_min_price": hist_min,
+                "cheapest_mall": cheapest["mall"], "cheapest_link": cheapest["link"],
+                "malls": malls, "price_history": price_history,
+                "signal": signal, "signal_type": signal_type, "vs_hist_pct": vs_pct,
+                "fairness_type": fairness_type, "fairness_label": fairness_label,
+                "price_change_pct": price_change_pct, "price_range_pct": price_range_pct,
+                "hist_max_price": hist_max_price, "history_points": len(price_history),
+                "launch_price": danawa_launch_price,
+            }
+
+    return price_block, product_items, product_image, product_brand
+
+
+
 @router.get("/search-analysis")
 async def get_search_analysis(
     q: str = Query(..., min_length=1),
     hint: str = Query("", description="상품 목록 선택 전, 사용자가 원래 입력한 검색어 — 정확한 상품명에는 카테고리 단어가 없는 경우가 많아 보조 힌트로 사용"),
     force: bool = Query(False, description="true면 캐시를 무시하고 가격·리뷰·AI 리포트를 전부 새로 가져온다 ('업데이트' 버튼용)"),
-    _: dict = Depends(require_b2b),
+    payload: dict = Depends(require_b2b),
 ):
+    result = await _search_analysis(q, hint, force)
+    # 분석 결과는 회원 모두가 같이 쓰는 캐시라 회원별 값(가격 알림 등록 여부)은 복사본에만 붙인다
+    if result.get("unsupported"):
+        return result
+    from app.services.price_alerts import alert_id_for
+    _, product_key = product_key_for(q)
+    try:
+        aid = await alert_id_for(int(payload["sub"]), product_key)
+    except Exception as e:
+        logger.warning("[search-analysis] 알림 조회 실패: %s", e)
+        aid = None
+    return {**result, "alert_id": aid}
+
+
+async def _search_analysis(q: str, hint: str, force: bool):
     from app.database import fetchall, execute as db_exec
 
     today = date.today()
@@ -461,8 +656,7 @@ async def get_search_analysis(
     # 정작 선택한 제품 자신의 모델명(화면 표시 + 가격 이력 추적 키로 사용)은 안 고쳐져 있었다.
     # 이러면 모델명이 화면에 안 뜨고, 같은 제품을 다른 검색어로 다시 조회할 때마다 가격
     # 이력이 서로 다른 키로 쪼개져 안 쌓이는 문제가 있었다.
-    model = extract_model_number(q) or _extract_model_broad(q)
-    product_key = model if model else re.sub(r'\s+', ' ', q.strip())[:100]
+    model, product_key = product_key_for(q)
 
     detected_category = None
     for text in (q, hint):
@@ -497,26 +691,7 @@ async def get_search_analysis(
     search_q_category = detected_category or q
 
     async def _fetch_product_items():
-        try:
-            result = await search_products(query=search_q_product, page=1, display=40, sort="sim")
-            raw = result.get("items", [])
-        except Exception as e:
-            logger.warning("[search-analysis] 제품 가격 조회 실패: %s", e)
-            raw = []
-        return [
-            {
-                "mall":  it.get("mallName", ""),
-                "brand": it.get("brand", ""),
-                "title": it.get("title", ""),
-                "price": it["price"],
-                "link":  it.get("link", ""),
-                "image": it.get("image", ""),
-            }
-            for it in raw
-            if it.get("price", 0) > 0
-            and not any(k in it.get("mallName", "") for k in _RENTAL_KW)
-            and not any(k in it.get("title", "") for k in _RENTAL_KW)
-        ]
+        return await fetch_product_price_items(search_q_product)
 
     async def _fetch_category_items():
         if not detected_category:
@@ -770,144 +945,16 @@ async def get_search_analysis(
         direction = "상승" if sales_slope > 0 else ("하락" if sales_slope < 0 else "보합")
         sales_reason = f"최근 판매(쇼핑 클릭) 추세는 {direction}세입니다."
 
-    # ── 제품 단위 가격 인텔리전스 (#1 기본정보, #4 가격변동, #5 가격적정성의 토대) ──
-    _danawa_hist = (danawa_result or {}).get("history") or []
-    danawa_ref_price = max(_danawa_hist, key=lambda h: h["period"])["price"] if _danawa_hist else None
-    product_items = _clean_product_items(product_items, detected_category, danawa_ref_price)
-    price_block = None
-    product_image = None
-    product_brand = None
-    if product_items:
-        prices = sorted(it["price"] for it in product_items)
-        med = prices[len(prices) // 2]
-        # 예전엔 중앙값의 0.2~5배까지 받아서 부품 · 다른 모델(70만원)이나 묶음 상품(286만원)이 섞였다
-        # → 다나와 최근 가격이 있으면 그 기준 0.6~1.6배 · 없으면 중앙값 기준 0.5~2배만 쓴다
-        ref = danawa_ref_price or med
-        # 0.5배는 휘센 냉난방기의 69.8만원(다나와 137만원의 0.51배)이 통과해 '평균 대비 -50%'가 됐다 → 0.6배
-        lo_k, hi_k = (0.6, 1.6) if danawa_ref_price else (0.5, 2.0)
-        filt = [it for it in product_items if ref * lo_k <= it["price"] <= ref * hi_k]
-        if filt:
-            fp = sorted(it["price"] for it in filt)
-            # 평균가는 튀는 값에 끌려가지 않게 중앙값으로 저장한다
-            min_p, max_p, avg_p = fp[0], fp[-1], fp[len(fp) // 2]
-            mall_map: dict[str, int] = {}
-            for it in filt:
-                m = it["mall"]
-                if m and (m not in mall_map or it["price"] < mall_map[m]):
-                    mall_map[m] = it["price"]
-            malls = sorted([{"mall": m, "price": p} for m, p in mall_map.items()], key=lambda x: x["price"])[:8]
-            cheapest = min(filt, key=lambda x: x["price"])
-            with_image = next((it for it in filt if it.get("image")), None)
-            product_image = with_image["image"] if with_image else None
-            product_brand = next((it["brand"] for it in filt if it.get("brand")), None)
-
-            mall_json = json.dumps(malls, ensure_ascii=False)
-            try:
-                from app.utils.price_guard import is_plausible_price
-                if not await is_plausible_price(product_key, q, min_p, str(today)):
-                    raise ValueError("최근 가격과 너무 달라 저장하지 않음")
-                await db_exec(
-                    """
-                    INSERT INTO product_price_history
-                        (product_key, product_name, model_number, min_price, max_price, avg_price, snapshot_date, snapshot_hour, mall_data)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, 0, %s)
-                    ON CONFLICT (product_key, snapshot_date, snapshot_hour) DO UPDATE SET
-                        min_price = EXCLUDED.min_price,
-                        max_price = EXCLUDED.max_price,
-                        avg_price = EXCLUDED.avg_price,
-                        mall_data = EXCLUDED.mall_data
-                    """,
-                    (product_key, q[:500], model, min_p, max_p, avg_p, today, mall_json),
-                )
-            except Exception as e:
-                logger.warning("[search-analysis] 가격 DB 저장 실패 [%s]: %s", q[:50], e)
-
-            history_rows = await fetchall(
-                "SELECT snapshot_date, min_price, avg_price FROM product_price_history "
-                "WHERE product_key = %s ORDER BY snapshot_date ASC LIMIT 60",
-                (product_key,),
-            )
-            # 다나와 실제 과거 가격 이력(최대 24개월) + 우리 DB에 쌓인 최근 스냅샷을 합쳐 진짜 이력 그래프를 만든다
-            merged_history: dict[str, dict] = {}
-            for h in (danawa_result or {}).get("history", []):
-                merged_history[h["period"]] = {"date": h["period"], "min_price": h["price"], "avg_price": h["price"]}
-            for r in history_rows:
-                d = str(r["snapshot_date"])
-                merged_history[d] = {"date": d, "min_price": r["min_price"], "avg_price": r["avg_price"]}
-            price_history = [merged_history[k] for k in sorted(merged_history.keys())]
-            # 예전에 저장된 튀는 값(묶음 상품 평균 · 다른 모델 최저가)은 그래프와 계산에서 뺀다
-            if len(price_history) >= 4:
-                _avgs = sorted(r["avg_price"] for r in price_history)
-                _mh = _avgs[len(_avgs) // 2]
-                _kept = [r for r in price_history
-                         if _mh * 0.6 <= r["avg_price"] <= _mh * 1.6 and r["min_price"] >= _mh * 0.5]
-                if len(_kept) >= 2:
-                    price_history = _kept
-
-            # "역대 평균가"는 오늘 이전의 진짜 과거 이력만으로 계산해야 한다 — 위에서 오늘
-            # 스냅샷을 이미 DB에 저장한 뒤 이 history_rows를 다시 읽어오기 때문에, 필터링
-            # 안 하면 오늘 가격 자신이 "역대 평균"에 섞여 들어가 "현재가 vs 역대 평균" 비교가
-            # 자기 자신과 비교하는 꼴이 되어 신호가 무뎌진다. (차트에 쓰는 price_history 자체는
-            # 오늘 포인트를 포함해야 하므로 그대로 두고, 기준선 계산에서만 오늘을 뺀다.)
-            prior_history = [r for r in price_history if r["date"] != str(today)]
-            if prior_history:
-                hist_avg = int(sum(r["avg_price"] for r in prior_history) / len(prior_history))
-                hist_min = min(r["min_price"] for r in prior_history)
-            else:
-                hist_avg, hist_min = avg_p, min_p
-            vs_pct = round((min_p - hist_avg) / max(hist_avg, 1) * 100, 1)
-
-            # 가격 신호 + 관심도(수요) 추세를 함께 봐서 최종 결론을 낸다
-            if vs_pct <= -5:
-                signal_type = "buy"
-            elif vs_pct >= 5 and slope <= 0:
-                signal_type = "avoid"
-            elif vs_pct >= 5:
-                signal_type = "wait"
-            elif slope > 1:
-                signal_type = "buy"
-            else:
-                signal_type = "wait"
-            signal = {"buy": "매입 추천", "wait": "관망 권장", "avoid": "매입 추천하지 않음"}[signal_type]
-
-            # 가격 적정성(#5)은 가격만으로 판단 — 수요 추세는 섞지 않는다
-            if vs_pct <= -5:
-                fairness_type = "cheap"
-            elif vs_pct >= 5:
-                fairness_type = "expensive"
-            else:
-                fairness_type = "fair"
-            fairness_label = {"cheap": "저렴한 편", "fair": "적정 가격", "expensive": "비싼 편"}[fairness_type]
-
-            # 가격 변동(#4) — 실제 이력(다나와 + 우리 DB)이 2개 이상 쌓였을 때만 변동률 계산.
-            # 처음~마지막 시점만 비교하면 중간에 오르내림이 있어도 우연히 같은 값이면 0%로
-            # 보여 "그래프는 변동이 있는데 왜 0%야"라는 오해가 생긴다 — 순변동(net)과 별개로
-            # 이력 중 최저~최고 변동폭(range)도 같이 계산해 실제 변동을 정확히 반영한다.
-            price_change_pct = None
-            price_range_pct = None
-            hist_max_price = None
-            if len(price_history) >= 2:
-                first_avg = price_history[0]["avg_price"]
-                last_avg  = price_history[-1]["avg_price"]
-                price_change_pct = round((last_avg - first_avg) / max(first_avg, 1) * 100, 1)
-                avgs = [r["avg_price"] for r in price_history]
-                lo_avg, hi_avg = min(avgs), max(avgs)
-                hist_max_price = hi_avg
-                price_range_pct = round((hi_avg - lo_avg) / max(lo_avg, 1) * 100, 1)
-
-            danawa_launch_price = (danawa_result or {}).get("launch_price")
-
-            price_block = {
-                "min_price": min_p, "max_price": max_p, "avg_price": avg_p,
-                "hist_avg_price": hist_avg, "hist_min_price": hist_min,
-                "cheapest_mall": cheapest["mall"], "cheapest_link": cheapest["link"],
-                "malls": malls, "price_history": price_history,
-                "signal": signal, "signal_type": signal_type, "vs_hist_pct": vs_pct,
-                "fairness_type": fairness_type, "fairness_label": fairness_label,
-                "price_change_pct": price_change_pct, "price_range_pct": price_range_pct,
-                "hist_max_price": hist_max_price, "history_points": len(price_history),
-                "launch_price": danawa_launch_price,
-            }
+    # ── 제품 단위 가격 인텔리전스 (#1 기본정보, #4 가격변동, #5 가격적정성의 토대) ── → build_price_block
+    price_block, product_items, product_image, product_brand = await build_price_block(
+        q, model, product_key, detected_category, product_items, danawa_result, slope, today,
+    )
+    if price_block:
+        try:
+            from app.services.price_alerts import save_signal_state
+            await save_signal_state(product_key, price_block, slope, detected_category, product_image)
+        except Exception as e:
+            logger.warning("[search-analysis] 알림 상태 저장 실패: %s", e)
 
     # ── 카테고리 단위 시장 가격 분포 (제품 가격을 못 구했을 때 폴백) ──────────
     cat_price = None
