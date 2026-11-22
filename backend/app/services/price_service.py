@@ -37,37 +37,61 @@ async def _danawa_search_pcode(query: str) -> str | None:
         return None
 
 
+def parse_danawa_meta(html: str) -> dict:
+    """다나와 제품 페이지 HTML에서 출시가 · 등록월(출시일 근사치) · 제조사를 읽는다.
+    2026-11 다나와 개편 뒤 페이지가 React로 바뀌어 '등록월<!-- -->: <!-- -->2024.10.'처럼
+    값 사이에 빈 주석이 끼고 페이지 안 JSON에도 같은 값이 들어 있다 → 주석을 지우고 두 형태를 다 본다."""
+    meta = {"launch_price": None, "release_date": None, "maker": None, "lowest_price": None}
+    html = re.sub(r'<!--.*?-->', '', html or '', flags=re.S)
+    for pattern in [
+        r'출시가[^\d<(]{0,20}([\d,]+)원',
+        r'권장소비자가[^\d<(]{0,20}([\d,]+)원',
+        r'"msrp"\s*:\s*(\d+)',
+        r'"originalPrice"\s*:\s*(\d+)',
+    ]:
+        m = re.search(pattern, html)
+        if m:
+            price = int(m.group(1).replace(',', ''))
+            if price > 10000:
+                meta["launch_price"] = price
+                break
+    # 등록월 — 다나와가 신제품을 카탈로그에 등록한 시점으로 대다수 가전의 실제 출시 시점과 가깝다
+    for pattern in [
+        r'등록월[^\d<]{0,10}(\d{4})\.(\d{1,2})',
+        r'등록년월[^\d]{0,20}(\d{4})년\s*(\d{1,2})월',
+        r'\\?"dateLabel\\?"\s*:\s*\\?"등록월\\?"\s*,\s*\\?"displayDate\\?"\s*:\s*\\?"(\d{4})\.(\d{1,2})',
+    ]:
+        m = re.search(pattern, html)
+        if m:
+            meta["release_date"] = f"{m.group(1)}-{int(m.group(2)):02d}"
+            break
+    for pattern in [r'\\?"makerName\\?"\s*:\s*\\?"([^"\\]{1,30})', r'제조사:\s*(?:<[^>]+>\s*)*([가-힣A-Za-z]{2,20})']:
+        m = re.search(pattern, html)
+        if m:
+            meta["maker"] = m.group(1).strip()
+            break
+    # 다나와가 상품 페이지 맨 위에 보여주는 대표 최저가. 주간 최저가 이력에는 지역 한정 · 카드 할인 같은
+    # 조건부 특가가 잡혔다 빠졌다 해서 (예: 114만원 모델이 65만 · 76만 · 120만을 오감) 기준가로는 이게 낫다
+    m = re.search(r'\\?"lowestPrice\\?"\s*:\s*\\?"?([\d,]+)', html)
+    if m:
+        lp = int(m.group(1).replace(',', ''))
+        if lp > 10000:
+            meta["lowest_price"] = lp
+    return meta
+
+
 async def _danawa_fetch_product_meta(pcode: str) -> dict:
-    """Danawa 제품 페이지에서 출시가(권장소비자가)와 등록월(출시일 근사치)을 스크래핑."""
+    """Danawa 제품 페이지에서 출시가(권장소비자가) · 등록월 · 제조사를 스크래핑."""
     url = f"https://prod.danawa.com/info/?pcode={pcode}"
-    meta = {"launch_price": None, "release_date": None}
     try:
         async with httpx.AsyncClient(timeout=6.0) as client:
             resp = await client.get(url, headers={
                 "User-Agent": _DANAWA_HEADERS["User-Agent"],
                 "Accept-Language": _DANAWA_HEADERS["Accept-Language"],
             })
-        html = resp.text
-        for pattern in [
-            r'출시가[^\d<(]{0,20}([\d,]+)원',
-            r'권장소비자가[^\d<(]{0,20}([\d,]+)원',
-            r'"msrp"\s*:\s*(\d+)',
-            r'"originalPrice"\s*:\s*(\d+)',
-        ]:
-            m = re.search(pattern, html)
-            if m:
-                price = int(m.group(1).replace(',', ''))
-                if price > 10000:
-                    meta["launch_price"] = price
-                    break
-        # 등록월 — 다나와가 신제품을 카탈로그에 등록한 시점으로, 대다수 가전제품의
-        # 실제 출시 시점과 근접해 '출시일' 근사치로 신뢰할 만하다.
-        m = re.search(r'등록월[^\d<]{0,10}(\d{4})\.(\d{2})', html)
-        if m:
-            meta["release_date"] = f"{m.group(1)}-{m.group(2)}"
+        return parse_danawa_meta(resp.text)
     except Exception:
-        pass
-    return meta
+        return {"launch_price": None, "release_date": None, "maker": None, "lowest_price": None}
 
 
 async def get_danawa_price_history(query: str, product_name: str) -> dict:
@@ -89,7 +113,16 @@ async def get_danawa_price_history(query: str, product_name: str) -> dict:
     # query에서 첫 단어(브랜드) 제외한 나머지 — "삼성 비스포크 냉장고" → "비스포크 냉장고"
     _query_body = " ".join(query.split()[1:]) if len(query.split()) > 1 else query
 
+    # 정확한 모델명이 있으면 그 모델명으로 찾은 상품만 쓴다.
+    # 예전에는 후보 검색어마다 찾은 상품 중 '이력 점이 가장 많은 상품'을 골라서, 30자로 잘린 상품명
+    # ("…김치플러스 RQ33DG71J")이 다른 상품을 잡아 114만원짜리 모델에 65만원 이력이 붙었다
+    _query_is_model = bool(re.fullmatch(r'[A-Z]{1,5}[A-Z0-9\-]{4,16}', query.strip())) and any(c.isdigit() for c in query)
+    exact_model = query.strip() if _query_is_model else _model_kw
+    if exact_model and not any(c.isdigit() for c in exact_model):   # 'BESPOKE' 같은 영문 단어는 모델명이 아니다
+        exact_model = None
+
     candidate_queries = list(dict.fromkeys(filter(None, [
+        exact_model,
         product_name[:30],
         product_name,
         query,
@@ -110,6 +143,8 @@ async def get_danawa_price_history(query: str, product_name: str) -> dict:
     async with httpx.AsyncClient(timeout=10.0) as client:
         seen_pcodes: set[str] = set()
         for _q in candidate_queries:
+            if exact_model and best_pcode:   # 모델명으로 찾은 상품에 이력이 있으면 다른 후보는 보지 않는다
+                break
             pcode = await _danawa_search_pcode(_q)
             if not pcode or pcode in seen_pcodes:
                 continue
@@ -178,7 +213,8 @@ async def get_danawa_price_history(query: str, product_name: str) -> dict:
                     launch_price = max(prices)
                     break
 
-    return {"history": history, "launch_price": launch_price, "release_date": meta["release_date"]}
+    return {"history": history, "launch_price": launch_price, "release_date": meta["release_date"],
+            "maker": meta.get("maker"), "lowest_price": meta.get("lowest_price"), "pcode": pcode}
 
 
 async def _init_tables():

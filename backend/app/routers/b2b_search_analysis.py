@@ -446,6 +446,27 @@ async def _classify_reviews_sentiment(items: list[dict]) -> list[str] | None:
         return None
 
 
+# 상품명 앞쪽에 흔히 나오는 가전 브랜드 (긴 이름 먼저 · 표기는 화면에 보여줄 이름)
+_BRAND_NAMES = [
+    ("삼성전자", "삼성전자"), ("삼성", "삼성전자"), ("SAMSUNG", "삼성전자"),
+    ("LG전자", "LG전자"), ("엘지", "LG전자"), ("LG", "LG전자"),
+    ("위니아", "위니아"), ("딤채", "위니아"), ("쿠쿠", "쿠쿠"), ("쿠첸", "쿠첸"),
+    ("캐리어", "캐리어"), ("대우", "대우"), ("위닉스", "위닉스"), ("신일", "신일"),
+    ("다이슨", "다이슨"), ("로보락", "로보락"), ("에코백스", "에코백스"), ("드리미", "드리미"),
+    ("필립스", "필립스"), ("발뮤다", "발뮤다"), ("코웨이", "코웨이"), ("SK매직", "SK매직"),
+    ("하이얼", "하이얼"), ("일렉트로룩스", "일렉트로룩스"), ("밀레", "밀레"), ("보쉬", "보쉬"),
+]
+
+
+def brand_from_title(title: str) -> str | None:
+    """상품명에서 브랜드를 찾는다 (쇼핑 결과에 브랜드 값이 없을 때 대신 쓴다)."""
+    head = (title or "")[:30].upper()
+    for kw, name in _BRAND_NAMES:
+        if kw.upper() in head:
+            return name
+    return None
+
+
 def product_key_for(q: str) -> tuple[str | None, str]:
     """가격 이력 · 가격 알림이 같이 쓰는 제품 키 (모델명, 없으면 공백 정리한 제품명 100자)."""
     model = extract_model_number(q) or _extract_model_broad(q)
@@ -485,7 +506,9 @@ async def build_price_block(q: str, model: str | None, product_key: str, detecte
     from app.database import fetchall, execute as db_exec
     # ── 제품 단위 가격 인텔리전스 (#1 기본정보, #4 가격변동, #5 가격적정성의 토대) ──
     _danawa_hist = (danawa_result or {}).get("history") or []
-    danawa_ref_price = max(_danawa_hist, key=lambda h: h["period"])["price"] if _danawa_hist else None
+    # 기준가: 다나와 상품 페이지의 대표 최저가 → 없으면 주간 최저가 이력의 마지막 값
+    danawa_lowest = (danawa_result or {}).get("lowest_price")
+    danawa_ref_price = danawa_lowest or (max(_danawa_hist, key=lambda h: h["period"])["price"] if _danawa_hist else None)
     product_items = _clean_product_items(product_items, detected_category, danawa_ref_price)
     price_block = None
     product_image = None
@@ -512,7 +535,12 @@ async def build_price_block(q: str, model: str | None, product_key: str, detecte
             cheapest = min(filt, key=lambda x: x["price"])
             with_image = next((it for it in filt if it.get("image")), None)
             product_image = with_image["image"] if with_image else None
-            product_brand = next((it["brand"] for it in filt if it.get("brand")), None)
+            # 가격 범위로 걸러진 상품에 브랜드가 비어 있는 경우가 많다 (다나와 연동 상품)
+            # → 같은 모델의 다른 상품 · 상품명 순으로 채운다
+            product_brand = (next((it["brand"] for it in filt if it.get("brand")), None)
+                             or (danawa_result or {}).get("maker")
+                             or next((it["brand"] for it in product_items if it.get("brand")), None)
+                             or brand_from_title(q))
 
             mall_json = json.dumps(malls, ensure_ascii=False)
             try:
@@ -562,6 +590,11 @@ async def build_price_block(q: str, model: str | None, product_key: str, detecte
             # 안 하면 오늘 가격 자신이 "역대 평균"에 섞여 들어가 "현재가 vs 역대 평균" 비교가
             # 자기 자신과 비교하는 꼴이 되어 신호가 무뎌진다. (차트에 쓰는 price_history 자체는
             # 오늘 포인트를 포함해야 하므로 그대로 두고, 기준선 계산에서만 오늘을 뺀다.)
+            # 다나와 주간 최저가 이력에서 조건부 특가처럼 튀는 점을 뺀다 (대표 최저가의 0.7~1.5배만)
+            if danawa_lowest:
+                _band = [r for r in price_history if danawa_lowest * 0.7 <= r["min_price"] <= danawa_lowest * 1.5]
+                if len(_band) >= 2:
+                    price_history = _band
             prior_history = [r for r in price_history if r["date"] != str(today)]
             if prior_history:
                 hist_avg = int(sum(r["avg_price"] for r in prior_history) / len(prior_history))
@@ -895,6 +928,16 @@ async def _search_analysis(q: str, hint: str, force: bool):
             logger.warning("[search-analysis] 예측 실패(%s): %s", forecast_model, e)
     if not prophet_forecast and trend_data:
         prophet_forecast, _ = _linear_forecast(trend_data)
+    # 예측과 범위는 4년치로 학습해서 범위 상단이 과거 최고치 기준으로 부풀었다 (화면 최대 100인데 범위 542)
+    # → 화면에 보이는 실제 값의 최댓값 1.3배까지만
+    if prophet_forecast and trend_data:
+        _cap = round(max(max(d["ratio"] for d in trend_data), 1.0) * 1.3, 1)
+        prophet_forecast = [
+            {**r, "ratio": min(r["ratio"], _cap),
+             **({"upper": min(r["upper"], _cap)} if r.get("upper") is not None else {}),
+             **({"lower": min(r["lower"], _cap)} if r.get("lower") is not None else {})}
+            for r in prophet_forecast
+        ]
 
     # 검색량 추이 한줄 평가 — 등락 원인을 추측(=지어내기)하지 않고, 실제 최근 변동폭과
     # 예측 방향/크기만 사실 그대로 서술한다.
@@ -907,11 +950,18 @@ async def _search_analysis(q: str, hint: str, force: bool):
             base = trend_data[-1]["ratio"]
             fc_end = prophet_forecast[-1]["ratio"]
             fc_pct = round((fc_end - base) / max(base, 1) * 100, 1) + 0.0   # -0.0 → 0.0 ('+-0.0%' 방지)
-            direction = "상승" if fc_pct > 0 else ("하락" if fc_pct < 0 else "보합")
-            interest_reason = (
-                f"최근 관심도는 최저 {lo_v}~최고 {hi_v} 사이에서 등락(차이 {swing})했고, "
-                f"향후 {len(prophet_forecast)}주간 {direction}세로 {'+' if fc_pct >= 0 else ''}{fc_pct}% 변화할 것으로 예측됩니다."
-            )
+            # 예측값은 소수 첫째 자리로 반올림돼서 41.66666 → 41.7처럼 '상승 +0.1%'가 생겼다 → ±1% 안은 보합
+            if abs(fc_pct) < 1:
+                interest_reason = (
+                    f"최근 관심도는 최저 {lo_v}~최고 {hi_v} 사이에서 등락(차이 {swing})했고, "
+                    f"향후 {len(prophet_forecast)}주간 큰 변화 없이 보합으로 예측됩니다."
+                )
+            else:
+                direction = "상승" if fc_pct > 0 else "하락"
+                interest_reason = (
+                    f"최근 관심도는 최저 {lo_v}~최고 {hi_v} 사이에서 등락(차이 {swing})했고, "
+                    f"향후 {len(prophet_forecast)}주간 {direction}세로 {'+' if fc_pct >= 0 else ''}{fc_pct}% 변화할 것으로 예측됩니다."
+                )
         else:
             interest_reason = f"최근 관심도는 최저 {lo_v}~최고 {hi_v} 사이에서 등락(차이 {swing})했습니다."
 
@@ -1081,6 +1131,8 @@ async def _search_analysis(q: str, hint: str, force: bool):
     if prophet_forecast and trend_data:
         base = trend_data[-1]["ratio"]
         forecast_change_pct = round((prophet_forecast[-1]["ratio"] - base) / max(base, 1) * 100, 1)
+        if abs(forecast_change_pct) < 1:   # 반올림 차이는 변화로 보지 않는다 (AI가 '상승'이라고 쓰지 않게)
+            forecast_change_pct = 0.0
 
     ai_result: dict = {}
     try:
@@ -1129,7 +1181,6 @@ async def _search_analysis(q: str, hint: str, force: bool):
             '"launch_price":"검색 결과에 명시된 출시 당시 가격(정수, 원 단위) 또는 확인 안되면 null",'
             '"report_summary":"제품의 시장 상황을 종합한 3~4문장 리포트",'
             f'"conclusion_reason":"왜 \'{verdict_label or "관망 권장"}\' 결론인지 가격·수요 근거로 든 1~2문장",'
-            '"price_change_reason":"가격 변동 이력이 있다면 그 증감 이유 추정 1문장, 없으면 null",'
             '"price_fairness_reason":"가격 적정성 판단 이유 1~2문장",'
             '"selected_pros":["선택한 제품의 장점 2~3개. 가격/가격 적정성은 시스템이 별도로 채우니 "'
             '"절대 언급하지 말고 리뷰·기능·디자인 등 가격 이외의 내용만 쓰세요. 리뷰 스니펫 문장을 그대로 "'
@@ -1245,7 +1296,8 @@ async def _search_analysis(q: str, hint: str, force: bool):
             "avoid": f"가격이 역대 평균가 대비 {price_block['vs_hist_pct']}% 비싼데 관심도까지 하락 추세라 매입을 권하지 않습니다.",
         }[price_block["signal_type"]] if price_block else "가격 데이터가 부족해 판단하기 어렵습니다."
     )
-    price_change_reason = _clean_ai_text(ai_result.get("price_change_reason")) or (
+    # 가격 변동 이유는 AI에게 묻지 않는다 — 근거 없이 '프로모션과 재고 조정으로 하락한 것으로 추정' 같은 문장을 지어냈다
+    price_change_reason = (
         (
             f"최근 이력 동안 최저 {price_block['hist_min_price']:,}원~최고 {price_block['hist_max_price']:,}원 "
             f"사이를 오가며 최대 {price_block['price_range_pct']}% 변동했고, 이력 기간 순변동은 {price_block['price_change_pct']}%입니다."
@@ -1281,11 +1333,11 @@ async def _search_analysis(q: str, hint: str, force: bool):
         demand_reason = (
             f"최저 {price_block['hist_min_price']:,}원~최고 {price_block['hist_max_price']:,}원 사이에서 "
             f"등락(변동폭 {price_block['price_range_pct']}%)했고, "
-            + (
-                "가격이 계속 낮아지는 추세라 매수 심리에 유리한 국면입니다." if _p_dir == "하락"
-                else "가격이 오르는 추세라 매입을 서두르는 편이 유리할 수 있습니다." if _p_dir == "상승"
-                else "가격이 안정적인 편입니다."
-            )
+            # 처음 · 끝 두 값만 비교한 순변동으로 '계속 낮아지는 추세라 매수에 유리'라고 단정했다가
+            # 오르내린 이력(120만 → 90만 → 120만 → 114만)이나 '매입 추천하지 않음' 결론과 어긋났다
+            # → 해석 없이 지금 가격이 역대 평균과 어떤지만 말한다 (매입 판단은 결론 칸이 한다)
+            + f"지금 가격은 역대 평균가보다 {abs(price_block['vs_hist_pct'])}% "
+            + ("낮습니다." if price_block["vs_hist_pct"] < 0 else "높습니다." if price_block["vs_hist_pct"] > 0 else "같습니다.")
         )
 
     selected_pros = _drop_raw_echo_items(_drop_fairness_leak(_clean_list(ai_result.get("selected_pros"))), pos_reviews + neg_reviews)
