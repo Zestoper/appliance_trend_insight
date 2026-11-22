@@ -125,7 +125,7 @@ export default function Privacy() {
         <h2>9. 만 14세 미만 아동</h2>
         <p>서비스는 만 14세 미만 아동의 회원가입을 받지 않습니다.</p>
 
-        <h2>10. 개인정보 보호책임자 및 담당자</h2>
+        <h2>10. 개인정보 보호책임자{privacyManager ? ' 및 담당자' : ''}</h2>
         <ul>
           <li>책임자: {privacyOfficer}</li>
           {privacyManager && <li>담당자: {privacyManager}</li>}
