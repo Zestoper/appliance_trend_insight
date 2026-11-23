@@ -59,14 +59,19 @@ async def delete_token(user_id: int, token: str) -> int:
     return await execute("DELETE FROM push_tokens WHERE token = %s AND user_id = %s", (token, user_id))
 
 
-def _send(tokens: list[str], title: str, body: str, data: dict) -> list[str]:
-    """실제 발송 (동기). 더 이상 쓸 수 없는 토큰 목록을 돌려준다."""
+def _send(tokens: list[str], title: str, body: str, data: dict, channel_id: str | None = None) -> list[str]:
+    """실제 발송 (동기). 더 이상 쓸 수 없는 토큰 목록을 돌려준다.
+    channel_id: 앱이 꺼져 있을 때 안드로이드가 알림을 띄울 채널 (없으면 앱 기본 채널 'account' = 회원 안내).
+    앱 채널: price_alert(가격 알림) · account(회원 안내) — 사용자가 휴대폰 설정에서 채널별로 끌 수 있다."""
     from firebase_admin import messaging
     msg = messaging.MulticastMessage(
         tokens=tokens,
         notification=messaging.Notification(title=title, body=body),
         data={k: str(v) for k, v in data.items()},
-        android=messaging.AndroidConfig(priority="high"),
+        android=messaging.AndroidConfig(
+            priority="high",
+            notification=messaging.AndroidNotification(channel_id=channel_id) if channel_id else None,
+        ),
     )
     res = messaging.send_each_for_multicast(msg, app=_app)
     dead = []
@@ -78,7 +83,8 @@ def _send(tokens: list[str], title: str, body: str, data: dict) -> list[str]:
     return dead
 
 
-async def send_to_user(user_id: int, title: str, body: str, data: dict | None = None) -> int:
+async def send_to_user(user_id: int, title: str, body: str, data: dict | None = None,
+                       channel_id: str | None = None) -> int:
     """회원의 모든 기기로 보낸다. 보낸 기기 수를 돌려준다 (키 없거나 토큰 없으면 0)."""
     if _firebase() is None:
         return 0
@@ -87,7 +93,7 @@ async def send_to_user(user_id: int, title: str, body: str, data: dict | None = 
     tokens = [r["token"] for r in rows]
     if not tokens:
         return 0
-    dead = await asyncio.to_thread(_send, tokens, title, body, data or {})
+    dead = await asyncio.to_thread(_send, tokens, title, body, data or {}, channel_id)
     for tok in dead:
         await execute("DELETE FROM push_tokens WHERE token = %s", (tok,))
     return len(tokens) - len(dead)

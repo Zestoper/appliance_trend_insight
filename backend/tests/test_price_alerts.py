@@ -215,3 +215,18 @@ def test_no_price_still_marks_checked(monkeypatch):
     assert run(pa.refresh_product_state("LG전자 스탠바이미2 Max 32LX6BPGA")) is None
     # 가격을 못 찾아도 확인 시각은 남긴다 (이미 가격이 있으면 덮지 않음)
     assert any("INSERT INTO product_signal_state" in sql and "min_price IS NULL" in sql for sql, _ in fake.updates)
+
+
+def test_price_alert_push_data_has_product_fields():
+    """앱이 알림을 누르면 제품 화면을 바로 열 수 있게 제품 정보를 문자열로 담는다"""
+    from app.services.price_alerts import price_alert_push_data
+    row = {"alert_id": 12, "product_name": "LG전자 스탠바이미2 Max 32LX6BPGA",
+           "product_url": "https://prod.danawa.com/info/?pcode=1", "image": None, "category": None}
+    data = price_alert_push_data(row, "target", 1278780, "https://img/x.jpg")
+    assert data == {
+        "type": "price_alert", "alert_id": "12", "reason": "target",
+        "product_name": "LG전자 스탠바이미2 Max 32LX6BPGA",
+        "product_url": "https://prod.danawa.com/info/?pcode=1",
+        "image": "https://img/x.jpg", "price": "1278780", "category": "",
+    }
+    assert all(isinstance(v, str) for v in data.values())

@@ -288,6 +288,21 @@ async def refresh_product_state(name: str, category: str | None = None) -> dict 
 
 # ── 매일 확인 · 푸시 ────────────────────────────────────────────────────────
 
+def price_alert_push_data(row: dict, reason: str, price: int, image: str | None = None) -> dict:
+    """가격 알림 푸시 data. 앱은 알림을 누르면 이 값으로 제품 화면을 바로 연다
+    (product_name · product_url · image · price · category). 모두 문자열 (FCM data 규칙)."""
+    return {
+        "type": "price_alert",
+        "alert_id": str(row["alert_id"]),
+        "reason": reason,
+        "product_name": (row.get("product_name") or "")[:300],
+        "product_url": row.get("product_url") or "",
+        "image": row.get("image") or image or "",
+        "price": str(int(price)),
+        "category": row.get("category") or "",
+    }
+
+
 def _won(n) -> str:
     return f"{int(n):,}원"
 
@@ -407,7 +422,8 @@ async def check_price_alerts():
                     if push:
                         reason, title, body = push
                         await send_to_user(row["user_id"], title, body,
-                                           {"type": "price_alert", "alert_id": str(row["alert_id"]), "reason": reason})
+                                           price_alert_push_data(row, reason, block["min_price"], image),
+                                           channel_id="price_alert")
                         sent += 1
             except Exception as e:
                 print(f"[alerts] {name[:24]} 확인 실패: {type(e).__name__}: {e}")

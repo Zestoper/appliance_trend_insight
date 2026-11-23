@@ -90,3 +90,19 @@ def test_admin_sends_push(monkeypatch, action, status):
     else:
         run(admin.admin_reject_user(7, adm))
     assert sent == [(7, status)]
+
+
+def test_channel_id_sets_android_notification(monkeypatch):
+    """가격 알림은 앱의 '가격 알림' 채널로 (앱이 꺼져 있을 때도 설정에서 따로 끌 수 있게)"""
+    from firebase_admin import messaging
+    monkeypatch.setattr(push, "_app", object())
+    seen = []
+
+    def fake_send(msg, app=None):
+        seen.append(msg)
+        return SimpleNamespace(responses=[SimpleNamespace(success=True, exception=None)])
+    monkeypatch.setattr(messaging, "send_each_for_multicast", fake_send)
+    push._send(["t"], "제목", "내용", {"type": "price_alert"}, "price_alert")
+    push._send(["t"], "제목", "내용", {"type": "b2b_status"})
+    assert seen[0].android.notification.channel_id == "price_alert"
+    assert seen[1].android.notification is None
