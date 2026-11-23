@@ -207,8 +207,51 @@ async def create_alert(user_id: int, product_name: str, target_price, current_pr
         (user_id, name[:500], target_price, current_price or 0, product_url or "", alert_type or "below",
          product_key, model, category, image or state.get("image"), state.get("signal_type")),
     )
+    if not state.get("min_price"):
+        # 처음 보는 제품은 다음 날 새벽 확인 전까지 '지금 가격'이 비어 있었다 (앱: "확인하지 못했어요")
+        # → 등록 직후 뒤에서 한 번 확인해 둔다 (푸시는 보내지 않음 · 몇 초 뒤 목록을 다시 열면 보인다)
+        _spawn(refresh_product_state(name, category))
     items = [a for a in await list_alerts(user_id) if a["alert_id"] == alert_id]
     return items[0] if items else {"alert_id": alert_id}
+
+
+_bg_tasks: set = set()
+
+
+def _spawn(coro):
+    try:
+        t = asyncio.get_running_loop().create_task(coro)
+    except RuntimeError:
+        coro.close()
+        return
+    _bg_tasks.add(t)
+    t.add_done_callback(_bg_tasks.discard)
+
+
+async def refresh_product_state(name: str, category: str | None = None) -> dict | None:
+    """제품 하나의 지금 가격을 확인해 product_signal_state에 저장한다 (매일 확인과 같은 계산)."""
+    from app.routers.b2b_search_analysis import product_key_for, fetch_product_price_items, build_price_block
+    from app.services.price_service import get_danawa_price_history
+    from app.services.danawa_search import background_fetch
+    model, key = product_key_for(name)
+    token = background_fetch.set(True)
+    try:
+        items = await fetch_product_price_items(model or name)
+        try:
+            danawa = await get_danawa_price_history(model or name, name, only_real_launch=True)
+        except Exception:
+            danawa = {"history": [], "launch_price": None}
+        block, _, image, _ = await build_price_block(name, model, key, category, items, danawa, 0.0, date.today())
+        if block:
+            await save_signal_state(key, block, 0.0, category, image, product_name=name)
+        else:
+            print(f"[alerts] 등록 직후 확인: {name[:24]} 가격 못 찾음")
+        return block
+    except Exception as e:
+        print(f"[alerts] 등록 직후 확인 실패 {name[:24]}: {type(e).__name__}: {e}")
+        return None
+    finally:
+        background_fetch.reset(token)
 
 
 # ── 매일 확인 · 푸시 ────────────────────────────────────────────────────────

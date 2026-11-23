@@ -170,3 +170,16 @@ def test_target_and_signal_same_day_one_push(monkeypatch):
     push = run(pa._evaluate(row(user_type="b2b", target_price=1000000, last_signal_type="wait"),
                             block(900000, "buy", -8.0), NOW))
     assert push[0] == "target"
+
+
+def test_new_product_checked_right_after_register(monkeypatch):
+    FakeDB("b2c").install(monkeypatch)
+
+    async def no_state(keys):
+        return {}
+    called = []
+    monkeypatch.setattr(pa, "_states", no_state)
+    monkeypatch.setattr(pa, "_spawn", lambda coro: (called.append(1), coro.close()))
+    run(pa.create_alert(7, "LG전자 스탠바이미2 Max 32LX6BPGA", 979000, 1278780, "", "below"))
+    # 처음 보는 제품이면 등록 직후 지금 가격을 한 번 확인한다 (다음 날 새벽까지 '확인하지 못했어요' 방지)
+    assert called == [1]
