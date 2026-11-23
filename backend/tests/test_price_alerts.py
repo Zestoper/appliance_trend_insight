@@ -180,6 +180,38 @@ def test_new_product_checked_right_after_register(monkeypatch):
     called = []
     monkeypatch.setattr(pa, "_states", no_state)
     monkeypatch.setattr(pa, "_spawn", lambda coro: (called.append(1), coro.close()))
+    pa._last_refresh.clear()
     run(pa.create_alert(7, "LG전자 스탠바이미2 Max 32LX6BPGA", 979000, 1278780, "", "below"))
     # 처음 보는 제품이면 등록 직후 지금 가격을 한 번 확인한다 (다음 날 새벽까지 '확인하지 못했어요' 방지)
+    # (가짜 DB 목록의 다른 제품도 상태가 없어서 한 번 더 확인이 걸린다)
+    assert "32LX6BPGA" in pa._last_refresh and len(called) >= 1
+
+
+def test_refresh_dedup_10min(monkeypatch):
+    called = []
+    monkeypatch.setattr(pa, "_spawn", lambda coro: (called.append(1), coro.close()))
+    pa._last_refresh.clear()
+    pa._refresh_soon("32LX6BPGA", "LG전자 스탠바이미2 Max 32LX6BPGA", None)
+    pa._refresh_soon("32LX6BPGA", "LG전자 스탠바이미2 Max 32LX6BPGA", None)
     assert called == [1]
+
+
+def test_no_price_still_marks_checked(monkeypatch):
+    fake = FakeDB().install(monkeypatch)
+    import app.routers.b2b_search_analysis as bsa
+    import app.services.price_service as ps
+
+    async def items(q):
+        return []
+
+    async def danawa(*a, **k):
+        return {"history": []}
+
+    async def no_block(*a, **k):
+        return None, [], None, None
+    monkeypatch.setattr(bsa, "fetch_product_price_items", items)
+    monkeypatch.setattr(bsa, "build_price_block", no_block)
+    monkeypatch.setattr(ps, "get_danawa_price_history", danawa)
+    assert run(pa.refresh_product_state("LG전자 스탠바이미2 Max 32LX6BPGA")) is None
+    # 가격을 못 찾아도 확인 시각은 남긴다 (이미 가격이 있으면 덮지 않음)
+    assert any("INSERT INTO product_signal_state" in sql and "min_price IS NULL" in sql for sql, _ in fake.updates)

@@ -86,6 +86,19 @@ async def save_signal_state(product_key: str, block: dict, slope: float | None,
     )
 
 
+async def mark_checked_no_price(product_key: str, product_name: str | None, category: str | None):
+    """가격을 못 찾았어도 '확인했다'는 시각은 남긴다 → 앱이 '확인 중'과 '확인하지 못했어요'를 구분한다.
+    이미 가격이 있는 제품은 그 가격 · 시각을 그대로 둔다 (못 찾은 날 때문에 마지막 실제 가격을 지우지 않음)."""
+    from app.database import execute
+    await execute(
+        "INSERT INTO product_signal_state (product_key, category, product_name, updated_at) "
+        "VALUES (%s, %s, %s, NOW()) "
+        "ON CONFLICT (product_key) DO UPDATE SET updated_at = CASE WHEN product_signal_state.min_price IS NULL "
+        "THEN NOW() ELSE product_signal_state.updated_at END",
+        (product_key, category, (product_name or None) and product_name[:300]),
+    )
+
+
 async def _states(keys: list) -> dict:
     from app.database import fetchall
     keys = sorted({k for k in keys if k})
@@ -145,6 +158,9 @@ async def list_alerts(user_id: int) -> list:
         for k in ("last_signal_type", "last_notified_price", "signal_notified_at"):   # 서버 내부 기록
             item.pop(k, None)
         st = states.get(r.get("product_key") or "")
+        if not st and r.get("product_key"):
+            # 예전에 등록돼 아직 한 번도 확인 안 된 알림 → 뒤에서 한 번 확인 (같은 제품은 10분에 한 번)
+            _refresh_soon(r["product_key"], r["product_name"], r.get("category"))
         item["min_price"] = st["min_price"] if st else None                 # 지금 최저가 (마지막 확인 기준)
         item["last_updated"] = st["updated_at"].isoformat() if st and st.get("updated_at") else None
         if not item.get("image") and st:
@@ -210,12 +226,23 @@ async def create_alert(user_id: int, product_name: str, target_price, current_pr
     if not state.get("min_price"):
         # 처음 보는 제품은 다음 날 새벽 확인 전까지 '지금 가격'이 비어 있었다 (앱: "확인하지 못했어요")
         # → 등록 직후 뒤에서 한 번 확인해 둔다 (푸시는 보내지 않음 · 몇 초 뒤 목록을 다시 열면 보인다)
-        _spawn(refresh_product_state(name, category))
+        _refresh_soon(product_key, name, category)
     items = [a for a in await list_alerts(user_id) if a["alert_id"] == alert_id]
     return items[0] if items else {"alert_id": alert_id}
 
 
 _bg_tasks: set = set()
+_last_refresh: dict = {}          # product_key → 마지막으로 뒤에서 확인을 시작한 시각 (monotonic)
+REFRESH_GAP_SEC = 600
+
+
+def _refresh_soon(product_key: str, name: str, category: str | None):
+    import time
+    now = time.monotonic()
+    if now - _last_refresh.get(product_key, -1e9) < REFRESH_GAP_SEC:
+        return
+    _last_refresh[product_key] = now
+    _spawn(refresh_product_state(name, category))
 
 
 def _spawn(coro):
@@ -245,10 +272,15 @@ async def refresh_product_state(name: str, category: str | None = None) -> dict 
         if block:
             await save_signal_state(key, block, 0.0, category, image, product_name=name)
         else:
-            print(f"[alerts] 등록 직후 확인: {name[:24]} 가격 못 찾음")
+            print(f"[alerts] 바로 확인: {name[:24]} 가격 못 찾음")
+            await mark_checked_no_price(key, name, category)
         return block
     except Exception as e:
-        print(f"[alerts] 등록 직후 확인 실패 {name[:24]}: {type(e).__name__}: {e}")
+        print(f"[alerts] 바로 확인 실패 {name[:24]}: {type(e).__name__}: {e}")
+        try:
+            await mark_checked_no_price(key, name, category)
+        except Exception:
+            pass
         return None
     finally:
         background_fetch.reset(token)
@@ -364,6 +396,7 @@ async def check_price_alerts():
                                                              slope, date.today())
                 if not block:
                     print(f"[alerts] {name[:24]} 가격 못 찾음 → 건너뜀")
+                    await mark_checked_no_price(key, name, category)
                     continue
                 await save_signal_state(key, block, slope, category, image)
                 now = datetime.now(timezone.utc)
@@ -378,6 +411,10 @@ async def check_price_alerts():
                         sent += 1
             except Exception as e:
                 print(f"[alerts] {name[:24]} 확인 실패: {type(e).__name__}: {e}")
+                try:
+                    await mark_checked_no_price(key, name, category)
+                except Exception:
+                    pass
             trim()
             await asyncio.sleep(1.2)
     finally:
