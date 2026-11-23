@@ -183,7 +183,7 @@ async def export_report(
 
 @router.get("/price-monitor")
 async def get_price_monitor(_: dict = Depends(require_b2b)):
-    """전체 카테고리 가격 변동 모니터링 — 매입 알림 생성"""
+    """전체 카테고리 가격 변동 모니터링 (실제 변동률만 · 매입 추천 · 관망 같은 판단은 넣지 않는다)"""
     import json as _json
     from app.database import fetchall
 
@@ -339,14 +339,10 @@ async def get_price_monitor(_: dict = Depends(require_b2b)):
             signal, signal_type = "실시간 조회", "realtime"
         elif week_chg is None:
             signal, signal_type = "데이터 부족", "neutral"
-        elif week_chg <= -5:
-            signal, signal_type = "매입 적기",  "buy"
         elif week_chg <= -2:
-            signal, signal_type = "하락 추세",  "watch"
-        elif week_chg >= 5:
-            signal, signal_type = "가격 상승",  "wait"
+            signal, signal_type = "하락",  "down"
         elif week_chg >= 2:
-            signal, signal_type = "상승 추세",  "caution"
+            signal, signal_type = "상승",  "up"
         else:
             signal, signal_type = "보합",       "neutral"
 
@@ -354,9 +350,8 @@ async def get_price_monitor(_: dict = Depends(require_b2b)):
 
     results.sort(key=lambda x: (x.get("week_change_pct") or 0))
 
-    buy_signals = [r["category"] for r in results if r["signal_type"] == "buy"]
-    drop_count  = sum(1 for r in results if r["signal_type"] in ("buy", "watch"))
-    rise_count  = sum(1 for r in results if r["signal_type"] in ("wait", "caution"))
+    drop_count  = sum(1 for r in results if r["signal_type"] == "down")
+    rise_count  = sum(1 for r in results if r["signal_type"] == "up")
     has_realtime = any(r.get("realtime") for r in results)
 
     return {
@@ -364,7 +359,8 @@ async def get_price_monitor(_: dict = Depends(require_b2b)):
             "total":        len(results),
             "drop_count":   drop_count,
             "rise_count":   rise_count,
-            "buy_signals":  buy_signals,
+            # 예전 앱이 읽는 키라 남겨 두고 항상 비운다 ("매입 적기" 판단은 하지 않는다)
+            "buy_signals":  [],
             "has_realtime": has_realtime,
         },
         "categories":  results,

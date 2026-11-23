@@ -1,4 +1,7 @@
-"""가격 알림 (개인: 목표가 · 사업자: 매입 신호).
+"""가격 알림 (개인 · 사업자 모두 목표가 알림 · 사업자는 등급별 개수).
+
+2026-11-23: B2B는 실제 데이터만 보여주기로 해서 매입 신호(매입 추천 · 관망) 푸시와 목록 표시를 껐다.
+신호 계산과 기록은 그대로 둬서 나중에 기준을 다시 세우면 SIGNAL_PUSH만 켜면 된다.
 
 - 등록 · 목록 · 삭제는 /api/user/alerts (routers/user.py)
 - 매일 한 번 서버가 알림 걸린 제품 가격을 다시 확인하고 조건이 맞으면 FCM 푸시를 보낸다
@@ -19,6 +22,7 @@ PERSONAL_LIMIT = 20          # 개인 회원 (등급 없음)
 MAX_DAILY_PRODUCTS = 200     # 매일 확인하는 제품 수 상한 (Render 512MB · tracked_products 150개와 별도)
 RECENT_ANALYZED_DAYS = 14     # B2B 분석에서 최근 이 기간 안에 열린 모델도 매일 가격을 모은다
 MAX_ANALYZED_PRODUCTS = 80    # 그중 최대 (알림 걸린 제품이 먼저)
+SIGNAL_PUSH = False          # 매입 신호 푸시 · 목록 표시 (실제 데이터만 보여주기로 해서 끔)
 SIGNAL_COOLDOWN_DAYS = 7     # 매입 적기 푸시는 같은 알림에 7일에 한 번만
 HISTORY_POINTS = 60          # 목록 그래프 점 개수
 
@@ -146,8 +150,9 @@ async def list_alerts(user_id: int) -> list:
         if not item.get("image") and st:
             item["image"] = st.get("image")
         if business:
-            item["signal_type"] = st["signal_type"] if st else None
-            item["signal"] = SIGNAL_LABELS.get(st["signal_type"]) if st else None
+            if SIGNAL_PUSH:
+                item["signal_type"] = st["signal_type"] if st else None
+                item["signal"] = SIGNAL_LABELS.get(st["signal_type"]) if st else None
             item["vs_hist_pct"] = st["vs_hist_pct"] if st else None
             item["hist_avg_price"] = st["hist_avg_price"] if st else None
             item["history"] = _history(st["history"]) if st else []
@@ -166,7 +171,8 @@ async def create_alert(user_id: int, product_name: str, target_price, current_pr
     business = await is_business(user_id)
     if target_price is not None and target_price <= 0:
         target_price = None
-    if not business and target_price is None:
+    # 매입 신호 알림을 꺼서 목표가 없는 알림은 아무것도 보내지 않는다 → 사업자도 목표가 필수
+    if target_price is None:
         raise HTTPException(status_code=400, detail="목표 가격을 입력해 주세요")
 
     model, product_key = product_key_for(name)
@@ -234,7 +240,7 @@ async def _evaluate(row: dict, block: dict, now: datetime):
 
     # 매입 신호 (승인된 사업자만): 다른 상태 → buy 로 바뀐 순간 · 같은 알림은 7일에 한 번
     prev = row.get("last_signal_type")
-    if business and sig == "buy" and prev is not None and prev != "buy":
+    if SIGNAL_PUSH and business and sig == "buy" and prev is not None and prev != "buy":
         sent = row.get("signal_notified_at")
         if sent is not None and sent.tzinfo is None:
             sent = sent.replace(tzinfo=timezone.utc)
