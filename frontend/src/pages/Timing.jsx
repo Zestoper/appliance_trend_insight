@@ -536,7 +536,9 @@ export default function Timing() {
     (async () => {
       try {
         const data = await fetch(
+          // 목록에서 본 가격도 보낸다 → 서버가 렌탈 · 다른 모델을 현재가로 고르지 않게 (0.5~2배 안에서만)
           `${API_BASE}/api/timing?category=${encodeURIComponent(title)}&product_id=${encodeURIComponent(urlPid)}`
+            + (cached?.price ? `&price=${cached.price}` : '')
         ).then(r => r.json())
         if (cancelled) return
         if (!data.analysis) setError(data.error ?? '분석 실패')

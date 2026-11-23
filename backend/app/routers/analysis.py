@@ -52,8 +52,35 @@ def _parse_json(content: str | None) -> dict | list:
     return _json.loads(text[start:end])
 
 
+# 렌탈 · 약정 상품: "60개월약정 월53700원"처럼 '렌탈' 단어 없이 월 요금만 적힌 상품이 현재가로 잡혔다
+# (스탠바이미2 Max 127만원 → 53,700원) → 약정 · 의무사용 · 월 요금 표기를 빼낸다
+_RENTAL_RE = re.compile(r'약정|의무\s*사용|월\s*[\d,]+\s*원|월\s*\d+\s*만\s*원')
+
+
+def _is_rental(title: str) -> bool:
+    return bool(_RENTAL_RE.search(title or ""))
+
+
+def _pick_tracked(valid: list[dict], product_id: str | None, price: int, existing_keys: set) -> dict:
+    """구매 타이밍에서 추적할 상품을 고른다.
+    1) 앱이 보낸 제품 번호와 같은 상품
+    2) 앱이 보낸 가격(목록에서 본 가격)이 있으면 그 0.5~2배 안의 상품 중 가격이 가장 가까운 것
+       (예전엔 못 찾으면 이력 있는 아무 상품을 골라 렌탈 · 다른 모델 가격이 현재가가 됐다)
+    3) 가격이 없으면 예전처럼 이력 있는 상품 → 첫 상품"""
+    if product_id:
+        same = next((it for it in valid if str(it["id"]) == str(product_id)), None)
+        if same and (not price or price * 0.5 <= same["price"] <= price * 2):
+            return same
+    if price:
+        near = [it for it in valid if price * 0.5 <= it["price"] <= price * 2]
+        if near:
+            return min(near, key=lambda it: abs(it["price"] - price))
+    return next((it for it in valid if str(it["id"]) in existing_keys), valid[0])
+
+
 @router.get("/api/timing")
-async def get_timing(category: str = Query(..., min_length=1), product_id: str = Query(None)):
+async def get_timing(category: str = Query(..., min_length=1), product_id: str = Query(None),
+                     price: int = Query(0, ge=0)):
     from app.database import fetchall
     from app.services.price_service import upsert_price
 
@@ -119,6 +146,7 @@ async def get_timing(category: str = Query(..., min_length=1), product_id: str =
             it for it in items
             if it["price"] > 0
             and not any(kw in it["title"] for kw in _EXCLUDE_KW)
+            and not _is_rental(it["title"])
             and not is_accessory(it["title"], it["price"])     # 거름망 · 물걸레포 등 목록에 없는 소모품까지
         ]
 
@@ -155,12 +183,7 @@ async def get_timing(category: str = Query(..., min_length=1), product_id: str =
             )
             existing_keys = {r["product_key"] for r in existing_rows}
 
-        if product_id:
-            top = next((it for it in valid if str(it["id"]) == product_id), None)
-            if not top:
-                top = next((it for it in valid if str(it["id"]) in existing_keys), valid[0])
-        else:
-            top = next((it for it in valid if str(it["id"]) in existing_keys), valid[0])
+        top = _pick_tracked(valid, product_id, price, existing_keys)
         product_key  = str(top["id"]) if top["id"] else category.strip().lower()
         product_name = top["title"]
         cur_price    = top["price"]
