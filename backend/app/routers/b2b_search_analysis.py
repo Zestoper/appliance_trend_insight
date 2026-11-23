@@ -529,6 +529,49 @@ def brand_from_title(title: str) -> str | None:
     return None
 
 
+async def _category_via_danawa(query: str, model: str | None):
+    """다나와에서 이 상품을 찾아 다나와가 정한 카테고리로 품목을 정한다 (상품명에 품목 이름이 없을 때)."""
+    from app.services.danawa_search import danawa_search_products
+    from app.utils.danawa_category import category_from_danawa
+    try:
+        res = await asyncio.wait_for(danawa_search_products(query=query, page=1, display=10, sort="sim"), timeout=10)
+    except Exception as e:
+        logger.warning("[search-analysis] 다나와 카테고리 확인 실패 [%s]: %s", query[:40], e)
+        return None
+    items = res.get("items", [])
+    if model:
+        # 모델명이 있으면 같은 모델 상품의 카테고리만 믿는다
+        # (블루스카이 AX060CG500G 검색에 같은 모델이 없어서 다른 상품의 '로봇청소기'를 가져왔다)
+        m = model.upper()
+        items = [it for it in items if m in (it.get("title") or "").upper().replace(" ", "").replace("-", "")]
+    # 묶음 상품("로봇청소기 + 공기청정기 AX060CG500GBD")은 앞 상품의 카테고리라 품목 판단에 쓰지 않는다
+    items = [it for it in items if "+" not in (it.get("title") or "")]
+    for it in items[:5]:
+        cat = category_from_danawa(it)
+        if cat:
+            return cat
+    return None
+
+
+async def detect_category(q: str, hint: str = "", model: str | None = None):
+    """품목 정하기 — 정확한 순서대로:
+    1) 상품명 · 사용자가 고른 품목에 품목 이름이 그대로 있으면 그걸 쓴다 (냉장고 · 세탁기 …)
+    2) 없으면 다나와에서 그 상품을 찾아 다나와 카테고리로 정한다 (디오스 · 그랑데 · 퓨리케어처럼 애매한 라인도 정확)
+    3) 다나와가 실패하면 브랜드 라인 이름 목록 (제트봇 · 올레드 · 블루스카이 …)
+    4) 그래도 없으면 None → 화면에서 품목을 골라 달라고 한다"""
+    from app.config import category_from_line_name
+    for text in (q, hint):
+        if not text:
+            continue
+        for kw, cat in _CATEGORY_MAP.items():
+            if kw in text:
+                return cat
+    cat = await _category_via_danawa(model or q, model)
+    if cat:
+        return cat
+    return category_from_line_name(q)
+
+
 def product_key_for(q: str) -> tuple[str | None, str]:
     """가격 이력 · 가격 알림이 같이 쓰는 제품 키 (모델명, 없으면 공백 정리한 제품명 100자)."""
     model = extract_model_number(q) or _extract_model_broad(q)
@@ -801,16 +844,7 @@ async def _search_analysis(q: str, hint: str, force: bool):
     # 이력이 서로 다른 키로 쪼개져 안 쌓이는 문제가 있었다.
     model, product_key = product_key_for(q)
 
-    detected_category = None
-    for text in (q, hint):
-        if not text:
-            continue
-        for kw, cat in _CATEGORY_MAP.items():
-            if kw in text:
-                detected_category = cat
-                break
-        if detected_category:
-            break
+    detected_category = await detect_category(q, hint, model)
 
     # 이 도구는 가전제품(냉장고·세탁기·에어컨 등) 전용으로 설계돼 있다 — 스마트폰처럼
     # _CATEGORY_MAP에 없는 카테고리는 가격 이상치 필터(통신사 약정가 vs 무약정가 구분 불가),

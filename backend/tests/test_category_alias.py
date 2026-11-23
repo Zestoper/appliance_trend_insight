@@ -211,3 +211,75 @@ def test_clothing_care_aliases():
     # 헤어 제품은 헤어스타일러로 (의류관리기로 잘못 가지 않게)
     assert _detect("다이슨 에어랩 멀티 헤어스타일러") == "헤어스타일러"
     assert _detect("필립스 고데기 BHS378") == "헤어스타일러"
+
+
+# ── 품목 정하기 순서: 품목 이름 → 다나와 카테고리 → 라인 이름 ──
+import asyncio
+import app.routers.b2b_search_analysis as bsa
+from app.utils.danawa_category import category_from_danawa
+from app.config import category_from_line_name
+
+
+def _item(cats, title="x"):
+    return {"title": title, "categories": cats}
+
+
+def test_danawa_category_mapping():
+    assert category_from_danawa(_item(["생활가전", "청소기", "로봇청소기"])) == "로봇청소기"
+    assert category_from_danawa(_item(["생활가전", "청소기", "무선청소기"])) == "청소기"
+    assert category_from_danawa(_item(["주방가전", "전기레인지", "인덕션"])) == "전기레인지"
+    assert category_from_danawa(_item(["주방가전", "전자레인지"])) == "전자레인지"
+    assert category_from_danawa(_item(["생활가전", "냉장고", "김치냉장고"])) == "냉장고"
+    assert category_from_danawa(_item(["생활가전", "세탁기/건조기", "의류관리기"])) == "의류관리기"
+    assert category_from_danawa(_item(["생활가전", "청소기", "청소용품"])) is None        # 소모품
+    assert category_from_danawa(_item(["휴대폰", "스마트폰", "자급제폰"])) is None         # 가전 아님
+
+
+def test_line_names():
+    assert category_from_line_name("삼성 비스포크 제트봇 AI VR7MD97716G") == "로봇청소기"
+    assert category_from_line_name("LG 코드제로 A9S 오브제컬렉션 AO9571") == "청소기"
+    assert category_from_line_name("LG 올레드 evo OLED65C4KNA") == "TV"
+    assert category_from_line_name("삼성 블루스카이 5500 AX060CG500G") == "공기청정기"
+    assert category_from_line_name("아이폰 16 프로") is None
+
+
+def _patch_danawa(monkeypatch, items, calls):
+    import app.services.danawa_search as ds
+
+    async def fake(query, page=1, display=15, sort="sim", category=None):
+        calls.append(query)
+        return {"items": items}
+    monkeypatch.setattr(ds, "danawa_search_products", fake)
+
+
+def test_detect_order(monkeypatch):
+    calls = []
+    # 1) 품목 이름이 있으면 다나와를 부르지 않는다
+    _patch_danawa(monkeypatch, [], calls)
+    assert asyncio.run(bsa.detect_category("LG 디오스 식기세척기 DUBJ4EF", "", "DUBJ4EF")) == "식기세척기"
+    assert calls == []
+    # 2) 애매한 라인(디오스)은 다나와 카테고리가 라인 이름 목록보다 먼저
+    _patch_danawa(monkeypatch, [_item(["주방가전", "전기레인지", "인덕션"], "LG 디오스 BEI3GQUO")], calls)
+    assert asyncio.run(bsa.detect_category("LG 디오스 BEI3GQUO", "", "BEI3GQUO")) == "전기레인지"
+    # 3) 다나와가 못 찾으면 라인 이름
+    _patch_danawa(monkeypatch, [], calls)
+    assert asyncio.run(bsa.detect_category("삼성 비스포크 제트봇 AI VR7MD97716G", "", "VR7MD97716G")) == "로봇청소기"
+    # 4) 사용자가 고른 품목(hint)이 있으면 그걸 쓴다
+    assert asyncio.run(bsa.detect_category("LG 디오스 오브제컬렉션 노크온 S834BW12", "냉장고", None)) == "냉장고"
+    # 가전이 아니면 None (화면에서 품목을 고르게)
+    _patch_danawa(monkeypatch, [_item(["휴대폰", "스마트폰"], "아이폰")], calls)
+    assert asyncio.run(bsa.detect_category("아이폰 16 프로", "", None)) is None
+
+
+def test_danawa_only_trusts_same_model(monkeypatch):
+    calls = []
+    # 같은 모델이 없는 검색 결과의 카테고리는 쓰지 않고 라인 이름으로 넘어간다
+    _patch_danawa(monkeypatch, [_item(["생활가전", "청소기", "로봇청소기"], "삼성 비스포크 제트봇 VR7MD")], calls)
+    assert asyncio.run(bsa.detect_category("삼성 블루스카이 5500 AX060CG500G", "", "AX060CG500G")) == "공기청정기"
+
+
+def test_danawa_skips_bundle(monkeypatch):
+    calls = []
+    bundle = _item(["생활가전", "청소기", "로봇청소기"], "삼성전자 비스포크 AI 스팀 VR7MD97716 + 공기청정기 AX060CG500GBD")
+    _patch_danawa(monkeypatch, [bundle], calls)
+    assert asyncio.run(bsa.detect_category("삼성 블루스카이 5500 AX060CG500G", "", "AX060CG500G")) == "공기청정기"
