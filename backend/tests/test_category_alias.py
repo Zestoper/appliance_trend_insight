@@ -198,3 +198,16 @@ def test_similar_and_position_source():
     src = inspect.getsource(sa._search_analysis)
     assert '"price_position": price_position' in src and '"similar_products": similar_products' in src
     assert "사용후기 단점" not in src
+
+
+def _detect(q):
+    from app.config import _CATEGORY_MAP
+    return next((c for kw, c in _CATEGORY_MAP.items() if kw in q), None)
+
+
+def test_clothing_care_aliases():
+    assert _detect("LG전자 오브제컬렉션 뉴 스타일러 SC5MBR5ES") == "의류관리기"
+    assert _detect("삼성 비스포크 에어드레서 DF10A9500CG") == "의류관리기"
+    # 헤어 제품은 헤어스타일러로 (의류관리기로 잘못 가지 않게)
+    assert _detect("다이슨 에어랩 멀티 헤어스타일러") == "헤어스타일러"
+    assert _detect("필립스 고데기 BHS378") == "헤어스타일러"
