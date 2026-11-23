@@ -176,6 +176,34 @@ def _drop_accessories(result: dict, query: str, category: str | None) -> dict:
     }
 
 
+_CATEGORY_CACHE: dict = {}          # 상품명 → (만료 시각, 품목)
+_CATEGORY_CACHE_MAX = 2000
+_CATEGORY_TTL = 7 * 24 * 3600
+
+
+@router.get("/api/category")
+async def get_category(name: str = Query(..., min_length=1, max_length=200)):
+    """상품명 → 품목 (로그인 없이). 앱 제품 비교에서 '같은 품목' 목록을 열 때 쓴다.
+    순서: 품목 이름 → 다나와 카테고리(같은 모델 · 묶음 상품 제외) → 라인 이름. 못 찾으면 {"category": null}.
+    돌려주는 품목 이름은 /api/naver/products 의 category 값으로 그대로 쓸 수 있다."""
+    import time
+    from app.routers.b2b_search_analysis import detect_category, product_key_for
+    key = " ".join(name.split())
+    hit = _CATEGORY_CACHE.get(key)
+    if hit and hit[0] > time.time():
+        return {"name": key, "category": hit[1]}
+    model, _ = product_key_for(key)
+    try:
+        cat = await asyncio.wait_for(detect_category(key, "", model), timeout=12)
+    except Exception:
+        cat = None   # 다나와가 느리거나 실패해도 앱은 브랜드 검색으로 넘어가면 된다 (실패는 저장하지 않음)
+    else:
+        if len(_CATEGORY_CACHE) >= _CATEGORY_CACHE_MAX:
+            _CATEGORY_CACHE.pop(next(iter(_CATEGORY_CACHE)))
+        _CATEGORY_CACHE[key] = (time.time() + _CATEGORY_TTL, cat)
+    return {"name": key, "category": cat}
+
+
 @router.get("/api/best-price")
 async def get_best_price(query: str = Query(..., min_length=1), category: str = Query(None), ref_price: int = Query(0, ge=0)):
     """다나와(항상 시도)와 네이버(점검모드가 풀렸을 때만 시도)를 비교해 더 싼 쪽의
