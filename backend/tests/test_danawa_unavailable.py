@@ -144,3 +144,30 @@ def test_load_fallback_같은_검색어가_없으면_품목_결과에서_찾음(
     monkeypatch.setattr(db, "fetchall", fetchall)
     items, saved_at = asyncio.run(store.load_fallback("삼성 비스포크 냉장고"))
     assert [it["id"] for it in items] == ["1"] and saved_at == 1795700000.0
+
+
+def test_가격_이력은_품목_단어를_빼고_찾고_사진_주소를_만듦(monkeypatch):
+    import datetime as dt
+    import app.database as db
+    import app.services.search_store as store
+    seen = {}
+
+    async def fetchall(sql, args=None):
+        seen["patterns"] = args[0]
+        return [
+            {"product_key": "17434922", "product_name": "삼성전자 비스포크 RF85C90D1AP",
+             "min_price": 2400000, "snapshot_date": dt.date(2026, 11, 25)},
+            {"product_key": "냉장고", "product_name": "냉장고", "min_price": 300000, "snapshot_date": dt.date(2026, 11, 25)},
+        ]
+
+    monkeypatch.setattr(db, "fetchall", fetchall)
+    items, saved_at = asyncio.run(store._from_price_history(["삼성", "비스포크", "냉장고"]))
+    assert seen["patterns"] == ["%삼성%", "%비스포크%"]          # "냉장고"는 상품명에 없어서 뺀다
+    assert [it["id"] for it in items] == ["17434922"]             # 품목 평균 줄은 제외
+    assert items[0]["image"].endswith("/922/434/img/17434922_1.jpg")
+    assert items[0]["link"] == "https://prod.danawa.com/info/?pcode=17434922"
+
+
+def test_품목만_검색하면_가격_이력은_안_씀():
+    import app.services.search_store as store
+    assert asyncio.run(store._from_price_history(["냉장고"])) is None
