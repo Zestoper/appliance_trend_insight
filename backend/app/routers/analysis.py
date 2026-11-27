@@ -423,7 +423,19 @@ async def _trend_refresh(key: str, category: str | None) -> dict | None:
         hit = _trend_cache.get(key)
         if hit and datetime.now().timestamp() - hit[0] < _TREND_TTL and _trend_complete(key, hit[1]):
             return hit[1]
-        result = await _build_trend(category)
+        from app.services.danawa_search import used_stored
+        marks = []
+        token = used_stored.set(marks)
+        try:
+            result = await _build_trend(category)
+        finally:
+            used_stored.reset(token)
+        if marks:
+            # 다나와가 안 돼서 저장된 결과로 만든 트렌드 — 다시 저장하면 저장 시각만 새것이 되므로 저장하지 않는다
+            logger.warning("[trend] %s: 다나와 대신 저장된 결과로 만들어져 저장 안 함 (%d개 검색)", key, len(marks))
+            if hit and hit[1].get("items"):
+                return hit[1]
+            return result if result.get("items") else None
         if _trend_complete(key, result):
             ts = datetime.now().timestamp()
             _trend_cache[key] = (ts, result)

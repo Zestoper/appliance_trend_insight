@@ -5,18 +5,22 @@
   1. 같은 검색어로 저장해 둔 결과
   2. 검색어에 들어 있는 단어(예: "냉장고")로 저장해 둔 결과 중 나머지 단어(예: "삼성 비스포크")가 상품명 · 브랜드에 있는 것
   3. 트렌드 TOP 결과(trend_cache) 중 같은 조건에 맞는 것
-  4. 가격 이력(product_price_history)에서 상품명이 맞는 제품 — 모델명 · 브랜드 같은 구체적인 검색일 때만
-     (가격 이력에는 품목이 저장돼 있지 않아서 "냉장고"처럼 품목만 검색하면 가려낼 수 없다)
+  4. 품목 검색이면 가격 이력(product_price_history) 중 상품명 속 모델명이 에너지공단(KEMCO) 그 품목 모델 목록에 있는 제품
+     (가격 이력에는 품목이 없어서 KEMCO 모델 목록으로 품목을 확인한다 · 3번 트렌드 결과와 합쳐서 보여 준다)
+  5. 품목 단어 없이 모델명 · 브랜드만 검색했으면 가격 이력에서 상품명이 맞는 제품 (사진은 없다)
 - 메모리 캐시와 달리 배포 · 재시작해도 남아서 "다나와가 터져도 우리는 안 터지게" 하는 용도다.
 """
 import asyncio
 import json
 import logging
+import re
 import time
 
 logger = logging.getLogger(__name__)
 
 _table_ready = False
+# KEMCO 모델 목록이 있는 품목 (public_data._KEMCO_CAT_PATH_MAP 과 같다)
+_KEMCO_CATEGORIES = {"에어컨", "냉장고", "TV", "선풍기", "공기청정기", "제습기", "세탁기"}
 _save_tasks: set[asyncio.Task] = set()   # 저장 작업이 중간에 사라지지 않게 잡아 둔다
 
 
@@ -84,21 +88,16 @@ def _category_words() -> set[str]:
     return words
 
 
-def _danawa_image(pcode: str) -> str:
-    """다나와 상품번호로 대표 사진 주소를 만든다 (예: 17434922 → .../922/434/img/17434922_1.jpg)."""
-    if not pcode.isdigit() or len(pcode) < 6:
-        return ""
-    return f"https://img.danawa.com/prod_img/500000/{pcode[-3:]}/{pcode[-6:-3]}/img/{pcode}_1.jpg"
-
-
 async def _from_price_history(words: list[str]) -> tuple[list[dict], float] | None:
     """가격 이력에서 상품명에 검색 단어(품목 단어 제외)가 모두 들어 있는 제품의 가장 최근 가격."""
-    from datetime import datetime, timezone, timedelta
     from app.database import fetchall
     cat_words = _category_words()
-    name_words = [w for w in words if w not in cat_words]
-    if not name_words:
-        return None   # 품목만 검색 → 가격 이력으로는 그 품목 제품을 가려낼 수 없다
+    # 가격 이력에는 품목이 없어서 "삼성 비스포크 냉장고"로 찾으면 비스포크 에어컨 · 청소기까지 섞인다.
+    # 품목 단어가 들어간 검색은 쓰지 않고, 품목 없이 브랜드 · 모델명만 검색했을 때만 쓴다
+    # (그때는 여러 품목이 섞여 나오는 게 원래 검색 의도와 같다).
+    if not words or any(w in cat_words for w in words):
+        return None
+    name_words = words
     rows = await fetchall(
         "SELECT DISTINCT ON (product_key) product_key, product_name, min_price, snapshot_date "
         "FROM product_price_history "
@@ -111,24 +110,73 @@ async def _from_price_history(words: list[str]) -> tuple[list[dict], float] | No
         return None
     rows.sort(key=lambda r: r["snapshot_date"], reverse=True)
     rows = rows[:40]
-    items = []
+    items = [_price_item(str(r["product_key"]), r["product_name"], r["min_price"]) for r in rows]
+    return items, _kst_ts(min(r["snapshot_date"] for r in rows))
+
+
+_MODEL_RE = re.compile(r"[A-Z]{1,5}\d{1,4}[A-Z0-9]{2,12}")
+
+
+def _price_item(key: str, name: str, price: int) -> dict:
+    is_pcode = key.isdigit()
+    return {
+        "id":          key if is_pcode else "",
+        "title":       name,
+        "brand":       name.split()[0] if name.split() else "",
+        "price":       int(price),
+        "image":       "",   # 다나와 사진 주소가 img.danuri.io/…/해시값.jpg 라서 상품번호로 만들 수 없다
+        "link":        f"https://prod.danawa.com/info/?pcode={key}" if is_pcode else "",
+        "mallName":    "다나와 최저가비교",
+        "reviewCount": 0,
+        "reviewScore": 0.0,
+    }
+
+
+def _kst_ts(d) -> float:
+    from datetime import datetime, timezone, timedelta
+    return datetime(d.year, d.month, d.day, tzinfo=timezone(timedelta(hours=9))).timestamp()
+
+
+async def _kemco_models(category: str) -> set[str]:
+    """에너지공단에 등록된 그 품목 모델명 (대문자). 냉장고 · 에어컨 · TV · 세탁기 · 공기청정기 · 제습기 · 선풍기만 있다."""
+    from app.services.public_data import KEMCO_CACHE_PREFIX
+    from app.services.naver_cache import get_db_cache_stale
+    cached = await get_db_cache_stale(f"{KEMCO_CACHE_PREFIX}{category}")   # 오래됐어도 모델 목록은 쓸 만하다
+    return {m.upper() for m in ((cached or {}).get("map") or {})}
+
+
+async def _from_price_history_by_kemco(words: list[str]) -> tuple[list[dict], float] | None:
+    """품목 단어가 있는 검색: 가격 이력 상품명 속 모델명이 KEMCO 그 품목 목록에 있으면 그 품목 제품으로 본다.
+    나머지 단어(브랜드 등)는 상품명에 모두 있어야 한다."""
+    from datetime import date, timedelta
+    from app.database import fetchall
+    category = next((w for w in words if w in _KEMCO_CATEGORIES), None)
+    if not category:
+        return None
+    models = await _kemco_models(category)
+    if not models:
+        return None
+    rest = [w for w in words if w != category and w not in _category_words()]
+    rows = await fetchall(
+        "SELECT DISTINCT ON (product_key) product_key, product_name, min_price, snapshot_date "
+        "FROM product_price_history WHERE min_price > 0 AND snapshot_date >= %s "
+        "ORDER BY product_key, snapshot_date DESC, snapshot_hour DESC",
+        ((date.today() - timedelta(days=60)).isoformat(),),
+    )
+    picked = []
     for r in rows:
-        key, name = str(r["product_key"]), r["product_name"]
-        is_pcode = key.isdigit()
-        items.append({
-            "id":          key if is_pcode else "",
-            "title":       name,
-            "brand":       name.split()[0] if name.split() else "",
-            "price":       int(r["min_price"]),
-            "image":       _danawa_image(key),
-            "link":        f"https://prod.danawa.com/info/?pcode={key}" if is_pcode else "",
-            "mallName":    "다나와 최저가비교",
-            "reviewCount": 0,
-            "reviewScore": 0.0,
-        })
-    kst = timezone(timedelta(hours=9))
-    oldest = min(r["snapshot_date"] for r in rows)
-    return items, datetime(oldest.year, oldest.month, oldest.day, tzinfo=kst).timestamp()
+        name = r.get("product_name") or ""
+        key = str(r["product_key"])
+        cands = {c for c in _MODEL_RE.findall(name.upper()) if len(c) >= 6}
+        if key.upper() in models or cands & models:
+            if _matches({"title": name}, rest):
+                picked.append(r)
+    if not picked:
+        return None
+    picked.sort(key=lambda r: r["snapshot_date"], reverse=True)
+    picked = picked[:40]
+    items = [_price_item(str(r["product_key"]), r["product_name"], r["min_price"]) for r in picked]
+    return items, _kst_ts(min(r["snapshot_date"] for r in picked))
 
 
 async def load_fallback(query: str) -> tuple[list[dict], float] | None:
@@ -181,11 +229,22 @@ async def load_fallback(query: str) -> tuple[list[dict], float] | None:
                         found.append(it)
                         oldest = min(oldest or r["updated_at"], r["updated_at"])
 
+        # 4. 품목 검색이면 KEMCO로 품목을 확인한 가격 이력 제품을 트렌드 결과 뒤에 붙인다
+        try:
+            by_kemco = await _from_price_history_by_kemco(words)
+        except Exception as e:
+            logger.warning("[search-store] KEMCO 가격 이력 읽기 실패 [%s]: %s", query, e)
+            by_kemco = None
+        if by_kemco:
+            seen_titles = {it.get("title") for it in found}
+            found += [it for it in by_kemco[0] if it["title"] not in seen_titles]
+            oldest = min(oldest or by_kemco[1], by_kemco[1])
+
         found = _dedupe(found)
         if found:
             return found, float(oldest)
 
-        # 4. 가격 이력 (모델명 · 브랜드 검색일 때만)
+        # 5. 가격 이력 (모델명 · 브랜드 검색일 때만)
         return await _from_price_history(words)
     except Exception as e:
         logger.warning("[search-store] 예비 결과 읽기 실패 [%s]: %s", query, e)

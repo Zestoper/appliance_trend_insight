@@ -146,7 +146,7 @@ def test_load_fallback_같은_검색어가_없으면_품목_결과에서_찾음(
     assert [it["id"] for it in items] == ["1"] and saved_at == 1795700000.0
 
 
-def test_가격_이력은_품목_단어를_빼고_찾고_사진_주소를_만듦(monkeypatch):
+def test_가격_이력은_브랜드_모델명_검색에서_찾고_품목_평균_줄은_뺌(monkeypatch):
     import datetime as dt
     import app.database as db
     import app.services.search_store as store
@@ -161,13 +161,74 @@ def test_가격_이력은_품목_단어를_빼고_찾고_사진_주소를_만듦
         ]
 
     monkeypatch.setattr(db, "fetchall", fetchall)
-    items, saved_at = asyncio.run(store._from_price_history(["삼성", "비스포크", "냉장고"]))
-    assert seen["patterns"] == ["%삼성%", "%비스포크%"]          # "냉장고"는 상품명에 없어서 뺀다
+    items, saved_at = asyncio.run(store._from_price_history(["삼성", "비스포크"]))
+    assert seen["patterns"] == ["%삼성%", "%비스포크%"]
     assert [it["id"] for it in items] == ["17434922"]             # 품목 평균 줄은 제외
-    assert items[0]["image"].endswith("/922/434/img/17434922_1.jpg")
     assert items[0]["link"] == "https://prod.danawa.com/info/?pcode=17434922"
+
+
+def test_품목_단어가_들어간_검색은_가격_이력을_안_씀():
+    import app.services.search_store as store
+    # 품목이 저장돼 있지 않아 비스포크 에어컨 · 청소기가 섞이므로
+    assert asyncio.run(store._from_price_history(["삼성", "비스포크", "냉장고"])) is None
 
 
 def test_품목만_검색하면_가격_이력은_안_씀():
     import app.services.search_store as store
     assert asyncio.run(store._from_price_history(["냉장고"])) is None
+
+
+def test_저장된_결과로_대신_답하면_표시가_남음(monkeypatch):
+    import app.services.search_store as store
+
+    async def down(query):
+        raise d.DanawaUnavailable("점검")
+
+    async def stored(query):
+        return list(STORED), 1795700000.0
+
+    monkeypatch.setattr(d, "_fetch_raw_items", down)
+    monkeypatch.setattr(store, "load_fallback", stored)
+
+    async def run():
+        marks = []
+        token = d.used_stored.set(marks)
+        try:
+            # 트렌드처럼 gather로 나눠 불러도 같은 리스트에 남는다
+            await asyncio.gather(d.danawa_search_products(query="냉장고"), d.danawa_search_products(query="세탁기"))
+        finally:
+            d.used_stored.reset(token)
+        return marks
+
+    assert sorted(asyncio.run(run())) == ["냉장고", "세탁기"]
+
+
+def test_품목_검색은_KEMCO_모델_목록으로_품목을_확인한_가격_이력만(monkeypatch):
+    import datetime as dt
+    import app.database as db
+    import app.services.search_store as store
+
+    async def models(category):
+        assert category == "냉장고"
+        return {"RF85C90D1AP", "M874GBB031"}
+
+    async def fetchall(sql, args=None):
+        return [
+            {"product_key": "1", "product_name": "삼성전자 비스포크 RF85C90D1AP", "min_price": 2400000, "snapshot_date": dt.date(2026, 11, 25)},
+            {"product_key": "2", "product_name": "삼성전자 비스포크 AI 무풍콤보 AF90H17D27SS", "min_price": 2800000, "snapshot_date": dt.date(2026, 11, 25)},
+            {"product_key": "M874GBB031", "product_name": "LG전자 디오스 오브제컬렉션 M874GBB031", "min_price": 3000000, "snapshot_date": dt.date(2026, 11, 20)},
+        ]
+
+    monkeypatch.setattr(store, "_kemco_models", models)
+    monkeypatch.setattr(db, "fetchall", fetchall)
+
+    items, _ = asyncio.run(store._from_price_history_by_kemco(["냉장고"]))
+    assert sorted(it["title"] for it in items) == ["LG전자 디오스 오브제컬렉션 M874GBB031", "삼성전자 비스포크 RF85C90D1AP"]  # 에어컨 제외
+
+    items, _ = asyncio.run(store._from_price_history_by_kemco(["삼성", "비스포크", "냉장고"]))
+    assert [it["title"] for it in items] == ["삼성전자 비스포크 RF85C90D1AP"]
+
+
+def test_KEMCO_목록이_없는_품목이면_안_씀():
+    import app.services.search_store as store
+    assert asyncio.run(store._from_price_history_by_kemco(["로봇청소기"])) is None

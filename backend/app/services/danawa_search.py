@@ -33,6 +33,10 @@ _FETCH_SEM = asyncio.Semaphore(2)
 # 같은 줄에 서면 트렌드가 다나와 검색 10개를 먼저 잡아서 사용자 검색이 30초 넘게 밀렸다.
 _BG_FETCH_SEM = asyncio.Semaphore(1)
 background_fetch: contextvars.ContextVar[bool] = contextvars.ContextVar("danawa_background_fetch", default=False)
+# 저장된 결과로 대신 답했는지 알려 주는 표시. 트렌드처럼 여러 검색을 묶어 새로 만드는 쪽이 빈 리스트를 넣어 두면
+# (asyncio.gather로 나뉜 작업에서도 같은 리스트를 보므로) 대신 답한 검색이 있었는지 알 수 있다.
+# 저장된 결과로 만든 트렌드를 다시 저장하면 저장 시각만 새것으로 바뀌어 "방금 정보"처럼 보이기 때문에 막는 데 쓴다.
+used_stored: contextvars.ContextVar[list | None] = contextvars.ContextVar("danawa_used_stored", default=None)
 
 
 class DanawaUnavailable(RuntimeError):
@@ -264,6 +268,9 @@ async def _fetch_items_or_stored(query: str) -> tuple[list[dict], float | None]:
         if stored:
             items, saved_at = stored
             print(f"[danawa] '{query}' 다나와 실패 ({type(e).__name__}) → 저장된 결과 {len(items)}개로 대신 보여 줌")
+            marks = used_stored.get()
+            if marks is not None:
+                marks.append(query)
             return items, saved_at
         raise
 
