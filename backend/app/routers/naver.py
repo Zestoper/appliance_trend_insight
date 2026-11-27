@@ -11,7 +11,7 @@ from app.config import (
 )
 from app.utils.helpers import strip_html
 from app.utils.accessory_filter import is_accessory, looks_like_model, wants_accessory
-from app.services.danawa_search import danawa_search_products, get_danawa_live_price
+from app.services.danawa_search import danawa_search_products, get_danawa_live_price, DanawaUnavailable
 
 router = APIRouter()
 
@@ -149,6 +149,9 @@ async def search_products(
                 danawa_search_products(query=query, page=page, display=display, sort=sort, category=category),
                 timeout=timeout,
             )
+        except DanawaUnavailable as e:
+            print(f"[search] 다나와 점검 · 차단 '{query}': {e}")
+            raise HTTPException(status_code=503, detail="상품 정보를 가져오는 다나와가 점검 중이에요. 잠시 후 다시 시도해 주세요.")
         except Exception as e:
             print(f"[search] 다나와 검색 실패 '{query}': {type(e).__name__}: {e}")
             raise HTTPException(status_code=503, detail="상품 검색이 잠시 느려요. 잠시 후 다시 시도해 주세요.")

@@ -35,6 +35,26 @@ _BG_FETCH_SEM = asyncio.Semaphore(1)
 background_fetch: contextvars.ContextVar[bool] = contextvars.ContextVar("danawa_background_fetch", default=False)
 
 
+class DanawaUnavailable(RuntimeError):
+    """다나와가 점검 · 차단 등으로 검색 결과 페이지가 아닌 다른 페이지를 돌려줬을 때.
+    예전에는 이 경우 상품 0개로 처리돼 "검색 결과가 없습니다"만 보이고 30분 동안 캐시까지 됐다
+    (2026-11-26 다나와 점검 때 search.danawa.com → construction.danawa.com 공지 페이지로 넘어감)."""
+
+
+def _check_search_page(resp) -> None:
+    """검색 결과 페이지가 맞는지 확인한다. 아니면 DanawaUnavailable."""
+    host = resp.url.host or ""
+    html = resp.text
+    if host != "search.danawa.com":
+        raise DanawaUnavailable(f"다나와 검색이 다른 페이지로 넘어감: {resp.url}")
+    # 정상 검색 페이지는 결과가 0개여도 수백 KB가 넘는다 — 몇 KB짜리면 공지 · 차단 페이지다
+    if len(html) < 20000:
+        title = re.search(r"<title>(.*?)</title>", html, re.S)
+        raise DanawaUnavailable(
+            f"다나와 응답이 검색 페이지가 아님: len={len(html)} title={title.group(1).strip() if title else None}"
+        )
+
+
 def _parse_item(li) -> dict | None:
     """다나와 검색결과 li.prod_item 하나를 네이버 search_products()와 동일한 item 형태로 변환."""
     name_a = li.select_one(".prod_name a")
@@ -204,13 +224,22 @@ async def _fetch_raw_items(query: str) -> list[dict]:
                         headers=_DANAWA_HEADERS,
                     )
                 resp.raise_for_status()
+                _check_search_page(resp)
                 items = await asyncio.to_thread(_parse_html, resp.text)
                 del resp
+            if not items:
+                # 빈 결과는 저장하지 않는다 — 한 번 잘못 0개가 나오면 30분 동안 계속 0개만 보이던 문제
+                print(f"[danawa] '{query}' 검색 결과 0개 (캐시하지 않음)")
+                return items
             if len(_CACHE) >= _CACHE_MAX:
                 oldest_key = min(_CACHE, key=lambda k: _CACHE[k][0])
                 del _CACHE[oldest_key]
             _CACHE[query] = (time.time(), items)
             return items
+        except DanawaUnavailable as e:
+            print(f"[danawa] {e}")
+            last_err = e
+            break  # 점검 · 차단은 1초 뒤에 다시 해도 똑같다
         except Exception as e:
             last_err = e
             if attempt == 0:
