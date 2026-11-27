@@ -235,6 +235,9 @@ async def _fetch_raw_items(query: str) -> list[dict]:
                 oldest_key = min(_CACHE, key=lambda k: _CACHE[k][0])
                 del _CACHE[oldest_key]
             _CACHE[query] = (time.time(), items)
+            # 다나와가 점검 · 차단될 때 보여 줄 수 있도록 DB에도 남긴다 (재시작해도 유지)
+            from app.services.search_store import save_items_background
+            save_items_background(query, items)
             return items
         except DanawaUnavailable as e:
             print(f"[danawa] {e}")
@@ -248,6 +251,21 @@ async def _fetch_raw_items(query: str) -> list[dict]:
     if cached:
         return cached[1]
     raise last_err
+
+
+async def _fetch_items_or_stored(query: str) -> tuple[list[dict], float | None]:
+    """다나와 결과와 None. 다나와가 안 되면 DB에 저장해 둔 결과와 그 저장 시각.
+    저장된 것도 없으면 원래 에러를 그대로 올린다 (라우터가 503 안내 문구로 바꾼다)."""
+    try:
+        return await _fetch_raw_items(query), None
+    except Exception as e:
+        from app.services.search_store import load_fallback
+        stored = await load_fallback(query)
+        if stored:
+            items, saved_at = stored
+            print(f"[danawa] '{query}' 다나와 실패 ({type(e).__name__}) → 저장된 결과 {len(items)}개로 대신 보여 줌")
+            return items, saved_at
+        raise
 
 
 # "21평" · "18평형" 같은 평수 단어 — 다나와는 상품명에 검색어가 다 있어야 찾아주는데 가정용 에어컨 이름에는
@@ -271,7 +289,8 @@ async def danawa_search_products(
     """네이버 쇼핑 검색(shop.json)이 막혀 있는 동안 다나와 통합검색을 긁어 동일한 응답 형태로 반환.
     다나와는 검색 결과를 한 페이지에 최대 40~50개 정도만 내려주므로, 여러 페이지를 합치는 대신
     한 번의 요청 결과 안에서 필터링·정렬·페이지네이션을 전부 처리한다."""
-    items = list(await _fetch_raw_items(_danawa_query(query)))
+    raw, stored_at = await _fetch_items_or_stored(_danawa_query(query))
+    items = list(raw)
 
     # 다나와 카테고리로 먼저 거른다 (정확도가 제목 글자보다 훨씬 높다)
     #  - 가전이 아닌 상품 (캐리어 · SSD · 노트북 등) 제외
@@ -319,7 +338,13 @@ async def danawa_search_products(
     start = (page - 1) * display
     page_items = items[start:start + display]
 
-    return {"items": page_items, "total": total, "page": page, "display": display}
+    result = {"items": page_items, "total": total, "page": page, "display": display}
+    if stored_at:
+        # 화면에서 "다나와 점검 중이라 ○월 ○일에 저장된 정보예요"를 보여 줄 수 있게 알려 준다
+        from datetime import datetime, timezone, timedelta
+        result["stale"] = True
+        result["stale_at"] = datetime.fromtimestamp(stored_at, timezone(timedelta(hours=9))).isoformat(timespec="minutes")
+    return result
 
 
 _LIVE_PRICE_RE = re.compile(r'og:description"\s*content="최저가\s*([0-9,]+)원')

@@ -282,9 +282,13 @@ async def get_product_search(q: str = Query(..., min_length=1), _: dict = Depend
     try:
         result = await search_products(query=q, page=1, display=40, sort="sim")
         raw = result.get("items", [])
+        stale = {k: result[k] for k in ("stale", "stale_at") if k in result}
+    except HTTPException:
+        # 다나와 점검 · 시간 초과 등 — 빈 목록으로 바꾸면 "검색된 상품이 없습니다"로 보여 원인을 알 수 없었다
+        raise
     except Exception as e:
         logger.warning("[product-search] 조회 실패: %s", e)
-        raw = []
+        raise HTTPException(status_code=503, detail="상품 검색이 잠시 안 돼요. 잠시 후 다시 시도해 주세요.")
 
     # 정부 API 전체 조회는 수십~수백 초 걸려 실시간 요청을 막을 수 없다 —
     # 캐시가 있으면 즉시 실데이터를 쓰고, 없으면 백그라운드로 채우는 동안은 폴백(정규식)만 쓴다.
@@ -338,7 +342,7 @@ async def get_product_search(q: str = Query(..., min_length=1), _: dict = Depend
                                    if month_won and detected_category == "공기청정기" else None),
         })
 
-    return {"query": q, "items": items[:30]}
+    return {"query": q, "items": items[:30], **stale}
 
 
 async def _fetch_review_snippets(query: str, display_blog: int = 10, display_cafe: int = 6, sort: str = "date"):

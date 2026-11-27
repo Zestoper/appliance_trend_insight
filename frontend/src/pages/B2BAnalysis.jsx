@@ -222,6 +222,7 @@ export default function B2BAnalysis() {
   const [searching,  setSearching]  = useState(false)
   const [loading,    setLoading]    = useState(false)
   const [error,      setError]      = useState(null)
+  const [staleAt,    setStaleAt]    = useState(null)   // 다나와가 안 돼서 저장된 정보를 보여 줄 때 그 저장 시각
   const [sentimentTab, setSentimentTab] = useState('pos')
   const [reviewsExpanded, setReviewsExpanded] = useState(false)
   const [brandFilter, setBrandFilter]   = useState('')
@@ -237,6 +238,7 @@ export default function B2BAnalysis() {
     if (!trimmed) return
     setSearching(true)
     setError(null)
+    setStaleAt(null)
     setData(null)
     setSelected(null)
     setProducts(null)
@@ -247,8 +249,14 @@ export default function B2BAnalysis() {
       const res  = await fetch(`${API_BASE}/api/b2b/product-search?q=${encodeURIComponent(trimmed)}`, {
         headers: { Authorization: `Bearer ${token}` },
       })
-      const json = await res.json()
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        // 503(다나와 점검 등)은 "검색된 상품이 없습니다" 대신 서버가 준 안내 문구를 보여 준다
+        setError(json.detail || '상품 검색이 잠시 안 돼요. 잠시 후 다시 시도해 주세요.')
+        return
+      }
       setProducts(json.items || [])
+      setStaleAt(json.stale ? json.stale_at : null)
     } catch {
       setError('서버에 연결할 수 없습니다')
     } finally {
@@ -401,6 +409,11 @@ export default function B2BAnalysis() {
             </div>
           )}
           {error && <div className={s.error}>{error}</div>}
+          {!searching && staleAt && products && (
+            <div className={s.staleNotice}>
+              다나와 점검으로 실시간 가격을 가져올 수 없어 {new Date(staleAt).toLocaleString('ko-KR', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })} 기준 저장된 정보를 보여 드려요.
+            </div>
+          )}
 
           {/* ── 상품 선택 목록 ── */}
           {products && !selected && !searching && (

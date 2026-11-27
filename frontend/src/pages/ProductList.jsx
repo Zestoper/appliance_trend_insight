@@ -42,6 +42,8 @@ export default function ProductList() {
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [staleAt, setStaleAt] = useState(null)   // 다나와가 안 돼서 저장된 정보를 보여 줄 때 그 저장 시각
   const [searchTerm, setSearchTerm] = useState('')
   const [filterState, setFilterState] = useState({ selectedBrands: [], priceRange: null })
   const [sort, setSort] = useState({ label: '관련도순', api: 'sim', client: null })
@@ -54,19 +56,33 @@ export default function ProductList() {
   // sort.client는 클라이언트 정렬이라 API 재요청 필요없음
   useEffect(() => {
     setLoading(true)
+    setError(null)
     const controller = new AbortController()
     const query = searchTerm ? `${category} ${searchTerm}` : category
     fetch(
       `${API_BASE}/api/naver/products?query=${encodeURIComponent(query)}&page=${page}&display=${PAGE_SIZE}&sort=${sort.api}&category=${encodeURIComponent(category)}`,
       { signal: controller.signal }
     )
-      .then(r => r.json())
+      .then(async r => {
+        const data = await r.json().catch(() => ({}))
+        // 503 등은 빈 목록이 아니라 서버가 준 안내 문구를 보여 준다 (예: 다나와 점검 중)
+        if (!r.ok) throw new Error(data.detail || '상품을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.')
+        return data
+      })
       .then(data => {
         setProducts(data.items ?? [])
         setTotal(data.total ?? 0)
+        setStaleAt(data.stale ? data.stale_at : null)
         setLoading(false)
       })
-      .catch(e => { if (e.name !== 'AbortError') setLoading(false) })
+      .catch(e => {
+        if (e.name === 'AbortError') return
+        setProducts([])
+        setTotal(0)
+        setStaleAt(null)
+        setError(e.message || '서버에 연결할 수 없어요.')
+        setLoading(false)
+      })
     return () => controller.abort()
   }, [category, page, searchTerm, sort.label])
 
@@ -133,7 +149,7 @@ export default function ProductList() {
         <div className={styles.header}>
           <h1 className={styles.title}>{category}</h1>
           <p className={styles.sub}>
-            {total > 0 ? `${total.toLocaleString()}개 제품` : '검색 중...'} · 실시간 트렌드 분석
+            {total > 0 ? `${total.toLocaleString()}개 제품` : loading ? '검색 중...' : '0개 제품'} · 실시간 트렌드 분석
           </p>
         </div>
 
@@ -147,12 +163,20 @@ export default function ProductList() {
           onSortChange={setSort}
         />
 
+        {!loading && staleAt && (
+          <div className={styles.staleNotice}>
+            다나와 점검으로 실시간 가격을 가져올 수 없어 {new Date(staleAt).toLocaleString('ko-KR', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })} 기준 저장된 정보를 보여 드려요.
+          </div>
+        )}
+
         {loading ? (
           <div className={styles.grid}>
             {Array.from({ length: PAGE_SIZE }).map((_, i) => (
               <div key={i} className={styles.cardSkeleton} />
             ))}
           </div>
+        ) : error ? (
+          <div className={styles.empty}>{error}</div>
         ) : filteredProducts.length === 0 ? (
           <div className={styles.empty}>검색 결과가 없습니다.</div>
         ) : (
