@@ -297,11 +297,11 @@ async def refresh_product_state(name: str, category: str | None = None) -> dict 
     model, key = product_key_for(name)
     token = background_fetch.set(True)
     try:
-        items = await fetch_product_price_items(model or name)
-        try:
-            danawa = await get_danawa_price_history(model or name, name, only_real_launch=True)
-        except Exception:
-            danawa = {"history": [], "launch_price": None}
+        live = await _fetch_live_prices(name, model)
+        if live is None:
+            await mark_checked_no_price(key, name, category)   # 마지막 실제 가격은 그대로 둔다
+            return None
+        items, danawa = live
         block, _, image, _ = await build_price_block(name, model, key, category, items, danawa, 0.0, date.today())
         if block:
             await save_signal_state(key, block, 0.0, category, image, product_name=name)
@@ -318,6 +318,29 @@ async def refresh_product_state(name: str, category: str | None = None) -> dict 
         return None
     finally:
         background_fetch.reset(token)
+
+
+async def _fetch_live_prices(name: str, model: str | None):
+    """제품 가격 목록과 다나와 가격 이력. 다나와 검색이 막혀서 저장된 예전 결과로 대신 답했다면 None.
+    2026-11-28 다나와 검색 점검 때 확인: 저장된 결과로 판단하면 실제로는 가격이 올랐는데도
+    예전 가격 기준으로 '목표가 도달' 푸시가 나갈 수 있다 → 그날은 판단 · 저장 · 푸시를 건너뛴다."""
+    from app.routers.b2b_search_analysis import fetch_product_price_items
+    from app.services.price_service import get_danawa_price_history
+    from app.services.danawa_search import used_stored
+    marks: list = []
+    token = used_stored.set(marks)
+    try:
+        items = await fetch_product_price_items(model or name)
+        try:
+            danawa = await get_danawa_price_history(model or name, name, only_real_launch=True)
+        except Exception:
+            danawa = {"history": [], "launch_price": None}
+    finally:
+        used_stored.reset(token)
+    if marks:
+        print(f"[alerts] {name[:24]} 다나와 검색 장애로 저장된 결과뿐 → 오늘은 판단하지 않음")
+        return None
+    return items, danawa
 
 
 # ── 매일 확인 · 푸시 ────────────────────────────────────────────────────────
@@ -424,6 +447,7 @@ async def check_price_alerts():
     states = await _states(keys)
     token = background_fetch.set(True)   # 사용자 검색을 밀어내지 않도록 다나와 뒤쪽 줄 사용
     sent = 0
+    stale_skipped = 0   # 다나와 검색 장애로 판단을 건너뛴 제품 수
     try:
         for n, key in enumerate(keys, 1):
             if trim() > MEMORY_LIMIT_MB:
@@ -435,11 +459,12 @@ async def check_price_alerts():
             st = states.get(key) or {}
             category = first.get("category") or st.get("category") or _detect_category(name)
             try:
-                items = await fetch_product_price_items(model or name)
-                try:
-                    danawa = await get_danawa_price_history(model or name, name, only_real_launch=True)
-                except Exception:
-                    danawa = {"history": [], "launch_price": None}
+                live = await _fetch_live_prices(name, model)
+                if live is None:
+                    stale_skipped += 1
+                    await mark_checked_no_price(key, name, category)   # 마지막 실제 가격 · 시각은 그대로
+                    continue
+                items, danawa = live
                 slope = st.get("demand_slope") or 0.0
                 block, _, image, _ = await build_price_block(name, model, key, category, items, danawa,
                                                              slope, date.today())
@@ -469,5 +494,6 @@ async def check_price_alerts():
             await asyncio.sleep(1.2)
     finally:
         background_fetch.reset(token)
-    print(f"[alerts] 제품 {len(keys)}개 확인 · 푸시 {sent}건")
+    print(f"[alerts] 제품 {len(keys)}개 확인 · 푸시 {sent}건"
+          + (f" · 다나와 검색 장애로 {stale_skipped}개 건너뜀" if stale_skipped else ""))
     return True
