@@ -1117,8 +1117,75 @@ def _pick_reviews(items: list[tuple[str, dict]], relevant, levels: int) -> list[
     return picked
 
 
+# ── AI 분석 결과 캐시 ─────────────────────────────────────────────
+# 예전에는 같은 제품을 다시 열어도 후기 · 뉴스 검색 → RAG → AI 호출을 매번 처음부터 해서 6~13초 걸렸다 (#71).
+# 메모리에 먼저 두고 DB(naver_cache)에도 남겨서 서버를 다시 켜도 그대로 쓴다.
+# 같은 제품 분석이 동시에 두 번 들어오면 (앱 · 웹 동시 · 새로고침) AI를 한 번만 부른다.
+_AI_CACHE_TTL_HOURS = 12
+_AI_CACHE_VER = "v1"
+_AI_CACHE: dict[str, tuple[float, dict]] = {}
+_AI_CACHE_MAX = 300
+_AI_INFLIGHT: dict[str, asyncio.Future] = {}
+
+
+def _ai_cache_key(query: str, category: str | None) -> str:
+    q = re.sub(r"\s+", " ", (query or "").strip())
+    return f"ai-analysis:{_AI_CACHE_VER}:{(category or '').strip()}:{q}"[:300]
+
+
 @router.get("/api/ai-analysis")
 async def get_ai_analysis(query: str = Query(..., min_length=1), category: str | None = Query(None)):
+    import time as _t
+    key = _ai_cache_key(query, category)
+
+    hit = _AI_CACHE.get(key)
+    if hit and _t.time() < hit[0]:
+        return hit[1]
+
+    from app.services.naver_cache import get_db_cache, set_db_cache
+    try:
+        stored = await get_db_cache(key)
+    except Exception:
+        stored = None
+    if stored and stored.get("analysis"):
+        _remember_ai(key, stored)
+        return stored
+
+    running = _AI_INFLIGHT.get(key)
+    if running:
+        return await asyncio.shield(running)
+
+    fut = asyncio.get_running_loop().create_future()
+    _AI_INFLIGHT[key] = fut
+    try:
+        result = await _compute_ai_analysis(query, category)
+        if result.get("analysis"):   # 실패 · 데이터 부족은 저장하지 않는다 (다음에 다시 시도)
+            _remember_ai(key, result)
+            try:
+                await set_db_cache(key, result, ttl_hours=_AI_CACHE_TTL_HOURS)
+            except Exception as e:
+                logger.warning("[ai-analysis] 캐시 저장 실패: %s", e)
+        fut.set_result(result)
+        return result
+    except asyncio.CancelledError:
+        fut.cancel()   # 기다리던 쪽도 같이 끝낸다 (그쪽은 다음 요청에서 새로 계산)
+        raise
+    except Exception as e:
+        fut.set_exception(e)
+        fut.exception()   # 기다리는 쪽이 없어도 '처리 안 된 예외' 경고가 나지 않게
+        raise
+    finally:
+        _AI_INFLIGHT.pop(key, None)
+
+
+def _remember_ai(key: str, result: dict) -> None:
+    import time as _t
+    if len(_AI_CACHE) >= _AI_CACHE_MAX:
+        _AI_CACHE.pop(min(_AI_CACHE, key=lambda k: _AI_CACHE[k][0]), None)
+    _AI_CACHE[key] = (_t.time() + _AI_CACHE_TTL_HOURS * 3600, result)
+
+
+async def _compute_ai_analysis(query: str, category: str | None) -> dict:
     try:
         from app.dependencies import get_rag_optional
         from app.routers.b2b_utils import _groq_create as _gc
@@ -1142,7 +1209,8 @@ async def get_ai_analysis(query: str = Query(..., min_length=1), category: str |
                     "metadata": {"source": "news", "product": query},
                 })
             if docs:
-                await rag.add_documents(docs)
+                # 임베딩 호출이 1~2초 걸려서 응답을 기다리게 하지 않는다 (이번 분석에는 뉴스를 아래에서 직접 넣는다)
+                asyncio.create_task(rag.add_documents(docs))
 
         # 방금 이 검색어로 직접 가져온 실사용자 후기·뉴스가 있으면 그게 가장 구체적이고
         # 정확한 근거라 항상 먼저 넣는다. RAG 검색 결과는 이걸 대체하지 않고 보조 참고
