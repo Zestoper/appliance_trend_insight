@@ -88,6 +88,35 @@ async def get_my_profile(payload: dict = Depends(get_current_user)):
     }
 
 
+@router.get("/summary")
+async def get_my_summary(payload: dict = Depends(get_current_user)):
+    """앱 메뉴(드로어) 위쪽 요약: 이름 · 회원 구분 · 등급 · 가격 알림 개수/한도 · 목표가 도달 수.
+    메뉴를 열 때마다 불리므로 DB만 가볍게 읽는다."""
+    from app.database import fetchone
+    from app.services.price_alerts import alert_summary
+    user_id = int(payload["sub"])
+    user = await fetchone("SELECT user_type, email FROM users WHERE user_id = %s", (user_id,))
+    if not user:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
+
+    if user["user_type"] == "b2b":
+        row = await fetchone("SELECT company_name FROM user_b2b_profiles WHERE user_id = %s", (user_id,))
+        name = row["company_name"] if row else ""
+    else:
+        row = await fetchone("SELECT nickname FROM user_b2c_profiles WHERE user_id = %s", (user_id,))
+        name = row["nickname"] if row else ""
+    if not name:
+        name = (user.get("email") or "").split("@")[0]   # 이름이 비어 있으면 이메일 앞부분
+
+    return {
+        "display_name": name,
+        "user_type": user["user_type"],
+        **await alert_summary(user_id),
+        # 시장 알림(사업자)은 아직 없다 → 생기면 오늘 받은 개수를 채운다. 앱은 null이면 이 칸을 숨긴다
+        "market_alerts_today": None,
+    }
+
+
 @router.get("/alerts")
 async def get_my_alerts(payload: dict = Depends(get_current_user)):
     """개인: 지금 최저가 · 목표가 / 승인된 사업자: + 매입 신호 · 역대 평균 대비 · 그래프"""

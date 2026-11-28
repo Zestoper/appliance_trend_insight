@@ -127,6 +127,41 @@ async def is_business(user_id: int) -> bool:
     return bool(row) and row["user_type"] == "b2b" and (row.get("status") or "active") == "active"
 
 
+async def alert_limit(user_id: int, business: bool | None = None) -> tuple[int, str]:
+    """가격 알림 개수 한도와 기준 등급. 등록(create_alert)과 메뉴 요약(/api/user/summary)이 같이 쓴다
+    → 화면마다 한도 숫자가 달라지지 않는다. 승인된 사업자는 등급별 · 그 밖에는 PERSONAL_LIMIT."""
+    from app.database import get_user_tier
+    if business is None:
+        business = await is_business(user_id)
+    tier = await get_user_tier(user_id)
+    if business:
+        return TIER_LIMITS.get(tier, TIER_LIMITS["free"]), tier
+    return PERSONAL_LIMIT, tier
+
+
+# 메뉴 요약의 "목표가 도달" 기준: 아직 "확인했다"는 기록이 없어서 최근 이 기간 안에 목표가 푸시가 간(triggered_at) 알림 수로 센다.
+# 나중에 알림 확인 시각을 저장하면 그 뒤에 도달한 것만 세도록 바꾸면 된다.
+REACHED_DAYS = 7
+
+
+async def alert_summary(user_id: int) -> dict:
+    """메뉴(드로어) 요약용 숫자. DB만 읽는다 (메뉴 열 때마다 불려서 다나와 · 외부 API는 부르지 않는다)."""
+    from app.database import fetchone
+    limit, tier = await alert_limit(user_id)
+    row = await fetchone(
+        "SELECT COUNT(*) AS n, "
+        f"COUNT(*) FILTER (WHERE triggered_at >= NOW() - INTERVAL '{REACHED_DAYS} days') AS reached "
+        "FROM price_alert WHERE user_id = %s AND is_active = TRUE",
+        (user_id,),
+    ) or {}
+    return {
+        "tier": tier,
+        "tier_label": TIER_LABELS.get(tier, TIER_LABELS["free"]),
+        "alerts": {"count": int(row.get("n") or 0), "limit": limit},
+        "alerts_reached": int(row.get("reached") or 0),
+    }
+
+
 def _detect_category(*texts):
     from app.routers.b2b_utils import _CATEGORY_MAP
     for text in texts:
@@ -203,15 +238,14 @@ async def create_alert(user_id: int, product_name: str, target_price, current_pr
     count = (await fetchone(
         "SELECT COUNT(*) AS n FROM price_alert WHERE user_id = %s AND is_active = TRUE", (user_id,),
     ))["n"]
+    limit, tier = await alert_limit(user_id, business)
     if business:
-        tier = await get_user_tier(user_id)
-        limit = TIER_LIMITS.get(tier, TIER_LIMITS["free"])
         if count >= limit:
             # 앱 Play 결제 정책 때문에 결제 · 구독 안내는 넣지 않는다
             raise HTTPException(status_code=402,
                                 detail=f"가격 알림은 {TIER_LABELS.get(tier, '무료')} 등급에서 {limit}개까지 등록할 수 있어요")
-    elif count >= PERSONAL_LIMIT:
-        raise HTTPException(status_code=400, detail=f"가격 알림은 {PERSONAL_LIMIT}개까지 등록할 수 있어요")
+    elif count >= limit:
+        raise HTTPException(status_code=400, detail=f"가격 알림은 {limit}개까지 등록할 수 있어요")
 
     state = (await _states([product_key])).get(product_key) or {}
     category = state.get("category") or _detect_category(name, hint)
