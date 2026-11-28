@@ -1,15 +1,15 @@
 .page {
   min-height: 100vh;
   display: flex;
-  background: #f4f7fb;
-  color: #111827;
+  background: var(--sunken);
+  color: var(--ink);
 }
 
 .sidebar {
   width: 240px;
   padding: 28px 20px;
-  background: #070712;
-  color: white;
+  background: var(--page);
+  color: var(--ink);
 }
 
 .logo {
@@ -25,11 +25,11 @@
 .logoIcon {
   width: 34px;
   height: 34px;
-  border-radius: 10px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #6366f1, #a855f7);
+  background: var(--brand);
 }
 
 .menu {
@@ -40,23 +40,23 @@
 
 .menu button {
   padding: 13px 14px;
-  border-radius: 12px;
+  border-radius: 16px;
   border: none;
   background: transparent;
-  color: rgba(255, 255, 255, 0.55);
+  color: color-mix(in srgb, var(--ink) 63%, transparent);
   text-align: left;
   font-weight: 700;
   cursor: pointer;
 }
 
 .menu button:hover {
-  color: white;
-  background: rgba(139, 92, 246, 0.22);
+  color: var(--ink);
+  background: color-mix(in srgb, var(--brand) 22%, transparent);
 }
 
 .menu .active {
-  color: white;
-  background: linear-gradient(135deg, #6366f1, #a855f7);
+  color: var(--on-brand);
+  background: var(--brand);
 }
 
 .main {

@@ -19,7 +19,7 @@
   height: 32px;
   border-radius: 50%;
   border: 3px solid var(--b2b-line);
-  border-top-color: #6366f1;
+  border-top-color: var(--brand);
   animation: spin 0.8s linear infinite;
   margin-bottom: 8px;
 }
@@ -40,8 +40,8 @@
   margin-bottom: 8px;
 }
 
-.iconOk { background: rgba(16, 185, 129, 0.12); color: #10b981; }
-.iconFail { background: rgba(239, 68, 68, 0.12); color: #ef4444; }
+.iconOk { background: color-mix(in srgb, var(--verdict-best) 12%, transparent); color: var(--verdict-best); }
+.iconFail { background: color-mix(in srgb, var(--verdict-wait) 12%, transparent); color: var(--verdict-wait); }
 
 .title {
   font-size: 17px;
@@ -59,10 +59,10 @@
 .btn {
   margin-top: 16px;
   padding: 10px 24px;
-  border-radius: 10px;
+  border-radius: 8px;
   border: none;
-  background: var(--b2b-text);
-  color: var(--b2b-page);
+  background: var(--brand);
+  color: var(--on-brand);
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;

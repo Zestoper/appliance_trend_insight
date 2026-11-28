@@ -75,25 +75,25 @@ function TrendChart({ data }) {
           >
             <defs>
               <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#6366f1" stopOpacity="0.28" />
-                <stop offset="100%" stopColor="#6366f1" stopOpacity="0.02" />
+                <stop offset="0%" stopColor="var(--brand)" stopOpacity="0.28" />
+                <stop offset="100%" stopColor="var(--brand)" stopOpacity="0.02" />
               </linearGradient>
             </defs>
-            <line x1={padX} y1={padY} x2={W - padX} y2={padY} stroke="rgba(255,255,255,0.06)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-            <line x1={padX} y1={H / 2} x2={W - padX} y2={H / 2} stroke="rgba(255,255,255,0.06)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-            <line x1={padX} y1={H - padY} x2={W - padX} y2={H - padY} stroke="rgba(255,255,255,0.06)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+            <line x1={padX} y1={padY} x2={W - padX} y2={padY} stroke="color-mix(in srgb, var(--ink) 7%, transparent)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+            <line x1={padX} y1={H / 2} x2={W - padX} y2={H / 2} stroke="color-mix(in srgb, var(--ink) 7%, transparent)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+            <line x1={padX} y1={H - padY} x2={W - padX} y2={H - padY} stroke="color-mix(in srgb, var(--ink) 7%, transparent)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
             <polygon points={area} fill="url(#trendFill)" />
             <polyline
               points={line}
               fill="none"
-              stroke="#818cf8"
+              stroke="var(--brand)"
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
               vectorEffect="non-scaling-stroke"
             />
-            <circle cx={dotX} cy={dotY} r="8" fill="rgba(99,102,241,0.2)" vectorEffect="non-scaling-stroke" />
-            <circle cx={dotX} cy={dotY} r="3.5" fill="#6366f1" vectorEffect="non-scaling-stroke" />
+            <circle cx={dotX} cy={dotY} r="8" fill="color-mix(in srgb, var(--brand) 20%, transparent)" vectorEffect="non-scaling-stroke" />
+            <circle cx={dotX} cy={dotY} r="3.5" fill="var(--brand)" vectorEffect="non-scaling-stroke" />
           </svg>
           <div className={styles.chartXAxis}>
             {labelIdx.map(i => (
@@ -323,12 +323,12 @@ function MiniPriceChart({ history }) {
     <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: '100%', height: 48 }}>
       <defs>
         <linearGradient id="ppGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#22c55e" stopOpacity="0.25" />
-          <stop offset="100%" stopColor="#22c55e" stopOpacity="0.02" />
+          <stop offset="0%" stopColor="var(--verdict-best)" stopOpacity="0.25" />
+          <stop offset="100%" stopColor="var(--verdict-best)" stopOpacity="0.02" />
         </linearGradient>
       </defs>
       <polygon points={area} fill="url(#ppGrad)" />
-      <polyline points={line} fill="none" stroke="#22c55e" strokeWidth="1.5"
+      <polyline points={line} fill="none" stroke="var(--verdict-best)" strokeWidth="1.5"
         strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
     </svg>
   )

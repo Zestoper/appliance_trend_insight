@@ -10,7 +10,7 @@
   font-size: 12px;
   font-weight: 900;
   letter-spacing: 2px;
-  color: #6366f1;
+  color: var(--brand);
   margin-bottom: 8px;
 }
 
@@ -22,7 +22,7 @@
 
 .header p {
   margin: 0;
-  color: #6b7280;
+  color: var(--ink-2);
   font-weight: 600;
 }
 
@@ -30,19 +30,19 @@
   border: none;
   border-radius: 999px;
   padding: 14px 22px;
-  color: white;
+  color: var(--on-brand);
   font-weight: 900;
-  background: linear-gradient(135deg, #6366f1, #a855f7);
+  background: var(--brand);
   cursor: pointer;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+  box-shadow: none;
 }
 
 .conditionPanel,
 .formPanel,
 .aiPanel {
-  background: white;
-  border-radius: 22px;
-  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.08);
+  background: var(--card);
+  border-radius: 28px;
+  box-shadow: none;
 }
 
 .conditionPanel {
@@ -65,7 +65,7 @@
 .panelHeader p,
 .panelHeader span {
   margin: 0;
-  color: #9ca3af;
+  color: var(--ink-3);
   font-size: 12px;
   font-weight: 800;
 }
@@ -79,14 +79,14 @@
 .conditionGrid div {
   padding: 18px;
   border-radius: 16px;
-  background: #f8fafc;
-  border: 1px solid #e5e7eb;
+  background: var(--sunken);
+  border: 1px solid var(--line);
 }
 
 .conditionGrid span {
   display: block;
   margin-bottom: 8px;
-  color: #9ca3af;
+  color: var(--ink-3);
   font-size: 12px;
   font-weight: 900;
 }
@@ -114,26 +114,26 @@
   gap: 20px;
   align-items: center;
   padding: 24px;
-  border-radius: 22px;
-  background: white;
-  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.08);
+  border-radius: 28px;
+  background: var(--card);
+  box-shadow: none;
 }
 
 .rank {
   width: 72px;
   height: 72px;
-  border-radius: 22px;
+  border-radius: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  color: var(--on-brand);
   font-weight: 900;
-  background: linear-gradient(135deg, #6366f1, #a855f7);
+  background: var(--brand);
 }
 
 .productInfo p {
   margin: 0 0 8px;
-  color: #6366f1;
+  color: var(--brand);
   font-size: 12px;
   font-weight: 900;
 }
@@ -159,15 +159,15 @@
 .tagBox span {
   padding: 7px 11px;
   border-radius: 999px;
-  color: #4f46e5;
-  background: rgba(99, 102, 241, 0.08);
-  border: 1px solid rgba(99, 102, 241, 0.15);
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand) 15%, transparent);
   font-size: 12px;
   font-weight: 900;
 }
 
 .reason {
-  color: #6b7280 !important;
+  color: var(--ink-2) !important;
   font-size: 13px !important;
   line-height: 1.7;
   font-weight: 600 !important;
@@ -175,40 +175,40 @@
 
 .scoreBox {
   padding: 18px;
-  border-radius: 18px;
-  background: #f8fafc;
+  border-radius: 16px;
+  background: var(--sunken);
   text-align: center;
 }
 
 .scoreBox span {
-  color: #9ca3af;
+  color: var(--ink-3);
   font-size: 12px;
   font-weight: 900;
 }
 
 .scoreBox b {
   display: block;
-  color: #6366f1;
+  color: var(--brand);
   font-size: 44px;
   line-height: 1.1;
 }
 
 .scoreBox p {
   margin: 6px 0 0;
-  color: #6b7280;
+  color: var(--ink-2);
   font-size: 12px;
   font-weight: 800;
 }
 
 .aiPanel {
   padding: 26px;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(168, 85, 247, 0.1));
-  border: 1px solid rgba(99, 102, 241, 0.16);
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand) 16%, transparent);
 }
 
 .aiPanel > p {
   margin: 0 0 12px;
-  color: #6366f1;
+  color: var(--brand);
   font-size: 12px;
   font-weight: 900;
   letter-spacing: 2px;
@@ -222,7 +222,7 @@
 
 .aiPanel span {
   display: block;
-  color: #6b7280;
+  color: var(--ink-2);
   font-size: 14px;
   line-height: 1.8;
   font-weight: 700;
@@ -231,8 +231,8 @@
 .reasonBox {
   margin-top: 22px;
   padding: 18px;
-  border-radius: 18px;
-  background: white;
+  border-radius: 16px;
+  background: var(--card);
 }
 
 .reasonBox b {
@@ -243,7 +243,7 @@
 .reasonBox ul {
   margin: 0;
   padding-left: 18px;
-  color: #6b7280;
+  color: var(--ink-2);
   font-size: 13px;
   line-height: 1.8;
   font-weight: 700;
@@ -261,21 +261,21 @@
 
 .formGrid select {
   padding: 15px 16px;
-  border-radius: 14px;
-  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  border: 1px solid var(--line);
   outline: none;
-  background: #f8fafc;
-  color: #111827;
+  background: var(--sunken);
+  color: var(--ink);
   font-weight: 800;
 }
 
 .formGrid button {
   border: none;
-  border-radius: 14px;
-  color: white;
+  border-radius: 16px;
+  color: var(--on-brand);
   font-weight: 900;
   cursor: pointer;
-  background: linear-gradient(135deg, #6366f1, #a855f7);
+  background: var(--brand);
 }
 
 @media (max-width: 1100px) {

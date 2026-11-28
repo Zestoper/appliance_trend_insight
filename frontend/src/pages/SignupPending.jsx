@@ -24,7 +24,7 @@ export default function SignupPending() {
         <h1 className={s.pendingTitle}>가입 신청 완료</h1>
         <p className={s.pendingDesc}>
           <strong style={{ color: 'var(--text)' }}>{state?.company_name || '사업자'}</strong> 계정 신청이 접수됐어요.<br />
-          관리자 검토 후 <strong style={{ color: '#818cf8' }}>{state?.email}</strong>으로<br />
+          관리자 검토 후 <strong style={{ color: 'var(--brand)' }}>{state?.email}</strong>으로<br />
           1~2일 내 결과를 안내해드릴게요.
         </p>
         <p className={s.pendingDesc} style={{ marginTop: 8 }}>

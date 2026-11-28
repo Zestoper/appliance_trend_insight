@@ -29,9 +29,9 @@
   margin: 0;
 }
 .profileCard {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 20px;
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
+  border: 1px solid var(--line);
+  border-radius: 16px;
   padding: 28px 28px 24px;
   margin-bottom: 20px;
   display: flex;
@@ -40,16 +40,16 @@
 }
 
 [data-theme='light'] .profileCard {
-  background: rgba(0, 0, 0, 0.02);
-  border-color: rgba(0, 0, 0, 0.08);
+  background: color-mix(in srgb, var(--ink) 2%, transparent);
+  border-color: var(--line);
 }
 
 .avatar {
   width: 64px;
   height: 64px;
-  border-radius: 18px;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(168, 85, 247, 0.25));
-  border: 1.5px solid rgba(99, 102, 241, 0.3);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--brand) 25%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--brand) 30%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -75,9 +75,9 @@
 .adminBadge {
   font-size: 10px;
   font-weight: 700;
-  color: #a78bfa;
-  background: rgba(99, 102, 241, 0.15);
-  border: 1px solid rgba(99, 102, 241, 0.3);
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand) 30%, transparent);
   border-radius: 999px;
   padding: 2px 8px;
   letter-spacing: 0.05em;
@@ -100,27 +100,27 @@
 }
 
 .typeBadgeB2C {
-  color: #34d399;
-  background: rgba(52, 211, 153, 0.12);
-  border: 1px solid rgba(52, 211, 153, 0.25);
+  color: var(--verdict-best);
+  background: color-mix(in srgb, var(--verdict-best) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--verdict-best) 25%, transparent);
 }
 
 .typeBadgeB2B {
-  color: #818cf8;
-  background: rgba(99, 102, 241, 0.12);
-  border: 1px solid rgba(99, 102, 241, 0.25);
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand) 25%, transparent);
 }
 .section {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 20px;
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
+  border: 1px solid var(--line);
+  border-radius: 16px;
   padding: 24px 28px;
   margin-bottom: 16px;
 }
 
 [data-theme='light'] .section {
-  background: rgba(0, 0, 0, 0.02);
-  border-color: rgba(0, 0, 0, 0.08);
+  background: color-mix(in srgb, var(--ink) 2%, transparent);
+  border-color: var(--line);
 }
 
 .sectionTitle {
@@ -136,12 +136,12 @@
   justify-content: space-between;
   align-items: center;
   padding: 10px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--line);
   font-size: 13.5px;
 }
 
 [data-theme='light'] .infoRow {
-  border-bottom-color: rgba(0, 0, 0, 0.06);
+  border-bottom-color: var(--line);
 }
 
 .infoRow:last-child {
@@ -176,8 +176,8 @@
 .spinner {
   width: 28px;
   height: 28px;
-  border: 3px solid rgba(99, 102, 241, 0.2);
-  border-top-color: #6366f1;
+  border: 3px solid color-mix(in srgb, var(--brand) 20%, transparent);
+  border-top-color: var(--brand);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -188,7 +188,7 @@
   text-align: center;
   padding: 40px 0;
   font-size: 13px;
-  color: #ef4444;
+  color: var(--verdict-wait);
 }
 .btnRow {
   display: flex;
@@ -199,8 +199,8 @@
 .homeBtn {
   flex: 1;
   padding: 13px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  border: 1px solid var(--line);
   background: transparent;
   color: var(--text-muted);
   font-size: 13px;
@@ -210,21 +210,21 @@
 }
 
 [data-theme='light'] .homeBtn {
-  border-color: rgba(0, 0, 0, 0.1);
+  border-color: var(--line);
 }
 
 .homeBtn:hover {
-  border-color: rgba(99, 102, 241, 0.4);
-  color: #818cf8;
+  border-color: color-mix(in srgb, var(--brand) 40%, transparent);
+  color: var(--brand);
 }
 
 .logoutBtn {
   flex: 1;
   padding: 13px;
-  border-radius: 12px;
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  background: rgba(239, 68, 68, 0.07);
-  color: #f87171;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--verdict-wait) 30%, transparent);
+  background: color-mix(in srgb, var(--verdict-wait) 7%, transparent);
+  color: var(--verdict-wait);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -232,8 +232,8 @@
 }
 
 .logoutBtn:hover {
-  background: rgba(239, 68, 68, 0.14);
-  border-color: rgba(239, 68, 68, 0.5);
+  background: color-mix(in srgb, var(--verdict-wait) 14%, transparent);
+  border-color: color-mix(in srgb, var(--verdict-wait) 50%, transparent);
 }
 .alertList {
   display: flex;
@@ -247,14 +247,14 @@
   justify-content: space-between;
   gap: 12px;
   padding: 12px 14px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
+  border: 1px solid var(--line);
 }
 
 [data-theme='light'] .alertRow {
-  background: rgba(0, 0, 0, 0.03);
-  border-color: rgba(0, 0, 0, 0.07);
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+  border-color: var(--line);
 }
 
 .alertInfo { flex: 1; min-width: 0; }
@@ -276,7 +276,7 @@
 }
 
 .alertMeta strong {
-  color: #818cf8;
+  color: var(--brand);
   font-weight: 700;
 }
 
@@ -284,9 +284,9 @@
   width: 28px;
   height: 28px;
   border-radius: 8px;
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  background: rgba(239, 68, 68, 0.07);
-  color: #f87171;
+  border: 1px solid color-mix(in srgb, var(--verdict-wait) 30%, transparent);
+  background: color-mix(in srgb, var(--verdict-wait) 7%, transparent);
+  color: var(--verdict-wait);
   font-size: 12px;
   cursor: pointer;
   flex-shrink: 0;
@@ -297,7 +297,7 @@
 }
 
 .alertDeleteBtn:hover:not(:disabled) {
-  background: rgba(239, 68, 68, 0.15);
+  background: color-mix(in srgb, var(--verdict-wait) 15%, transparent);
 }
 
 .alertDeleteBtn:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -331,10 +331,10 @@
 .deniedBtn {
   margin-top: 8px;
   padding: 11px 24px;
-  border-radius: 10px;
+  border-radius: 8px;
   border: none;
-  background: linear-gradient(135deg, #6366f1, #a855f7);
-  color: #fff;
+  background: var(--brand);
+  color: var(--on-brand);
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
@@ -360,16 +360,16 @@
 .withdrawBox {
   margin-top: 18px;
   padding: 16px;
-  border-radius: 12px;
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  background: rgba(239, 68, 68, 0.05);
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--verdict-wait) 30%, transparent);
+  background: color-mix(in srgb, var(--verdict-wait) 5%, transparent);
 }
 
 .withdrawTitle {
   margin: 0 0 6px;
   font-size: 14px;
   font-weight: 700;
-  color: #f87171;
+  color: var(--verdict-wait);
 }
 
 .withdrawDesc {
@@ -383,8 +383,8 @@
   box-sizing: border-box;
   padding: 11px 12px;
   margin-bottom: 10px;
-  border-radius: 10px;
-  border: 1px solid var(--border, rgba(255, 255, 255, 0.15));
+  border-radius: 8px;
+  border: 1px solid var(--border, var(--line));
   background: transparent;
   color: inherit;
   font-size: 13px;
@@ -393,7 +393,7 @@
 .withdrawError {
   margin: 0 0 10px;
   font-size: 12px;
-  color: #f87171;
+  color: var(--verdict-wait);
 }
 
 .logoutBtn:disabled {
@@ -405,5 +405,5 @@
 .pwOk {
   margin: 0 0 10px;
   font-size: 12px;
-  color: #22c55e;
+  color: var(--verdict-best);
 }

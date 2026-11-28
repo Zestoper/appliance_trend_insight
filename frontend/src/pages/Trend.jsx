@@ -70,7 +70,7 @@ function HotKeywords({ items, onCatClick }) {
       </div>
       <ol className={styles.hotList}>
         {catRanked.map(({ cat, avg }, i) => {
-          const col = CAT_COLOR[cat] ?? '#6366f1'
+          const col = CAT_COLOR[cat] ?? 'var(--brand)'
           const rank = i + 1
           return (
             <li key={cat} className={styles.hotItem} onClick={() => onCatClick(cat)}>
@@ -99,7 +99,7 @@ function HotKeywords({ items, onCatClick }) {
 
 function RankRow({ item, rank, onClick }) {
   const rs = RANK_STYLE[rank]
-  const col = CAT_COLOR[item.category] ?? '#6366f1'
+  const col = CAT_COLOR[item.category] ?? 'var(--brand)'
   return (
     <div
       className={styles.row}

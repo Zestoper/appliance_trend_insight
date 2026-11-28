@@ -8,7 +8,7 @@ const DELAYS = [anim.delay0, anim.delay100, anim.delay200, anim.delay300]
 
 const SOURCES = [
   {
-    color: '#22c55e',
+    color: 'var(--verdict-best)',
     icon: Package,
     use: '가격 · 스펙 기준 데이터',
     source: 'Naver Shopping',
@@ -16,7 +16,7 @@ const SOURCES = [
     items: ['제품명 · 브랜드', '현재 가격', '평점 · 리뷰 수', '카테고리', '구매 URL'],
   },
   {
-    color: '#6366f1',
+    color: 'var(--brand)',
     icon: TrendingUp,
     use: '수요 흐름 판단',
     source: 'Naver DataLab',
@@ -24,7 +24,7 @@ const SOURCES = [
     items: ['검색량 추이', '최근 증가율', '연령별 · 성별 관심도', '연관 검색어', '현재 인기 지수'],
   },
   {
-    color: '#f59e0b',
+    color: 'var(--warn)',
     icon: ThumbsUp,
     use: '실사용 만족도 판단',
     source: 'Coupang Review',
@@ -32,7 +32,7 @@ const SOURCES = [
     items: ['감성 분석', '장점 · 단점 추출', '결함 분석', '광고성 리뷰 제거', '소비자 만족도'],
   },
   {
-    color: '#ec4899',
+    color: 'var(--brand)',
     icon: Newspaper,
     use: '리스크 · 이슈 체크',
     source: 'News',

@@ -29,8 +29,8 @@
 .searchExpanded {
   width: 280px;
   cursor: text;
-  border-color: rgba(99, 102, 241, 0.5);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  border-color: color-mix(in srgb, var(--brand) 50%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 30%, transparent);
 }
 .searchIconWrap {
   width: 40px;
@@ -44,7 +44,7 @@
 }
 
 .searchExpanded .searchIconWrap {
-  color: #818cf8;
+  color: var(--brand);
 }
 .searchInput {
   flex: 1;
@@ -88,7 +88,7 @@
 
 .clearBtn:hover {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
 }
 .dropdownWrap {
   position: relative;
@@ -111,13 +111,13 @@
 }
 
 .filterBtn:hover {
-  border-color: rgba(129, 140, 248, 0.4);
+  border-color: color-mix(in srgb, var(--brand) 40%, transparent);
   color: var(--text);
 }
 .filterBtnActive {
-  border-color: rgba(99, 102, 241, 0.5);
-  background: rgba(99, 102, 241, 0.1);
-  color: #818cf8;
+  border-color: color-mix(in srgb, var(--brand) 50%, transparent);
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
+  color: var(--brand);
 }
 .badge {
   display: inline-flex;
@@ -126,8 +126,8 @@
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #6366f1, #a855f7);
-  color: white;
+  background: var(--brand);
+  color: var(--on-brand);
   font-size: 10px;
   font-weight: 700;
 }
@@ -146,20 +146,18 @@
   left: 0;
   min-width: 180px;
   padding: 8px;
-  border-radius: 14px;
-  background: rgba(12, 12, 28, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+  border-radius: 16px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  box-shadow: none;
   z-index: 100;
   animation: panelIn 0.18s ease;
 }
 
 [data-theme='light'] .panel {
-  background: rgba(250, 250, 255, 0.97);
-  border-color: rgba(0, 0, 0, 0.08);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+  background: var(--card);
+  border-color: var(--line);
+  box-shadow: none;
 }
 
 @keyframes panelIn {
@@ -185,14 +183,14 @@
 
 .checkRow:hover,
 .radioRow:hover {
-  background: rgba(99, 102, 241, 0.1);
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
 }
 
 .checkbox,
 .radio {
   width: 15px;
   height: 15px;
-  accent-color: #6366f1;
+  accent-color: var(--brand);
   cursor: pointer;
   flex-shrink: 0;
 }
@@ -211,9 +209,9 @@
   height: 40px;
   padding: 0 14px;
   border-radius: 999px;
-  border: 1px solid rgba(248, 113, 113, 0.3);
-  background: rgba(248, 113, 113, 0.07);
-  color: #f87171;
+  border: 1px solid color-mix(in srgb, var(--verdict-wait) 30%, transparent);
+  background: color-mix(in srgb, var(--verdict-wait) 7%, transparent);
+  color: var(--verdict-wait);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -222,8 +220,8 @@
 }
 
 .resetBtn:hover {
-  background: rgba(248, 113, 113, 0.15);
-  border-color: rgba(248, 113, 113, 0.5);
+  background: color-mix(in srgb, var(--verdict-wait) 15%, transparent);
+  border-color: color-mix(in srgb, var(--verdict-wait) 50%, transparent);
 }
 
 @media (max-width: 640px) {

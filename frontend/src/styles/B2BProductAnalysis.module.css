@@ -31,9 +31,9 @@
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #818cf8;
-  background: rgba(99,102,241,0.1);
-  border: 1px solid rgba(99,102,241,0.25);
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand) 25%, transparent);
   margin-bottom: 8px;
 }
 
@@ -60,7 +60,7 @@
 .searchInput {
   flex: 1;
   padding: 12px 18px;
-  border-radius: 12px;
+  border-radius: 16px;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
@@ -70,25 +70,25 @@
 }
 
 .searchInput:focus {
-  border-color: rgba(99,102,241,0.5);
+  border-color: color-mix(in srgb, var(--brand) 50%, transparent);
 }
 
 .searchInput::placeholder { color: var(--text-muted); }
 
 .searchBtn {
   padding: 12px 24px;
-  border-radius: 12px;
+  border-radius: 16px;
   border: none;
   font-size: 13px;
   font-weight: 700;
-  color: white;
-  background: linear-gradient(135deg, #6366f1, #a855f7);
+  color: var(--on-brand);
+  background: var(--brand);
   cursor: pointer;
   white-space: nowrap;
   transition: box-shadow 0.2s;
 }
 
-.searchBtn:hover { box-shadow: 0 0 20px rgba(99,102,241,0.4); }
+.searchBtn:hover { box-shadow: none; }
 
 /* ── Example tags ── */
 .exampleWrap {
@@ -110,9 +110,9 @@
 }
 
 .exampleTag:hover {
-  border-color: rgba(99,102,241,0.4);
-  color: #818cf8;
-  background: rgba(99,102,241,0.06);
+  border-color: color-mix(in srgb, var(--brand) 40%, transparent);
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 6%, transparent);
 }
 
 /* ── Loading / Error ── */
@@ -129,8 +129,8 @@
 .spinner {
   width: 28px;
   height: 28px;
-  border: 3px solid rgba(99,102,241,0.2);
-  border-top-color: #6366f1;
+  border: 3px solid color-mix(in srgb, var(--brand) 20%, transparent);
+  border-top-color: var(--brand);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -140,7 +140,7 @@
 .error {
   text-align: center;
   padding: 40px;
-  color: #f87171;
+  color: var(--verdict-wait);
   font-size: 13px;
 }
 
@@ -161,8 +161,8 @@
   border: none;
   font-size: 13px;
   font-weight: 700;
-  color: white;
-  background: linear-gradient(135deg, #6366f1, #a855f7);
+  color: var(--on-brand);
+  background: var(--brand);
   cursor: pointer;
 }
 
@@ -188,9 +188,9 @@
   font-size: 11px;
   font-weight: 700;
   font-family: monospace;
-  color: #a855f7;
-  background: rgba(168,85,247,0.1);
-  border: 1px solid rgba(168,85,247,0.25);
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand) 25%, transparent);
 }
 
 .catBadge {
@@ -200,9 +200,9 @@
   border-radius: 6px;
   font-size: 11px;
   font-weight: 600;
-  color: #06b6d4;
-  background: rgba(6,182,212,0.1);
-  border: 1px solid rgba(6,182,212,0.25);
+  color: var(--verdict-good);
+  background: color-mix(in srgb, var(--verdict-good) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--verdict-good) 25%, transparent);
 }
 
 /* ── Grid ── */
@@ -261,7 +261,7 @@
   grid-template-columns: repeat(3, 1fr);
   gap: 0;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 8px;
   overflow: hidden;
   margin-bottom: 12px;
 }
@@ -303,7 +303,7 @@
   padding: 10px 14px;
   border-radius: 8px;
   border: 1px solid;
-  background: rgba(99,102,241,0.04);
+  background: color-mix(in srgb, var(--brand) 4%, transparent);
   font-size: 12px;
   color: var(--text-muted);
   margin-bottom: 14px;
@@ -325,17 +325,17 @@
   align-items: center;
   justify-content: space-between;
   padding: 7px 10px;
-  border-radius: 7px;
+  border-radius: 8px;
   font-size: 12px;
   border: 1px solid transparent;
   transition: background 0.15s;
 }
 
-.mallRow:hover { background: rgba(255,255,255,0.03); }
+.mallRow:hover { background: color-mix(in srgb, var(--ink) 3%, transparent); }
 
 .mallRowBest {
-  background: rgba(34,197,94,0.06);
-  border-color: rgba(34,197,94,0.2);
+  background: color-mix(in srgb, var(--verdict-best) 6%, transparent);
+  border-color: color-mix(in srgb, var(--verdict-best) 20%, transparent);
 }
 
 .mallName {
@@ -354,24 +354,24 @@
   font-weight: 700;
   padding: 1px 6px;
   border-radius: 4px;
-  color: #22c55e;
-  background: rgba(34,197,94,0.12);
-  border: 1px solid rgba(34,197,94,0.25);
+  color: var(--verdict-best);
+  background: color-mix(in srgb, var(--verdict-best) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--verdict-best) 25%, transparent);
 }
 
 .mallLink {
   font-size: 10px;
   font-weight: 600;
-  color: #818cf8;
+  color: var(--brand);
   text-decoration: none;
   padding: 2px 7px;
   border-radius: 5px;
-  border: 1px solid rgba(99,102,241,0.25);
+  border: 1px solid color-mix(in srgb, var(--brand) 25%, transparent);
   margin-left: 6px;
   transition: background 0.15s;
 }
 
-.mallLink:hover { background: rgba(99,102,241,0.1); }
+.mallLink:hover { background: color-mix(in srgb, var(--brand) 10%, transparent); }
 
 /* ── Chart commons ── */
 .chartLegend {
@@ -427,7 +427,7 @@
 .trendStat strong {
   font-size: 16px;
   font-weight: 800;
-  color: #818cf8;
+  color: var(--brand);
   letter-spacing: -0.3px;
 }
 
@@ -466,7 +466,7 @@
   gap: 6px;
   margin-bottom: 14px;
   padding: 10px;
-  background: rgba(255,255,255,0.02);
+  background: color-mix(in srgb, var(--ink) 2%, transparent);
   border-radius: 8px;
   border: 1px solid var(--border);
 }
@@ -474,14 +474,14 @@
 .kwTag {
   padding: 3px 10px;
   border-radius: 999px;
-  background: rgba(99,102,241,0.08);
-  border: 1px solid rgba(99,102,241,0.15);
-  color: #a5b4fc;
+  background: color-mix(in srgb, var(--brand) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand) 15%, transparent);
+  color: var(--on-brand-container);
   font-weight: 500;
   transition: background 0.15s;
 }
 
-.kwTag:hover { background: rgba(99,102,241,0.16); }
+.kwTag:hover { background: color-mix(in srgb, var(--brand) 16%, transparent); }
 
 /* ── Reviews ── */
 .reviewList {
@@ -500,8 +500,8 @@
 }
 
 .reviewItem:hover {
-  background: rgba(255,255,255,0.03);
-  border-color: rgba(99,102,241,0.25);
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+  border-color: color-mix(in srgb, var(--brand) 25%, transparent);
 }
 
 .reviewMeta {
@@ -516,8 +516,8 @@
   font-weight: 700;
   padding: 1px 6px;
   border-radius: 4px;
-  color: #6366f1;
-  background: rgba(99,102,241,0.1);
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
 }
 
 .reviewTitle {

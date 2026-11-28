@@ -18,9 +18,9 @@ function MiniChart({ data, uid }) {
   if (data.length === 1) return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 0' }}>
       <svg width="36" height="36" viewBox="0 0 36 36">
-        <circle cx="18" cy="18" r="7" fill="#6366f1" opacity="0.85" />
+        <circle cx="18" cy="18" r="7" fill="var(--brand)" opacity="0.85" />
       </svg>
-      <span style={{ fontSize: 12, color: 'var(--text-muted, #8a93b2)' }}>
+      <span style={{ fontSize: 12, color: 'var(--text-muted, var(--ink-3))' }}>
         데이터 1건 ({data[0].period?.slice(5, 10)})
       </span>
     </div>
@@ -56,16 +56,16 @@ function MiniChart({ data, uid }) {
         style={{ width: '100%', height: `${H}px`, display: 'block' }}>
         <defs>
           <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#6366f1" stopOpacity="0.28" />
-            <stop offset="100%" stopColor="#6366f1" stopOpacity="0.02" />
+            <stop offset="0%" stopColor="var(--brand)" stopOpacity="0.28" />
+            <stop offset="100%" stopColor="var(--brand)" stopOpacity="0.02" />
           </linearGradient>
         </defs>
         <polygon points={area} fill={`url(#${gradId})`} />
-        <polyline points={line} fill="none" stroke="#818cf8" strokeWidth="2"
+        <polyline points={line} fill="none" stroke="var(--brand)" strokeWidth="2"
           strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
         {pts.map((p, i) => (isPeak(i) || i === n - 1) && (
           <circle key={i} cx={p.x} cy={p.y} r={i === n - 1 ? 4 : 3}
-            fill="#6366f1" vectorEffect="non-scaling-stroke" />
+            fill="var(--brand)" vectorEffect="non-scaling-stroke" />
         ))}
       </svg>
 

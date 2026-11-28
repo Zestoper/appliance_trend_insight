@@ -60,7 +60,7 @@ const FEATURES = [
     desc: '뉴스·리뷰·DataLab·유튜브를 통합해 개별 제품의 시장 포지션과 경쟁사를 진단',
     path: '/products/냉장고',
     cta: '리포트 보기',
-    color: '#ec4899',
+    color: 'var(--brand)',
     tags: ['시장 포지션', '경쟁사 진단', '리뷰 · 뉴스'],
   },
   {
@@ -75,7 +75,7 @@ const FEATURES = [
     desc: '90일 검색 관심도 추이로 시장 수요가 고점/저점인 시점을 사전에 포착',
     path: '/timing',
     cta: '타이밍 확인',
-    color: '#06b6d4',
+    color: 'var(--verdict-good)',
     tags: ['90일 추이', '고점 · 저점', '수요 흐름'],
   },
   {
@@ -84,7 +84,7 @@ const FEATURES = [
     desc: '제품명을 검색해 상품 하나를 고르면 검색량 예측·가격 적정성·경쟁 제품 비교까지 한 번에 분석',
     path: '/b2b/analysis',
     cta: '분석 시작',
-    color: '#6366f1',
+    color: 'var(--brand)',
     tags: ['검색량 예측', '가격 적정성', '경쟁 제품 비교'],
   },
 ]
@@ -95,28 +95,28 @@ const WHY = [
     title: '근거 있는 수요 예측',
     desc: 'Holt-Winters 시계열 모델로 연간 계절성까지 반영하고 신뢰구간과 함께 예측을 보여줍니다',
     tag: 'Holt-Winters · 신뢰구간',
-    color: '#6366f1',
+    color: 'var(--brand)',
   },
   {
     icon: ShieldCheck,
     title: '지어내지 않는 AI 리포트',
     desc: '실제 리뷰·뉴스·블로그를 벡터 검색(RAG)으로 찾아 근거로 삼아 리포트를 작성합니다',
     tag: 'RAG · pgvector',
-    color: '#ec4899',
+    color: 'var(--brand)',
   },
   {
     icon: Bell,
     title: '놓치지 않는 매입 타이밍',
     desc: '검색 관심도 추이에서 수요 고점과 저점을 포착해 매입 시점 판단을 돕습니다',
     tag: '90일 관심도 추이',
-    color: '#06b6d4',
+    color: 'var(--verdict-good)',
   },
   {
     icon: CircleCheck,
     title: '끊기지 않는 분석',
     desc: 'Groq 한도가 소진되면 Cerebras로 자동 전환해 리포트 생성이 멈추지 않습니다',
     tag: 'LLM 이중화',
-    color: '#22c55e',
+    color: 'var(--verdict-best)',
   },
 ]
 
@@ -191,7 +191,7 @@ const STEPS = [
     ),
     title: '데이터 수집',
     desc: '네이버 쇼핑·뉴스·DataLab 등 4가지 소스에서 가전 시장 데이터를 실시간으로 수집합니다',
-    color: '#6366f1',
+    color: 'var(--brand)',
   },
   {
     num: '02',
@@ -203,7 +203,7 @@ const STEPS = [
     ),
     title: 'AI 분석',
     desc: 'Groq LLM이 수집된 데이터를 분석해 소비자 트렌드와 시장 기회를 자동으로 파악합니다',
-    color: '#a855f7',
+    color: 'var(--brand)',
   },
   {
     num: '03',
@@ -218,7 +218,7 @@ const STEPS = [
     ),
     title: '의사결정 지원',
     desc: '"매입 확대·재고 전략·판매 타이밍" — AI가 직접 결론을 내려 유통 의사결정을 돕습니다',
-    color: '#06b6d4',
+    color: 'var(--verdict-good)',
   },
 ]
 

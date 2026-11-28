@@ -16,7 +16,7 @@
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 2px;
-  color: #818cf8;
+  color: var(--brand);
   text-transform: uppercase;
   margin-bottom: 12px;
 }
@@ -46,13 +46,10 @@
   display: flex;
   flex-direction: column;
   padding: 22px 26px 20px;
-  border-radius: 20px;
-  background:
-    radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--c) 10%, transparent), transparent 60%),
+  border-radius: 16px;
+  background: none,
     var(--surface);
   border: 1px solid var(--border);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
   overflow: hidden;
   transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
@@ -61,13 +58,13 @@
   position: absolute;
   top: 0; left: 0; right: 0;
   height: 3px;
-  background: linear-gradient(90deg, var(--c), transparent 80%);
+  background: var(--c);
 }
 
 .card:hover {
   transform: translateY(-6px);
   border-color: color-mix(in srgb, var(--c) 45%, transparent);
-  box-shadow: 0 24px 60px color-mix(in srgb, var(--c) 16%, transparent);
+  box-shadow: none;
 }
 .cardNum {
   position: absolute;
@@ -90,7 +87,7 @@
 .cardIcon {
   width: 44px;
   height: 44px;
-  border-radius: 13px;
+  border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -101,7 +98,7 @@
   transition: box-shadow 0.3s ease;
 }
 .card:hover .cardIcon {
-  box-shadow: 0 0 22px color-mix(in srgb, var(--c) 35%, transparent);
+  box-shadow: none;
 }
 
 .cardMeta {
@@ -164,7 +161,7 @@
   padding: 12px 20px;
   border-radius: 16px;
   background: var(--surface);
-  border: 1px dashed color-mix(in srgb, #14b8a6 45%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--verdict-good) 45%, transparent);
   font-size: 13px;
   color: var(--text-dim);
 }
@@ -179,8 +176,8 @@
   border-radius: 999px;
   font-size: 12px;
   font-weight: 800;
-  color: #0d9488;
-  background: color-mix(in srgb, #14b8a6 14%, transparent);
+  color: var(--verdict-good);
+  background: color-mix(in srgb, var(--verdict-good) 14%, transparent);
 }
 .bandText { font-weight: 700; color: var(--text); }
 .bandChips { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -201,13 +198,10 @@
   border: 2px solid var(--bg);
 }
 .mergeDot:first-child { margin-left: 0; }
-.mergeArrow { color: #818cf8; flex-shrink: 0; }
+.mergeArrow { color: var(--brand); flex-shrink: 0; }
 .mergeResult {
   font-weight: 800;
-  background: linear-gradient(135deg, #818cf8, #ec4899);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--brand);
 }
 
 @media (max-height: 680px) and (min-width: 641px) {

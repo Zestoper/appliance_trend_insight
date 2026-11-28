@@ -52,7 +52,7 @@
 
 .table th,
 .table td {
-  border: 1px solid var(--border, rgba(127, 127, 127, 0.25));
+  border: 1px solid var(--border, var(--line-strong));
   padding: 8px 10px;
   text-align: left;
   vertical-align: top;
@@ -60,7 +60,7 @@
 
 .table th {
   font-weight: 700;
-  background: rgba(127, 127, 127, 0.08);
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
 }
 
 .links {

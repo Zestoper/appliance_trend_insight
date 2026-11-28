@@ -10,7 +10,7 @@
   font-size: 12px;
   font-weight: 900;
   letter-spacing: 2px;
-  color: #6366f1;
+  color: var(--brand);
   margin-bottom: 8px;
 }
 
@@ -22,7 +22,7 @@
 
 .header p {
   margin: 0;
-  color: #6b7280;
+  color: var(--ink-2);
   font-weight: 600;
 }
 
@@ -31,8 +31,8 @@
   gap: 10px;
   padding: 8px;
   border-radius: 999px;
-  background: white;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+  background: var(--card);
+  box-shadow: none;
 }
 
 .searchBox input {
@@ -47,9 +47,9 @@
   border: none;
   border-radius: 999px;
   padding: 12px 20px;
-  color: white;
+  color: var(--on-brand);
   font-weight: 900;
-  background: linear-gradient(135deg, #6366f1, #a855f7);
+  background: var(--brand);
   cursor: pointer;
 }
 
@@ -65,20 +65,20 @@
 .panel,
 .panelLarge,
 .productList {
-  background: white;
-  border-radius: 22px;
-  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.08);
+  background: var(--card);
+  border-radius: 28px;
+  box-shadow: none;
 }
 
 .heroCard {
   padding: 28px;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(168, 85, 247, 0.1));
-  border: 1px solid rgba(99, 102, 241, 0.16);
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand) 16%, transparent);
 }
 
 .heroCard p {
   margin: 0 0 12px;
-  color: #6366f1;
+  color: var(--brand);
   font-size: 12px;
   font-weight: 900;
   letter-spacing: 2px;
@@ -91,7 +91,7 @@
 }
 
 .heroCard span {
-  color: #6b7280;
+  color: var(--ink-2);
   font-size: 14px;
   line-height: 1.8;
   font-weight: 700;
@@ -106,7 +106,7 @@
 
 .scoreCard p {
   margin: 0 0 8px;
-  color: #6b7280;
+  color: var(--ink-2);
   font-size: 13px;
   font-weight: 900;
 }
@@ -114,12 +114,12 @@
 .scoreCard strong {
   font-size: 58px;
   line-height: 1;
-  color: #6366f1;
+  color: var(--brand);
 }
 
 .scoreCard span {
   margin-top: 8px;
-  color: #9ca3af;
+  color: var(--ink-3);
   font-size: 13px;
   font-weight: 800;
 }
@@ -152,7 +152,7 @@
 .panelHeader p,
 .panelHeader span {
   margin: 0;
-  color: #9ca3af;
+  color: var(--ink-3);
   font-size: 12px;
   font-weight: 800;
 }
@@ -174,7 +174,7 @@
 
 .seasonItem > span {
   height: 28px;
-  color: #6366f1;
+  color: var(--brand);
   font-size: 12px;
   font-weight: 900;
 }
@@ -189,13 +189,13 @@
 
 .bar {
   width: 72%;
-  border-radius: 18px 18px 8px 8px;
-  background: linear-gradient(180deg, #6366f1, #a855f7);
+  border-radius: 16px 16px 8px 8px;
+  background: var(--brand);
 }
 
 .seasonItem b {
   margin-top: 12px;
-  color: #6b7280;
+  color: var(--ink-2);
   font-size: 12px;
 }
 
@@ -208,8 +208,8 @@
 .factorList div {
   padding: 16px;
   border-radius: 16px;
-  background: #f8fafc;
-  border: 1px solid #e5e7eb;
+  background: var(--sunken);
+  border: 1px solid var(--line);
 }
 
 .factorList b {
@@ -219,7 +219,7 @@
 
 .factorList p {
   margin: 0;
-  color: #6b7280;
+  color: var(--ink-2);
   font-size: 13px;
   line-height: 1.6;
   font-weight: 600;
@@ -233,9 +233,9 @@
 
 .productCard {
   padding: 20px;
-  border-radius: 18px;
-  background: #f8fafc;
-  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  background: var(--sunken);
+  border: 1px solid var(--line);
 }
 
 .cardTop {
@@ -248,7 +248,7 @@
 
 .cardTop p {
   margin: 0 0 6px;
-  color: #6366f1;
+  color: var(--brand);
   font-size: 12px;
   font-weight: 900;
 }
@@ -268,18 +268,18 @@
 }
 
 .wait {
-  color: #f59e0b;
-  background: rgba(245, 158, 11, 0.12);
+  color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
 }
 
 .buy {
-  color: #16a34a;
-  background: rgba(34, 197, 94, 0.12);
+  color: var(--verdict-best);
+  background: color-mix(in srgb, var(--verdict-best) 12%, transparent);
 }
 
 .alert {
-  color: #6366f1;
-  background: rgba(99, 102, 241, 0.12);
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
 }
 
 .priceGrid {
@@ -296,7 +296,7 @@
 }
 
 .priceGrid span {
-  color: #9ca3af;
+  color: var(--ink-3);
   font-size: 12px;
   font-weight: 800;
 }
@@ -307,7 +307,7 @@
 
 .reason {
   margin: 0 0 16px;
-  color: #6b7280;
+  color: var(--ink-2);
   font-size: 13px;
   line-height: 1.7;
   font-weight: 600;
@@ -320,19 +320,19 @@
 }
 
 .confidence span {
-  color: #6b7280;
+  color: var(--ink-2);
   font-size: 12px;
   font-weight: 900;
 }
 
 .confidence b {
-  color: #6366f1;
+  color: var(--brand);
 }
 
 .progress {
   height: 8px;
   border-radius: 999px;
-  background: #e5e7eb;
+  background: var(--line);
   overflow: hidden;
 }
 
@@ -340,7 +340,7 @@
   display: block;
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #6366f1, #a855f7);
+  background: var(--brand);
 }
 
 @media (max-width: 1100px) {

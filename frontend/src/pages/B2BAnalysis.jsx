@@ -7,16 +7,16 @@ import { API_BASE } from '../config'
 import { ChartBar, CircleCheck, Hourglass, OctagonX, Scale, ThumbsDown, ThumbsUp, TrendingDown, TrendingUp, Wallet } from 'lucide-react'
 
 const SIGNAL_STYLE = {
-  buy:     { icon: CircleCheck, color: '#22c55e', bg: 'rgba(34,197,94,0.12)',  border: 'rgba(34,197,94,0.3)'  },
-  wait:    { icon: Hourglass, color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.3)' },
-  avoid:   { icon: OctagonX, color: '#f87171', bg: 'rgba(248,113,113,0.12)', border: 'rgba(248,113,113,0.3)' },
-  neutral: { icon: ChartBar, color: '#818cf8', bg: 'rgba(99,102,241,0.12)', border: 'rgba(99,102,241,0.3)' },
+  buy:     { icon: CircleCheck, color: 'var(--verdict-best)', bg: 'color-mix(in srgb, var(--verdict-best) 12%, transparent)',  border: 'color-mix(in srgb, var(--verdict-best) 30%, transparent)'  },
+  wait:    { icon: Hourglass, color: 'var(--warn)', bg: 'color-mix(in srgb, var(--warn) 12%, transparent)', border: 'color-mix(in srgb, var(--warn) 30%, transparent)' },
+  avoid:   { icon: OctagonX, color: 'var(--verdict-wait)', bg: 'color-mix(in srgb, var(--verdict-wait) 12%, transparent)', border: 'color-mix(in srgb, var(--verdict-wait) 30%, transparent)' },
+  neutral: { icon: ChartBar, color: 'var(--brand)', bg: 'color-mix(in srgb, var(--brand) 12%, transparent)', border: 'color-mix(in srgb, var(--brand) 30%, transparent)' },
 }
 
 const FAIRNESS_STYLE = {
-  cheap:     { label: '저렴한 편', icon: Wallet, color: '#22c55e', bg: 'rgba(34,197,94,0.12)',  border: 'rgba(34,197,94,0.3)'  },
-  fair:      { label: '적정 가격', icon: Scale, color: '#818cf8', bg: 'rgba(99,102,241,0.12)', border: 'rgba(99,102,241,0.3)' },
-  expensive: { label: '비싼 편',   icon: TrendingUp, color: '#f87171', bg: 'rgba(248,113,113,0.12)', border: 'rgba(248,113,113,0.3)' },
+  cheap:     { label: '저렴한 편', icon: Wallet, color: 'var(--verdict-best)', bg: 'color-mix(in srgb, var(--verdict-best) 12%, transparent)',  border: 'color-mix(in srgb, var(--verdict-best) 30%, transparent)'  },
+  fair:      { label: '적정 가격', icon: Scale, color: 'var(--brand)', bg: 'color-mix(in srgb, var(--brand) 12%, transparent)', border: 'color-mix(in srgb, var(--brand) 30%, transparent)' },
+  expensive: { label: '비싼 편',   icon: TrendingUp, color: 'var(--verdict-wait)', bg: 'color-mix(in srgb, var(--verdict-wait) 12%, transparent)', border: 'color-mix(in srgb, var(--verdict-wait) 30%, transparent)' },
 }
 
 function fmtP(p) {
@@ -34,13 +34,13 @@ function YAxis({ minV, maxV, pX, pY, H, W, axisLabel, tickFormat }) {
   const ticks = [maxV, (minV + maxV) / 2, minV]
   return (
     <>
-      <text x={pX} y="9" textAnchor="start" fontSize="9" fill="#9ca3af">{axisLabel}</text>
+      <text x={pX} y="9" textAnchor="start" fontSize="9" fill="var(--ink-3)">{axisLabel}</text>
       {ticks.map((t, i) => {
         const y = pY + (i / (ticks.length - 1)) * (H - pY * 2)
         return (
           <g key={i}>
             <line x1={pX} y1={y} x2={W} y2={y} stroke="currentColor" strokeOpacity="0.08" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-            <text x={pX - 6} y={y + 3} textAnchor="end" fontSize="9" fill="#9ca3af">{fmt(t)}</text>
+            <text x={pX - 6} y={y + 3} textAnchor="end" fontSize="9" fill="var(--ink-3)">{fmt(t)}</text>
           </g>
         )
       })}
@@ -85,26 +85,26 @@ function ForecastChart({ history, linearTrend, prophetForecast, axisLabel = '관
   return (
     <div>
       <div className={s.chartLegend}>
-        <span className={s.dot} style={{ background: '#ef4444' }} /> {actualLabel}
-        {linearTrend?.length > 0 && <><span className={s.dot} style={{ background: '#9ca3af', marginLeft: 10 }} /> 선형회귀 추세선</>}
-        {forecast.length > 0 && <><span className={s.dot} style={{ background: '#22c55e', marginLeft: 10 }} /> {modelLabel} 예측</>}
+        <span className={s.dot} style={{ background: 'var(--verdict-wait)' }} /> {actualLabel}
+        {linearTrend?.length > 0 && <><span className={s.dot} style={{ background: 'var(--ink-3)', marginLeft: 10 }} /> 선형회귀 추세선</>}
+        {forecast.length > 0 && <><span className={s.dot} style={{ background: 'var(--verdict-best)', marginLeft: 10 }} /> {modelLabel} 예측</>}
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: '100%', height: 260 }}>
         <YAxis minV={minV} maxV={maxV} pX={pX} pY={pY} H={H} W={W} axisLabel={axisLabel} tickFormat={tickFormat} />
-        {forecast.length > 0 && <polygon points={band} fill="rgba(34,197,94,0.1)" />}
-        <line x1={nowX} y1={pY} x2={nowX} y2={H - pY} stroke="#818cf8" strokeWidth="1"
+        {forecast.length > 0 && <polygon points={band} fill="color-mix(in srgb, var(--verdict-best) 10%, transparent)" />}
+        <line x1={nowX} y1={pY} x2={nowX} y2={H - pY} stroke="var(--brand)" strokeWidth="1"
           strokeDasharray="3,3" vectorEffect="non-scaling-stroke" />
         {trendLine && (
-          <polyline points={trendLine} fill="none" stroke="#9ca3af" strokeWidth="1.5" strokeDasharray="4,3"
+          <polyline points={trendLine} fill="none" stroke="var(--ink-3)" strokeWidth="1.5" strokeDasharray="4,3"
             strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
         )}
-        <polyline points={histLine} fill="none" stroke="#ef4444" strokeWidth="2"
+        <polyline points={histLine} fill="none" stroke="var(--verdict-wait)" strokeWidth="2"
           strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
         {forecast.length > 0 && (
-          <polyline points={fcLine} fill="none" stroke="#22c55e" strokeWidth="2" strokeDasharray="5,4"
+          <polyline points={fcLine} fill="none" stroke="var(--verdict-best)" strokeWidth="2" strokeDasharray="5,4"
             strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
         )}
-        <circle cx={histPts.at(-1)[0]} cy={histPts.at(-1)[1]} r="4" fill="#ef4444" vectorEffect="non-scaling-stroke" />
+        <circle cx={histPts.at(-1)[0]} cy={histPts.at(-1)[1]} r="4" fill="var(--verdict-wait)" vectorEffect="non-scaling-stroke" />
         {labelIdx.map((i, li) => (
           <text key={i} x={toX(i)} y={xLabelY} fontSize="9" fill="currentColor" opacity="0.6"
             textAnchor={li === 0 ? 'start' : li === labelIdx.length - 1 ? 'end' : 'middle'}>
@@ -112,7 +112,7 @@ function ForecastChart({ history, linearTrend, prophetForecast, axisLabel = '관
           </text>
         ))}
         {forecast.length > 0 && (
-          <text x={toX(fcStartIdx + forecast.length)} y={xLabelY} fontSize="9" fill="#22c55e" textAnchor="end">
+          <text x={toX(fcStartIdx + forecast.length)} y={xLabelY} fontSize="9" fill="var(--verdict-best)" textAnchor="end">
             {forecast.at(-1)?.period?.slice(5) ?? ''} 예측
           </text>
         )}
@@ -134,8 +134,8 @@ function Sparkline({ data }) {
   const area = [`${pts[0][0]},${H}`, ...pts.map(pt => pt.join(',')), `${pts.at(-1)[0]},${H}`].join(' ')
   return (
     <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: 120, height: 44, flexShrink: 0 }}>
-      <polygon points={area} fill="rgba(34,197,94,0.12)" />
-      <polyline points={line} fill="none" stroke="#22c55e" strokeWidth="1.5"
+      <polygon points={area} fill="color-mix(in srgb, var(--verdict-best) 12%, transparent)" />
+      <polyline points={line} fill="none" stroke="var(--verdict-best)" strokeWidth="1.5"
         strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
     </svg>
   )
@@ -157,12 +157,12 @@ function WeatherChart({ series, label, unit, keyword }) {
   return (
     <div>
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: '100%', height: 150 }}>
-        <polyline points={line(norm('ratio'))} fill="none" stroke="#818cf8" strokeWidth="2" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-        <polyline points={line(norm('value'))} fill="none" stroke="#f59e0b" strokeWidth="2" strokeDasharray="5 4" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+        <polyline points={line(norm('ratio'))} fill="none" stroke="var(--brand)" strokeWidth="2" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+        <polyline points={line(norm('value'))} fill="none" stroke="var(--warn)" strokeWidth="2" strokeDasharray="5 4" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
       </svg>
       <div className={s.dualLegend}>
-        <span><i style={{ background: '#818cf8' }} />&apos;{keyword}&apos; 검색량</span>
-        <span><i style={{ background: '#f59e0b' }} />{label} ({Math.min(...vals)}~{Math.max(...vals)}{unit})</span>
+        <span><i style={{ background: 'var(--brand)' }} />&apos;{keyword}&apos; 검색량</span>
+        <span><i style={{ background: 'var(--warn)' }} />{label} ({Math.min(...vals)}~{Math.max(...vals)}{unit})</span>
         <span>{series[0].period} ~ {series.at(-1).period}</span>
       </div>
     </div>
@@ -193,16 +193,16 @@ function PriceHistoryChart({ history }) {
   return (
     <div>
       <div className={s.chartLegend}>
-        <span className={s.dot} style={{ background: '#818cf8' }} /> 평균가
-        <span className={s.dot} style={{ background: '#22c55e', marginLeft: 10 }} /> 최저가
+        <span className={s.dot} style={{ background: 'var(--brand)' }} /> 평균가
+        <span className={s.dot} style={{ background: 'var(--verdict-best)', marginLeft: 10 }} /> 최저가
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: '100%', height: 190 }}>
         <YAxis minV={minV} maxV={maxV} pX={pX} pY={pY} H={H} W={W} axisLabel="가격(원)" tickFormat={fmtWon} />
-        <polyline points={minLine} fill="none" stroke="#22c55e" strokeWidth="1.5" strokeDasharray="4,3"
+        <polyline points={minLine} fill="none" stroke="var(--verdict-best)" strokeWidth="1.5" strokeDasharray="4,3"
           vectorEffect="non-scaling-stroke" />
-        <polyline points={avgLine} fill="none" stroke="#818cf8" strokeWidth="2"
+        <polyline points={avgLine} fill="none" stroke="var(--brand)" strokeWidth="2"
           strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-        <circle cx={avgPts.at(-1)[0]} cy={avgPts.at(-1)[1]} r="4" fill="#6366f1" vectorEffect="non-scaling-stroke" />
+        <circle cx={avgPts.at(-1)[0]} cy={avgPts.at(-1)[1]} r="4" fill="var(--brand)" vectorEffect="non-scaling-stroke" />
       </svg>
       <div className={s.xAxis}>
         {labels.map(i => <span key={i}>{history[i]?.date?.slice(5) ?? ''}</span>)}
@@ -582,7 +582,7 @@ export default function B2BAnalysis() {
                       {info?.current_price && (
                         <div className={s.infoRow}>
                           <span className={s.infoLabel}>현재 최저가</span>
-                          <span className={s.infoValue} style={{ color: '#22c55e', fontWeight: 800 }}>{fmtP(info.current_price)}</span>
+                          <span className={s.infoValue} style={{ color: 'var(--verdict-best)', fontWeight: 800 }}>{fmtP(info.current_price)}</span>
                         </div>
                       )}
                     </div>

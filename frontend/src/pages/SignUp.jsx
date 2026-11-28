@@ -50,9 +50,9 @@ function getPwStrength(pw) {
   if (/[0-9]/.test(pw)) score++
   if (/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(pw)) score++
   if (/[A-Z]/.test(pw)) score++
-  if (score <= 1) return { bars: 1, label: '취약', color: '#ef4444' }
-  if (score <= 3) return { bars: 2, label: '보통', color: '#f59e0b' }
-  return               { bars: 3, label: '강함', color: '#22c55e' }
+  if (score <= 1) return { bars: 1, label: '취약', color: 'var(--verdict-wait)' }
+  if (score <= 3) return { bars: 2, label: '보통', color: 'var(--warn)' }
+  return               { bars: 3, label: '강함', color: 'var(--verdict-best)' }
 }
 
 // 카운트다운 훅 (초 단위)
@@ -287,14 +287,14 @@ export default function Signup() {
             return (
               <div key={i} className={s.stepItem}>
                 <div className={s.stepCircle} style={{
-                  background: done   ? 'linear-gradient(135deg,#6366f1,#a855f7)' : 'transparent',
-                  border:     active ? '2px solid #6366f1' : done ? 'none' : '2px solid rgba(255,255,255,0.15)',
-                  color:      done   ? 'white' : active ? '#818cf8' : 'rgba(255,255,255,0.25)',
-                  boxShadow:  active ? '0 0 0 4px rgba(99,102,241,0.2)' : 'none',
+                  background: done   ? 'var(--brand)' : 'transparent',
+                  border:     active ? '2px solid var(--brand)' : done ? 'none' : '2px solid color-mix(in srgb, var(--ink) 17%, transparent)',
+                  color:      done   ? 'white' : active ? 'var(--brand)' : 'color-mix(in srgb, var(--ink) 29%, transparent)',
+                  boxShadow:  active ? '0 0 0 4px color-mix(in srgb, var(--brand) 20%, transparent)' : 'none',
                 }}>
                   {done ? <Check size="1em" /> : i + 1}
                 </div>
-                <span className={s.stepLabel} style={{ color: done || active ? 'var(--text)' : 'rgba(255,255,255,0.2)' }}>
+                <span className={s.stepLabel} style={{ color: done || active ? 'var(--text)' : 'color-mix(in srgb, var(--ink) 23%, transparent)' }}>
                   {st.label}
                 </span>
               </div>
@@ -374,8 +374,8 @@ export default function Signup() {
                   <div className={s.pwBars}>
                     {[1, 2, 3].map(n => (
                       <div key={n} className={s.pwBar} style={{
-                        background: n <= pwStrength.bars ? pwStrength.color : 'rgba(255,255,255,0.1)',
-                        boxShadow:  n <= pwStrength.bars ? `0 0 6px ${pwStrength.color}88` : 'none',
+                        background: n <= pwStrength.bars ? pwStrength.color : 'color-mix(in srgb, var(--ink) 12%, transparent)',
+                        boxShadow:  'none',
                       }} />
                     ))}
                   </div>
@@ -394,7 +394,7 @@ export default function Signup() {
                 </button>
               </div>
               {confirmPw && (
-                <p style={{ fontSize: 12, marginTop: 4, color: confirmPw === password ? '#22c55e' : '#ef4444' }}>
+                <p style={{ fontSize: 12, marginTop: 4, color: confirmPw === password ? 'var(--verdict-best)' : 'var(--verdict-wait)' }}>
                   {confirmPw === password ? '비밀번호가 일치합니다' : '비밀번호가 일치하지 않습니다'}
                 </p>
               )}

@@ -40,7 +40,7 @@
 .blobIndigo {
   width: 500px;
   height: 500px;
-  background: radial-gradient(circle, #6366f1, #4338ca);
+  background: none;
   top: -100px;
   left: -100px;
   animation: blobFloat1 10s ease-in-out infinite;
@@ -49,7 +49,7 @@
 .blobPurple {
   width: 420px;
   height: 420px;
-  background: radial-gradient(circle, #a855f7, #7c3aed);
+  background: none;
   top: 30%;
   right: -80px;
   animation: blobFloat2 12s ease-in-out infinite;
@@ -58,7 +58,7 @@
 .blobPink {
   width: 360px;
   height: 360px;
-  background: radial-gradient(circle, #ec4899, #db2777);
+  background: none;
   bottom: -60px;
   left: 35%;
   animation: blobFloat3 9s ease-in-out infinite;
@@ -106,16 +106,16 @@
   border-radius: 999px;
   font-size: 12px;
   font-weight: 600;
-  color: #c7d2fe;
-  background: rgba(99, 102, 241, 0.12);
-  border: 1px solid rgba(99, 102, 241, 0.3);
+  color: var(--on-brand-container);
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand) 30%, transparent);
   letter-spacing: 0.3px;
 }
 
 [data-theme="light"] .badge {
-  color: #4f46e5;
-  background: rgba(99, 102, 241, 0.08);
-  border-color: rgba(99, 102, 241, 0.25);
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 8%, transparent);
+  border-color: color-mix(in srgb, var(--brand) 25%, transparent);
 }
 
 /* ── 헤드라인 ── */
@@ -129,12 +129,7 @@
 
 .gradientText {
   display: block;
-  background: linear-gradient(90deg, #818cf8, #c084fc, #f472b6, #818cf8);
-  background-size: 300%;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  animation: gradientMove 5s linear infinite;
+  color: var(--brand);
 }
 
 @keyframes gradientMove {
@@ -156,7 +151,7 @@
   color: var(--text-dim);
   font-weight: 500;
   white-space: nowrap;
-  border-right: 2px solid #818cf8;
+  border-right: 2px solid var(--brand);
   animation: blink 0.7s step-end infinite;
   display: inline-block;
 }

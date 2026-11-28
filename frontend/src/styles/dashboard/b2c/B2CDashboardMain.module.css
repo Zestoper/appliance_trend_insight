@@ -9,7 +9,7 @@
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 2px;
-  color: #6366f1;
+  color: var(--brand);
   margin-bottom: 8px;
 }
 
@@ -24,8 +24,8 @@
   gap: 10px;
   padding: 8px;
   border-radius: 999px;
-  background: white;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+  background: var(--card);
+  box-shadow: none;
 }
 
 .searchBox input {
@@ -40,9 +40,9 @@
   border: none;
   border-radius: 999px;
   padding: 12px 20px;
-  color: white;
+  color: var(--on-brand);
   font-weight: 800;
-  background: linear-gradient(135deg, #6366f1, #a855f7);
+  background: var(--brand);
   cursor: pointer;
 }
 
@@ -57,9 +57,9 @@
 .panel,
 .panelLarge,
 .tablePanel {
-  background: white;
-  border-radius: 22px;
-  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.08);
+  background: var(--card);
+  border-radius: 28px;
+  box-shadow: none;
 }
 
 .statCard {
@@ -68,7 +68,7 @@
 
 .statCard p {
   margin: 0 0 12px;
-  color: #6b7280;
+  color: var(--ink-2);
   font-weight: 700;
   font-size: 13px;
 }
@@ -79,7 +79,7 @@
 }
 
 .statCard span {
-  color: #6366f1;
+  color: var(--brand);
   font-weight: 800;
   font-size: 13px;
 }
@@ -110,7 +110,7 @@
 }
 
 .panelHeader span {
-  color: #9ca3af;
+  color: var(--ink-3);
   font-size: 12px;
   font-weight: 800;
 }
@@ -127,7 +127,7 @@
   flex: 1;
   min-height: 40px;
   border-radius: 16px 16px 8px 8px;
-  background: linear-gradient(180deg, #6366f1, #a855f7);
+  background: var(--brand);
   position: relative;
 }
 
@@ -137,7 +137,7 @@
   left: 50%;
   transform: translateX(-50%);
   white-space: nowrap;
-  color: #6b7280;
+  color: var(--ink-2);
   font-size: 12px;
   font-weight: 800;
 }
@@ -145,9 +145,9 @@
 .timingCard {
   padding: 18px;
   border-radius: 16px;
-  background: #f8fafc;
+  background: var(--sunken);
   margin-bottom: 14px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--line);
 }
 
 .timingCard strong {
@@ -157,17 +157,17 @@
 
 .timingCard p {
   margin: 0 0 10px;
-  color: #6b7280;
+  color: var(--ink-2);
   font-size: 13px;
   line-height: 1.6;
 }
 
 .timingCard b {
-  color: #f59e0b;
+  color: var(--warn);
 }
 
 .buyNow {
-  color: #22c55e !important;
+  color: var(--verdict-best) !important;
 }
 
 .bottomGrid {
@@ -184,14 +184,14 @@ table {
 th {
   text-align: left;
   padding: 12px;
-  color: #6b7280;
+  color: var(--ink-2);
   font-size: 12px;
-  background: #f8fafc;
+  background: var(--sunken);
 }
 
 td {
   padding: 14px 12px;
-  border-bottom: 1px solid #eef2f7;
+  border-bottom: 1px solid var(--sunken);
   font-size: 13px;
   font-weight: 700;
 }
@@ -209,20 +209,20 @@ td {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  color: var(--on-brand);
   font-size: 28px;
   font-weight: 900;
-  background: conic-gradient(#6366f1 0 82%, #e5e7eb 82% 100%);
+  background: var(--brand);
 }
 
 .sentiment p {
-  color: #6b7280;
+  color: var(--ink-2);
   font-size: 13px;
   line-height: 1.7;
 }
 
 .sentiment b {
-  color: #111827;
+  color: var(--ink);
 }
 
 @media (max-width: 1100px) {

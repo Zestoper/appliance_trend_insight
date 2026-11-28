@@ -1,7 +1,7 @@
 .wrap {
   margin-bottom: 28px;
   background: var(--surface);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--line);
   border-radius: 16px;
   padding: 16px 20px 18px;
 }
@@ -25,9 +25,9 @@
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.12em;
-  color: #f97316;
-  background: rgba(249, 115, 22, 0.1);
-  border: 1px solid rgba(249, 115, 22, 0.22);
+  color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warn) 22%, transparent);
   padding: 2px 8px;
   border-radius: 999px;
 }
@@ -45,9 +45,9 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 12px;
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+  border: 1px solid var(--line);
+  border-radius: 16px;
   padding: 10px 14px;
   cursor: pointer;
   flex-shrink: 0;
@@ -56,13 +56,13 @@
 }
 
 .card:hover {
-  border-color: rgba(99, 102, 241, 0.35);
+  border-color: color-mix(in srgb, var(--brand) 35%, transparent);
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: none;
 }
 .card:first-child {
-  border-color: rgba(251, 191, 36, 0.22);
-  background: rgba(251, 191, 36, 0.04);
+  border-color: color-mix(in srgb, var(--warn) 22%, transparent);
+  background: color-mix(in srgb, var(--warn) 4%, transparent);
 }
 .rank {
   font-size: 17px;
@@ -76,14 +76,14 @@
 }
 
 .card:first-child .rank {
-  color: #fbbf24;
+  color: var(--warn);
   opacity: 1;
 }
 .thumb {
   width: 46px;
   height: 46px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.04);
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -122,7 +122,7 @@
 
 .stars {
   font-size: 10px;
-  color: #fbbf24;
+  color: var(--warn);
   margin: 0;
   letter-spacing: 0.5px;
 }
@@ -135,13 +135,8 @@
   flex-shrink: 0;
   width: 210px;
   height: 70px;
-  border-radius: 12px;
-  background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0.04) 25%,
-    rgba(255, 255, 255, 0.08) 50%,
-    rgba(255, 255, 255, 0.04) 75%
-  );
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
   background-size: 200% 100%;
   animation: shimmer 1.4s infinite;
 }

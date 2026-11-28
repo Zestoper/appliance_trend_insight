@@ -145,7 +145,7 @@ export default function ReportPreview() {
         >
 
           <div className={styles.analysisRow}>
-            <p className={styles.analysisTitle} style={{ color: '#4ade80' }}>장점</p>
+            <p className={styles.analysisTitle} style={{ color: 'var(--verdict-best)' }}>장점</p>
             <div className={styles.tagList}>
               {pros.map(p => (
                 <span key={p} className={`${styles.tag} ${styles.tagGood}`}>{p}</span>
@@ -154,7 +154,7 @@ export default function ReportPreview() {
           </div>
 
           <div className={styles.analysisRow}>
-            <p className={styles.analysisTitle} style={{ color: '#f87171' }}>단점</p>
+            <p className={styles.analysisTitle} style={{ color: 'var(--verdict-wait)' }}>단점</p>
             <div className={styles.tagList}>
               {cons.map(c => (
                 <span key={c} className={`${styles.tag} ${styles.tagBad}`}>{c}</span>
@@ -176,7 +176,7 @@ export default function ReportPreview() {
               <span className={styles.scoreBig}>{animatedScore}</span>
               <p className={styles.scoreDesc}>
                 {suitableFor}에 적합<br />
-                {caution && <span style={{ color: '#f59e0b', fontSize: '11px' }}><TriangleAlert size="1em" /> {caution}</span>}
+                {caution && <span style={{ color: 'var(--warn)', fontSize: '11px' }}><TriangleAlert size="1em" /> {caution}</span>}
               </p>
             </div>
           </div>

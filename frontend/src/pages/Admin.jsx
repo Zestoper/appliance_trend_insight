@@ -14,9 +14,9 @@ function formatDate(str) {
 }
 
 const STATUS_META = {
-  pending:  { label: '대기 중', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.3)', icon: Hourglass },
-  active:   { label: '승인완료', color: '#34d399', bg: 'rgba(52,211,153,0.12)', border: 'rgba(52,211,153,0.3)', icon: CircleCheck },
-  rejected: { label: '거절됨', color: '#f87171', bg: 'rgba(248,113,113,0.12)', border: 'rgba(248,113,113,0.3)', icon: CircleX },
+  pending:  { label: '대기 중', color: 'var(--warn)', bg: 'color-mix(in srgb, var(--warn) 12%, transparent)', border: 'color-mix(in srgb, var(--warn) 30%, transparent)', icon: Hourglass },
+  active:   { label: '승인완료', color: 'var(--verdict-best)', bg: 'color-mix(in srgb, var(--verdict-best) 12%, transparent)', border: 'color-mix(in srgb, var(--verdict-best) 30%, transparent)', icon: CircleCheck },
+  rejected: { label: '거절됨', color: 'var(--verdict-wait)', bg: 'color-mix(in srgb, var(--verdict-wait) 12%, transparent)', border: 'color-mix(in srgb, var(--verdict-wait) 30%, transparent)', icon: CircleX },
 }
 
 const TABS = [
@@ -123,10 +123,10 @@ export default function Admin() {
       {/* 통계 카드 */}
       <div className={s.statsRow}>
         {[
-          { label: '전체',    value: counts.total,    icon: ClipboardList, color: '#818cf8' },
-          { label: '대기 중', value: counts.pending,  icon: Hourglass, color: '#f59e0b' },
-          { label: '승인완료',value: counts.active,   icon: CircleCheck, color: '#34d399' },
-          { label: '거절됨',  value: counts.rejected, icon: CircleX, color: '#f87171' },
+          { label: '전체',    value: counts.total,    icon: ClipboardList, color: 'var(--brand)' },
+          { label: '대기 중', value: counts.pending,  icon: Hourglass, color: 'var(--warn)' },
+          { label: '승인완료',value: counts.active,   icon: CircleCheck, color: 'var(--verdict-best)' },
+          { label: '거절됨',  value: counts.rejected, icon: CircleX, color: 'var(--verdict-wait)' },
         ].map(stat => (
           <div key={stat.label} className={s.statCard}>
             <span className={s.statIcon}><stat.icon size="1em" /></span>

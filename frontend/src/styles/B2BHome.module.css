@@ -38,19 +38,19 @@
 
 .blobIndigo {
   width: 520px; height: 520px;
-  background: radial-gradient(circle, #6366f1, #4338ca);
+  background: none;
   top: -120px; left: -80px;
   animation: blobFloat1 11s ease-in-out infinite;
 }
 .blobViolet {
   width: 440px; height: 440px;
-  background: radial-gradient(circle, #7c3aed, #5b21b6);
+  background: none;
   top: 25%; right: -100px;
   animation: blobFloat2 13s ease-in-out infinite;
 }
 .blobCyan {
   width: 380px; height: 380px;
-  background: radial-gradient(circle, #0891b2, #0e7490);
+  background: none;
   bottom: -80px; left: 38%;
   animation: blobFloat3 9s ease-in-out infinite;
 }
@@ -95,15 +95,15 @@
   border-radius: 999px;
   font-size: 12px;
   font-weight: 600;
-  color: #c7d2fe;
-  background: rgba(99,102,241,0.12);
-  border: 1px solid rgba(99,102,241,0.3);
+  color: var(--on-brand-container);
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand) 30%, transparent);
   letter-spacing: 0.3px;
 }
 [data-theme="light"] .badge {
-  color: #4f46e5;
-  background: rgba(99,102,241,0.08);
-  border-color: rgba(99,102,241,0.25);
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 8%, transparent);
+  border-color: color-mix(in srgb, var(--brand) 25%, transparent);
 }
 
 .headline {
@@ -117,12 +117,7 @@
 
 .gradientText {
   display: block;
-  background: linear-gradient(90deg, #818cf8, #a78bfa, #67e8f9, #818cf8);
-  background-size: 300%;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  animation: gradientMove 5s linear infinite;
+  color: var(--brand);
 }
 @keyframes gradientMove {
   0%   { background-position: 0%; }
@@ -140,10 +135,10 @@
 }
 
 .typingText {
-  color: var(--text-dim, rgba(255,255,255,0.55));
+  color: var(--text-dim, color-mix(in srgb, var(--ink) 63%, transparent));
   font-weight: 500;
   white-space: nowrap;
-  border-right: 2px solid #818cf8;
+  border-right: 2px solid var(--brand);
   animation: blink 0.7s step-end infinite;
   display: inline-block;
 }
@@ -158,24 +153,24 @@
 
 .btnPrimary {
   padding: 13px 26px;
-  border-radius: 10px;
+  border-radius: 8px;
   font-size: 14px;
   font-weight: 700;
-  color: white;
-  background: linear-gradient(135deg, #6366f1, #7c3aed);
+  color: var(--on-brand);
+  background: var(--brand);
   border: none;
   cursor: pointer;
   transition: all 0.25s ease;
-  box-shadow: 0 4px 20px rgba(99,102,241,0.3);
+  box-shadow: none;
 }
 .btnPrimary:hover {
-  box-shadow: 0 0 32px rgba(99,102,241,0.5);
+  box-shadow: none;
   transform: translateY(-2px);
 }
 
 .btnSecondary {
   padding: 13px 26px;
-  border-radius: 10px;
+  border-radius: 8px;
   font-size: 14px;
   font-weight: 600;
   color: var(--text-muted);
@@ -186,8 +181,8 @@
 }
 .btnSecondary:hover {
   color: var(--text);
-  border-color: rgba(129,140,248,0.4);
-  background: rgba(99,102,241,0.05);
+  border-color: color-mix(in srgb, var(--brand) 40%, transparent);
+  background: color-mix(in srgb, var(--brand) 5%, transparent);
 }
 
 /* ── 워크플로우 ── */
@@ -199,7 +194,7 @@
   align-items: center;
   justify-content: center;
   padding: 80px 24px;
-  background: linear-gradient(180deg, var(--bg) 0%, rgba(99,102,241,0.04) 50%, var(--bg) 100%);
+  background: var(--bg);
   scroll-snap-align: start;
   scroll-snap-stop: always;
   overflow: hidden;
@@ -222,15 +217,15 @@
   border-radius: 999px;
   font-size: 12px;
   font-weight: 600;
-  color: #c7d2fe;
-  background: rgba(99,102,241,0.12);
-  border: 1px solid rgba(99,102,241,0.3);
+  color: var(--on-brand-container);
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand) 30%, transparent);
   letter-spacing: 0.3px;
 }
 [data-theme="light"] .workflowBadge {
-  color: #4f46e5;
-  background: rgba(99,102,241,0.08);
-  border-color: rgba(99,102,241,0.25);
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 8%, transparent);
+  border-color: color-mix(in srgb, var(--brand) 25%, transparent);
 }
 
 .workflowTitle {
@@ -264,9 +259,9 @@
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.15em;
-  color: var(--step-color, #818cf8);
-  background: color-mix(in srgb, var(--step-color, #818cf8) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--step-color, #818cf8) 25%, transparent);
+  color: var(--step-color, var(--brand));
+  background: color-mix(in srgb, var(--step-color, var(--brand)) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--step-color, var(--brand)) 25%, transparent);
   border-radius: 999px;
   padding: 4px 12px;
   margin-bottom: 22px;
@@ -274,15 +269,15 @@
 
 .stepIconWrap {
   width: 68px; height: 68px;
-  border-radius: 20px;
-  background: color-mix(in srgb, var(--step-color, #818cf8) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--step-color, #818cf8) 20%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--step-color, var(--brand)) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--step-color, var(--brand)) 20%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--step-color, #818cf8);
+  color: var(--step-color, var(--brand));
   margin-bottom: 20px;
-  box-shadow: 0 0 32px color-mix(in srgb, var(--step-color, #818cf8) 18%, transparent);
+  box-shadow: none;
 }
 
 .stepTitle { font-size: 17px; font-weight: 800; color: var(--text); margin: 0 0 10px; letter-spacing: -0.3px; }
@@ -318,7 +313,7 @@
   border-radius: 16px;
   margin-bottom: 48px;
   overflow: hidden;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+  box-shadow: none;
 }
 
 .statItem {
@@ -330,16 +325,13 @@
   border-right: 1px solid var(--border);
   transition: background 0.2s;
 }
-.statItem:hover { background: rgba(99,102,241,0.04); }
+.statItem:hover { background: color-mix(in srgb, var(--brand) 4%, transparent); }
 .statItem:last-child { border-right: none; }
 
 .statValue {
   font-size: 24px;
   font-weight: 800;
-  background: linear-gradient(135deg, #818cf8, #a78bfa);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--brand);
   margin-bottom: 5px;
 }
 .statLabel { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.07em; }
@@ -354,7 +346,7 @@
   margin-bottom: 48px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 20px;
+  border-radius: 16px;
   position: relative;
   overflow: hidden;
 }
@@ -363,21 +355,21 @@
   position: absolute;
   top: 0; left: 0; right: 0;
   height: 2px;
-  background: linear-gradient(90deg, #6366f1, #a855f7, #06b6d4);
+  background: var(--brand);
 }
 
 .gateIcon {
   width: 60px; height: 60px;
   border-radius: 16px;
-  background: rgba(99,102,241,0.1);
-  border: 1px solid rgba(99,102,241,0.2);
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand) 20%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #818cf8;
+  color: var(--brand);
   font-size: 26px;
   margin-bottom: 18px;
-  box-shadow: 0 0 24px rgba(99,102,241,0.1);
+  box-shadow: none;
 }
 
 .gateTitle { font-size: 17px; font-weight: 800; color: var(--text); margin-bottom: 8px; letter-spacing: -0.3px; }
@@ -386,21 +378,21 @@
 
 .gateBtnPrimary {
   padding: 11px 24px;
-  border-radius: 9px;
+  border-radius: 8px;
   font-size: 13.5px;
   font-weight: 700;
-  color: white;
-  background: linear-gradient(135deg, #6366f1, #7c3aed);
+  color: var(--on-brand);
+  background: var(--brand);
   border: none;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 3px 14px rgba(99,102,241,0.3);
+  box-shadow: none;
 }
-.gateBtnPrimary:hover { box-shadow: 0 0 24px rgba(99,102,241,0.45); transform: translateY(-1px); }
+.gateBtnPrimary:hover { box-shadow: none; transform: translateY(-1px); }
 
 .gateBtnSecondary {
   padding: 11px 24px;
-  border-radius: 9px;
+  border-radius: 8px;
   font-size: 13.5px;
   font-weight: 600;
   color: var(--text-muted);
@@ -409,7 +401,7 @@
   cursor: pointer;
   transition: all 0.2s;
 }
-.gateBtnSecondary:hover { color: var(--text); border-color: rgba(129,140,248,0.4); }
+.gateBtnSecondary:hover { color: var(--text); border-color: color-mix(in srgb, var(--brand) 40%, transparent); }
 
 /* ── 기능 카드 ── */
 .featureGrid {
@@ -432,11 +424,10 @@
   display: flex;
   flex-direction: column;
   padding: 28px;
-  background:
-    radial-gradient(120% 80% at 100% 0%, color-mix(in srgb, var(--card-color, #6366f1) 9%, transparent), transparent 60%),
+  background: none,
     var(--surface);
   border: 1px solid var(--border);
-  border-radius: 18px;
+  border-radius: 16px;
   cursor: pointer;
   transition: all 0.25s ease;
   overflow: hidden;
@@ -446,32 +437,32 @@
   position: absolute;
   top: 0; left: 0; right: 0;
   height: 2px;
-  background: linear-gradient(90deg, var(--card-color, #6366f1), transparent);
+  background: var(--brand);
   opacity: 0.55;
   transition: opacity 0.25s;
 }
 .featureCard:hover:not(.featureCardLocked) .featureAccent { opacity: 1; }
 .featureCard:hover:not(.featureCardLocked) {
-  border-color: color-mix(in srgb, var(--card-color, #6366f1) 40%, transparent);
+  border-color: color-mix(in srgb, var(--card-color, var(--brand)) 40%, transparent);
   transform: translateY(-4px);
-  box-shadow: 0 16px 40px color-mix(in srgb, var(--card-color, #6366f1) 14%, transparent);
+  box-shadow: none;
 }
 .featureCardLocked { cursor: default; opacity: 0.5; }
 
 .featureIcon {
   width: 46px; height: 46px;
-  border-radius: 13px;
-  background: color-mix(in srgb, var(--card-color, #818cf8) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--card-color, #818cf8) 24%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--card-color, var(--brand)) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--card-color, var(--brand)) 24%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--card-color, #818cf8);
+  color: var(--card-color, var(--brand));
   margin-bottom: 18px;
   transition: box-shadow 0.25s;
 }
 .featureCard:hover:not(.featureCardLocked) .featureIcon {
-  box-shadow: 0 0 20px color-mix(in srgb, var(--card-color, #818cf8) 30%, transparent);
+  box-shadow: none;
 }
 
 .featureTitle { font-size: 15px; font-weight: 800; color: var(--text); margin-bottom: 8px; letter-spacing: -0.3px; }
@@ -482,11 +473,11 @@
   border-radius: 999px;
   font-size: 11.5px;
   font-weight: 600;
-  color: var(--card-color, #818cf8);
-  background: color-mix(in srgb, var(--card-color, #818cf8) 9%, transparent);
-  border: 1px solid color-mix(in srgb, var(--card-color, #818cf8) 20%, transparent);
+  color: var(--card-color, var(--brand));
+  background: color-mix(in srgb, var(--card-color, var(--brand)) 9%, transparent);
+  border: 1px solid color-mix(in srgb, var(--card-color, var(--brand)) 20%, transparent);
 }
-.featureCta { margin-top: auto; display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; font-weight: 700; color: var(--card-color, #818cf8); opacity: 0.85; transition: opacity 0.15s; }
+.featureCta { margin-top: auto; display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; font-weight: 700; color: var(--card-color, var(--brand)); opacity: 0.85; transition: opacity 0.15s; }
 .featureCard:hover .featureCta { opacity: 1; }
 .featureLock { position: absolute; top: 16px; right: 16px; font-size: 14px; opacity: 0.45; }
 
@@ -498,7 +489,7 @@
   flex-direction: column;
   justify-content: center;
   padding: 80px 24px;
-  background: linear-gradient(180deg, var(--bg) 0%, rgba(99,102,241,0.04) 50%, var(--bg) 100%);
+  background: var(--bg);
   scroll-snap-align: start;
   scroll-snap-stop: always;
 }
@@ -513,22 +504,21 @@
   display: flex;
   gap: 18px;
   padding: 26px;
-  background:
-    radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, var(--card-color) 9%, transparent), transparent 60%),
+  background: none,
     var(--surface);
   border: 1px solid var(--border);
   border-left: 3px solid var(--card-color);
-  border-radius: 18px;
+  border-radius: 16px;
   transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
 .whyCard:hover {
   transform: translateY(-4px);
-  box-shadow: 0 16px 40px color-mix(in srgb, var(--card-color) 14%, transparent);
+  box-shadow: none;
 }
 .whyIcon {
   width: 46px; height: 46px;
   flex-shrink: 0;
-  border-radius: 13px;
+  border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;

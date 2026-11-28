@@ -226,8 +226,8 @@ export default function Navbar() {
             <svg className={styles.logoIcon} viewBox="0 0 48 52" fill="none" xmlns="http://www.w3.org/2000/svg">
               <defs>
                 <linearGradient id="lgGrad" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="#9333ea"/>
-                  <stop offset="100%" stopColor="#ec4899"/>
+                  <stop offset="0%" stopColor="var(--brand)"/>
+                  <stop offset="100%" stopColor="var(--brand)"/>
                 </linearGradient>
               </defs>
               {/* 플러그 프롱 (왼쪽) */}

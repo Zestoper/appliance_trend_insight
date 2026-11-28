@@ -17,10 +17,10 @@ const QUICK_EXAMPLES = [
 ]
 
 const COLOR_MAP = {
-  green:  { bg: 'rgba(34,197,94,0.1)', border: 'rgba(34,197,94,0.3)', text: '#22c55e' },
-  blue:   { bg: 'rgba(59,130,246,0.1)', border: 'rgba(59,130,246,0.3)', text: '#3b82f6' },
-  yellow: { bg: 'rgba(234,179,8,0.1)', border: 'rgba(234,179,8,0.3)', text: '#eab308' },
-  red:    { bg: 'rgba(239,68,68,0.1)', border: 'rgba(239,68,68,0.3)', text: '#ef4444' },
+  green:  { bg: 'color-mix(in srgb, var(--verdict-best) 10%, transparent)', border: 'color-mix(in srgb, var(--verdict-best) 30%, transparent)', text: 'var(--verdict-best)' },
+  blue:   { bg: 'color-mix(in srgb, var(--verdict-good) 10%, transparent)', border: 'color-mix(in srgb, var(--verdict-good) 30%, transparent)', text: 'var(--verdict-good)' },
+  yellow: { bg: 'color-mix(in srgb, var(--warn) 10%, transparent)', border: 'color-mix(in srgb, var(--warn) 30%, transparent)', text: 'var(--warn)' },
+  red:    { bg: 'color-mix(in srgb, var(--verdict-wait) 10%, transparent)', border: 'color-mix(in srgb, var(--verdict-wait) 30%, transparent)', text: 'var(--verdict-wait)' },
 }
 
 // y축 nice 눈금 계산: 데이터 범위에 맞는 보기 좋은 간격 자동 결정
@@ -99,12 +99,12 @@ function LineChart({ values, gradId, stroke, yLabels, xLabels, refLines = [], ma
           {/* 최저가 포인트 */}
           {markMinMax && (
             <circle cx={pts[minIdx][0]} cy={pts[minIdx][1]} r="4"
-              fill="#22c55e" vectorEffect="non-scaling-stroke" />
+              fill="var(--verdict-best)" vectorEffect="non-scaling-stroke" />
           )}
           {/* 최고가 포인트 */}
           {markMinMax && minIdx !== maxIdx && (
             <circle cx={pts[maxIdx][0]} cy={pts[maxIdx][1]} r="4"
-              fill="#ef4444" vectorEffect="non-scaling-stroke" />
+              fill="var(--verdict-wait)" vectorEffect="non-scaling-stroke" />
           )}
           {/* 현재가 포인트 */}
           <circle cx={pts[pts.length - 1][0]} cy={pts[pts.length - 1][1]} r="4"
@@ -122,8 +122,8 @@ function LineChart({ values, gradId, stroke, yLabels, xLabels, refLines = [], ma
               left: `${pct}%`,
               top: `${yPct}%`,
               transform: `translate(${alignRight ? '-100%' : '8px'}, -130%)`,
-              background: 'rgba(20,20,35,0.92)',
-              border: `1px solid ${cl.color}44`,
+              background: 'rgba(28, 25, 23, 0.92)',
+              border: `1px solid color-mix(in srgb, ${cl.color} 27%, transparent)`,
               borderRadius: '5px',
               padding: '3px 7px',
               fontSize: '10px',
@@ -161,7 +161,7 @@ function LineChart({ values, gradId, stroke, yLabels, xLabels, refLines = [], ma
 }
 
 function ScoreSparkline({ data, color, curMin }) {
-  const dotColor = { green: '#22c55e', blue: '#3b82f6', yellow: '#eab308', red: '#ef4444' }[color] || '#6366f1'
+  const dotColor = { green: 'var(--verdict-best)', blue: 'var(--verdict-good)', yellow: 'var(--warn)', red: 'var(--verdict-wait)' }[color] || 'var(--brand)'
   const prices = data && data.length >= 2 ? data.map(d => d.price) : null
 
   return (
@@ -230,7 +230,7 @@ function PriceLineChart({ gridData, maxP, minP, avgP, launchPrice, xLabels, chan
 
   const lineStr = dataPts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
   const areaStr = `${dataPts[0].x.toFixed(1)},${H - padY} ${lineStr} ${dataPts[dataPts.length - 1].x.toFixed(1)},${H - padY}`
-  const stroke  = '#818cf8'
+  const stroke  = 'var(--brand)'
 
   // y축: nice 눈금값 위치 계산
   const yTicks = ticks.map(v => ({
@@ -266,10 +266,10 @@ function PriceLineChart({ gridData, maxP, minP, avgP, launchPrice, xLabels, chan
           {/* nice 눈금 grid lines (subtle) */}
           {ticks.map((v, i) => (
             <line key={i} x1={padX} y1={toY(v).toFixed(1)} x2={W - padX} y2={toY(v).toFixed(1)}
-              stroke="rgba(255,255,255,0.05)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+              stroke="color-mix(in srgb, var(--ink) 6%, transparent)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
           ))}
           {/* 최고/평균/최저 컬러 기준선 */}
-          {[{ v: maxP, c: '#ef4444' }, { v: avgP, c: '#eab308' }, { v: minP, c: '#22c55e' }].map((rl, i) => (
+          {[{ v: maxP, c: 'var(--verdict-wait)' }, { v: avgP, c: 'var(--warn)' }, { v: minP, c: 'var(--verdict-best)' }].map((rl, i) => (
             <line key={i} x1={padX} y1={toY(rl.v).toFixed(1)} x2={W - padX} y2={toY(rl.v).toFixed(1)}
               stroke={rl.c} strokeWidth="1" strokeDasharray="4,3" strokeOpacity="0.4"
               vectorEffect="non-scaling-stroke" />
@@ -277,7 +277,7 @@ function PriceLineChart({ gridData, maxP, minP, avgP, launchPrice, xLabels, chan
           {/* 출시가 기준선 (도메인 내에 있을 때만) */}
           {launchPrice && launchPrice >= domainMin && launchPrice <= domainMax && (
             <line x1={padX} y1={toY(launchPrice).toFixed(1)} x2={W - padX} y2={toY(launchPrice).toFixed(1)}
-              stroke="#a78bfa" strokeWidth="1" strokeDasharray="6,3" strokeOpacity="0.7"
+              stroke="var(--brand)" strokeWidth="1" strokeDasharray="6,3" strokeOpacity="0.7"
               vectorEffect="non-scaling-stroke" />
           )}
           <polygon points={areaStr} fill="url(#priceGrad)" />
@@ -303,8 +303,8 @@ function PriceLineChart({ gridData, maxP, minP, avgP, launchPrice, xLabels, chan
               left: `${xPct}%`,
               top: `${yPct}%`,
               transform: `translate(${shiftX}, ${shiftY})`,
-              background: 'rgba(12,12,24,0.93)',
-              border: `1px solid ${cl.color}50`,
+              background: 'rgba(28, 25, 23, 0.93)',
+              border: `1px solid color-mix(in srgb, ${cl.color} 31%, transparent)`,
               borderRadius: '5px',
               padding: '3px 8px',
               fontSize: '10px',
@@ -341,15 +341,15 @@ function PriceChart({ data, launchPrice, launchDiscPct }) {
     return (
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        minHeight: '160px', background: 'rgba(255,255,255,0.03)',
-        border: '1px dashed rgba(255,255,255,0.08)', borderRadius: '8px',
+        minHeight: '160px', background: 'color-mix(in srgb, var(--ink) 3%, transparent)',
+        border: '1px dashed color-mix(in srgb, var(--ink) 9%, transparent)', borderRadius: '8px',
         flexDirection: 'column', gap: '10px', padding: '28px 20px',
       }}>
         <div style={{
           display: 'inline-flex', alignItems: 'center', gap: '6px',
-          background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.25)',
+          background: 'color-mix(in srgb, var(--brand) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--brand) 25%, transparent)',
           borderRadius: '999px', padding: '4px 12px',
-          fontSize: '11px', fontWeight: 700, color: '#818cf8', letterSpacing: '0.05em',
+          fontSize: '11px', fontWeight: 700, color: 'var(--brand)', letterSpacing: '0.05em',
         }}>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
@@ -409,8 +409,8 @@ function PriceChart({ data, launchPrice, launchDiscPct }) {
   const minGridIdx = gridData.findIndex(d => d.price === minP)
   const maxGridIdx = gridData.findIndex(d => d.price === maxP)
   const changeCandidates = []
-  if (minGridIdx >= 0) changeCandidates.push({ idx: minGridIdx, date: gridData[minGridIdx].day.slice(5,10), price: minP, color: '#22c55e' })
-  if (maxGridIdx >= 0 && maxGridIdx !== minGridIdx) changeCandidates.push({ idx: maxGridIdx, date: gridData[maxGridIdx].day.slice(5,10), price: maxP, color: '#ef4444' })
+  if (minGridIdx >= 0) changeCandidates.push({ idx: minGridIdx, date: gridData[minGridIdx].day.slice(5,10), price: minP, color: 'var(--verdict-best)' })
+  if (maxGridIdx >= 0 && maxGridIdx !== minGridIdx) changeCandidates.push({ idx: maxGridIdx, date: gridData[maxGridIdx].day.slice(5,10), price: maxP, color: 'var(--verdict-wait)' })
 
   let prev = null
   gridData.forEach((d, i) => {
@@ -418,7 +418,7 @@ function PriceChart({ data, launchPrice, launchDiscPct }) {
     if (prev != null && i !== minGridIdx && i !== maxGridIdx) {
       const chg = Math.abs(d.price - prev) / prev
       if (chg >= 0.03)
-        changeCandidates.push({ idx: i, date: d.day.slice(5,10), price: d.price, color: d.price < prev ? '#22c55e' : '#ef4444' })
+        changeCandidates.push({ idx: i, date: d.day.slice(5,10), price: d.price, color: d.price < prev ? 'var(--verdict-best)' : 'var(--verdict-wait)' })
     }
     prev = d.price
   })
@@ -429,15 +429,15 @@ function PriceChart({ data, launchPrice, launchDiscPct }) {
   return (
     <>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginBottom: '10px', fontSize: '12px' }}>
-        <span><span style={{ color: '#22c55e', marginRight: '4px' }}>●</span>최저 <b style={{ color: '#22c55e' }}>{minP.toLocaleString()}원</b></span>
-        <span><span style={{ color: '#eab308', marginRight: '4px' }}>●</span>평균 <b style={{ color: '#eab308' }}>{avgP.toLocaleString()}원</b></span>
-        <span><span style={{ color: '#ef4444', marginRight: '4px' }}>●</span>최고 <b style={{ color: '#ef4444' }}>{maxP.toLocaleString()}원</b></span>
+        <span><span style={{ color: 'var(--verdict-best)', marginRight: '4px' }}>●</span>최저 <b style={{ color: 'var(--verdict-best)' }}>{minP.toLocaleString()}원</b></span>
+        <span><span style={{ color: 'var(--warn)', marginRight: '4px' }}>●</span>평균 <b style={{ color: 'var(--warn)' }}>{avgP.toLocaleString()}원</b></span>
+        <span><span style={{ color: 'var(--verdict-wait)', marginRight: '4px' }}>●</span>최고 <b style={{ color: 'var(--verdict-wait)' }}>{maxP.toLocaleString()}원</b></span>
         {launchPrice && (
           <span>
-            <span style={{ color: '#a78bfa', marginRight: '4px' }}><Diamond size="1em" /></span>
-            출시가 <b style={{ color: '#a78bfa' }}>{launchPrice.toLocaleString()}원</b>
+            <span style={{ color: 'var(--brand)', marginRight: '4px' }}><Diamond size="1em" /></span>
+            출시가 <b style={{ color: 'var(--brand)' }}>{launchPrice.toLocaleString()}원</b>
             {launchDiscPct > 0 && (
-              <span style={{ color: '#22c55e', marginLeft: '4px', fontWeight: 600 }}>
+              <span style={{ color: 'var(--verdict-best)', marginLeft: '4px', fontWeight: 600 }}>
                 -{launchDiscPct}%
               </span>
             )}
@@ -471,7 +471,7 @@ function SearchChart({ data }) {
     <LineChart
       values={ratios}
       gradId="searchGrad"
-      stroke="#22d3ee"
+      stroke="var(--verdict-good)"
       yLabels={[Math.round(maxR), Math.round(maxR / 2), '0']}
       xLabels={xLabels}
     />
@@ -762,7 +762,7 @@ export default function Timing() {
               <p className={styles.chartTitle}>
                 최근 30일 최저가 추이
                 {!analysis.has_history && (
-                  <span style={{ fontSize: '0.75rem', color: '#6b6b80', marginLeft: '8px' }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--ink-3)', marginLeft: '8px' }}>
                     (이력 누적 중 — 재방문 시 더 정확한 분석 제공)
                   </span>
                 )}
@@ -779,7 +779,7 @@ export default function Timing() {
                 <p className={styles.chartTitle}>
                   최근 30일 검색 관심도 추이
                   {analysis.search_summary?.keyword && analysis.search_summary.keyword !== urlQ && (
-                    <span style={{ fontSize: '0.75rem', color: '#6b6b80', marginLeft: '8px' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--ink-3)', marginLeft: '8px' }}>
                       (키워드: {analysis.search_summary.keyword})
                     </span>
                   )}

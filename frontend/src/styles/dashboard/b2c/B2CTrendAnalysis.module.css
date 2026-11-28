@@ -10,7 +10,7 @@
   font-size: 12px;
   font-weight: 900;
   letter-spacing: 2px;
-  color: #6366f1;
+  color: var(--brand);
   margin-bottom: 8px;
 }
 
@@ -22,7 +22,7 @@
 
 .header p {
   margin: 0;
-  color: #6b7280;
+  color: var(--ink-2);
   font-weight: 600;
 }
 
@@ -31,8 +31,8 @@
   gap: 8px;
   padding: 6px;
   border-radius: 999px;
-  background: white;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+  background: var(--card);
+  box-shadow: none;
 }
 
 .filterBox button {
@@ -40,14 +40,14 @@
   border-radius: 999px;
   padding: 11px 18px;
   background: transparent;
-  color: #6b7280;
+  color: var(--ink-2);
   font-weight: 900;
   cursor: pointer;
 }
 
 .filterBox .active {
-  color: white;
-  background: linear-gradient(135deg, #6366f1, #a855f7);
+  color: var(--on-brand);
+  background: var(--brand);
 }
 
 .summaryGrid {
@@ -60,9 +60,9 @@
 .summaryCard,
 .panel,
 .panelLarge {
-  background: white;
-  border-radius: 22px;
-  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.08);
+  background: var(--card);
+  border-radius: 28px;
+  box-shadow: none;
 }
 
 .summaryCard {
@@ -71,7 +71,7 @@
 
 .summaryCard p {
   margin: 0 0 10px;
-  color: #6366f1;
+  color: var(--brand);
   font-size: 13px;
   font-weight: 900;
 }
@@ -83,13 +83,13 @@
 
 .summaryCard strong {
   display: block;
-  color: #a855f7;
+  color: var(--brand);
   font-size: 24px;
   margin-bottom: 12px;
 }
 
 .summaryCard span {
-  color: #6b7280;
+  color: var(--ink-2);
   font-size: 13px;
   font-weight: 700;
   line-height: 1.6;
@@ -128,7 +128,7 @@
 .panelHeader p,
 .panelHeader span {
   margin: 0;
-  color: #9ca3af;
+  color: var(--ink-3);
   font-size: 12px;
   font-weight: 800;
 }
@@ -166,20 +166,20 @@
 }
 
 .aircon {
-  background: linear-gradient(180deg, #6366f1, #818cf8);
+  background: var(--brand);
 }
 
 .robot {
-  background: linear-gradient(180deg, #a855f7, #c084fc);
+  background: var(--brand);
 }
 
 .fridge {
-  background: linear-gradient(180deg, #ec4899, #f472b6);
+  background: var(--brand);
 }
 
 .monthGroup p {
   margin: 12px 0 0;
-  color: #6b7280;
+  color: var(--ink-2);
   font-size: 12px;
   font-weight: 900;
 }
@@ -195,7 +195,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #6b7280;
+  color: var(--ink-2);
   font-size: 12px;
   font-weight: 800;
 }
@@ -207,22 +207,22 @@
 }
 
 .airconDot {
-  background: #6366f1;
+  background: var(--brand);
 }
 
 .robotDot {
-  background: #a855f7;
+  background: var(--brand);
 }
 
 .fridgeDot {
-  background: #ec4899;
+  background: var(--brand);
 }
 
 .aiInsight {
   padding: 22px;
-  border-radius: 18px;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(168, 85, 247, 0.08));
-  border: 1px solid rgba(99, 102, 241, 0.16);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--brand) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand) 16%, transparent);
 }
 
 .aiInsight b {
@@ -234,7 +234,7 @@
 
 .aiInsight p {
   margin: 0 0 16px;
-  color: #6b7280;
+  color: var(--ink-2);
   font-size: 14px;
   line-height: 1.8;
   font-weight: 600;
@@ -243,9 +243,9 @@
 .aiInsight strong {
   display: block;
   padding: 14px;
-  border-radius: 14px;
-  color: #4f46e5;
-  background: white;
+  border-radius: 16px;
+  color: var(--brand);
+  background: var(--card);
   font-size: 13px;
   line-height: 1.6;
 }
@@ -259,9 +259,9 @@
 .keywordBox span {
   padding: 10px 14px;
   border-radius: 999px;
-  color: #4f46e5;
-  background: rgba(99, 102, 241, 0.08);
-  border: 1px solid rgba(99, 102, 241, 0.15);
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand) 15%, transparent);
   font-size: 13px;
   font-weight: 900;
 }
@@ -275,19 +275,19 @@
 .reactionList div {
   padding: 16px;
   border-radius: 16px;
-  background: #f8fafc;
-  border: 1px solid #e5e7eb;
+  background: var(--sunken);
+  border: 1px solid var(--line);
 }
 
 .reactionList b {
   display: block;
   margin-bottom: 6px;
-  color: #111827;
+  color: var(--ink);
 }
 
 .reactionList p {
   margin: 0;
-  color: #6b7280;
+  color: var(--ink-2);
   font-size: 13px;
   line-height: 1.6;
   font-weight: 600;
