@@ -257,12 +257,140 @@ async def _fetch_raw_items(query: str) -> list[dict]:
     raise last_err
 
 
+# ── 품목 목록 페이지 (prod.danawa.com/list) ────────────────────────────
+# 2026-11-28 다나와 공지: 상품 검색(search.danawa.com)은 계속 제한 · 가격비교 리스트 · 카탈로그는 재개.
+# 그래서 검색이 막혀도 품목(냉장고 등) 요청은 품목 목록 페이지에서 실시간으로 가져올 수 있다.
+# 주소의 cate 값 = 그룹(10) + 깊이 + 다나와 코드 (예: 냉장고 깊이 2 코드 110 → 102110).
+# 한 품목에 여러 칸이 있으면 칸마다 인기순 30개씩 받아 번갈아 섞는다
+# (에어컨 전체 칸은 업소용 냉난방기가 위를 다 차지해서 스탠드 · 벽걸이 · 2in1 칸을 따로 본다).
+CATEGORY_LIST_CODES: dict[str, list[str]] = {
+    "에어컨":       ["1032649", "1032653", "10357175"],   # 스탠드 · 벽걸이 · 2in1
+    "냉장고":       ["102110"],
+    "김치냉장고":   ["102122"],
+    "세탁기":       ["102206", "10251634"],               # 드럼 · 일반
+    "건조기":       ["10221615"],
+    "세탁건조기":   ["10253217", "10239280"],             # 올인원 · 세탁기+건조기
+    "의류관리기":   ["10247884"],
+    "공기청정기":   ["10352481"],
+    "로봇청소기":   ["10243069"],
+    "식기세척기":   ["102313"],
+    "TV":           ["10248425"],
+    "에어프라이어": ["10252979"],
+    "전기밥솥":     ["10252932", "10252938"],             # 압력 · 일반
+    "전자레인지":   ["10252984"],
+    "전기레인지":   ["102132"],
+    "가습기":       ["1022486"],
+    "제습기":       ["1032578"],                          # 가정용
+    "선풍기":       ["1022683"],
+    "전기히터":     ["1022923"],
+    "헤어드라이어": ["10348568"],
+    "정수기":       ["10248475"],
+}
+CATEGORY_LIST_CODES["밥솥"] = CATEGORY_LIST_CODES["전기밥솥"]
+CATEGORY_LIST_CODES["텔레비전"] = CATEGORY_LIST_CODES["TV"]
+CATEGORY_LIST_CODES["인덕션"] = CATEGORY_LIST_CODES["전기레인지"]
+CATEGORY_LIST_CODES["히터"] = CATEGORY_LIST_CODES["전기히터"]
+
+_LIST_CACHE: dict[str, tuple[float, list[dict]]] = {}
+
+
+def _check_list_page(resp) -> None:
+    """품목 목록 페이지가 맞는지 확인한다. 아니면 DanawaUnavailable."""
+    host = resp.url.host or ""
+    if host != "prod.danawa.com" or "/list" not in resp.url.path:
+        raise DanawaUnavailable(f"다나와 목록 페이지가 다른 페이지로 넘어감: {resp.url}")
+    if len(resp.text) < 20000:
+        raise DanawaUnavailable(f"다나와 목록 응답이 목록 페이지가 아님: len={len(resp.text)}")
+
+
+def _list_item_from_json(p: dict) -> dict | None:
+    """목록 페이지 상품 하나를 검색 결과(_item_from_json)와 같은 모양으로."""
+    pid = str(p.get("id") or "")
+    title = _clean(p.get("productName", ""))
+    if not pid or not title or p.get("status") not in (None, 1):
+        return None
+    price = p.get("price") or {}
+    image = (p.get("image") or {}).get("url") or ""
+    if image.startswith("//"):
+        image = "https:" + image
+    cats = (p.get("category") or {}).get("names") or []
+    return {
+        "id":          pid,
+        "title":       title,
+        "brand":       _clean(p.get("makerName", "")),
+        "price":       int(price.get("min") or 0),
+        "image":       image,
+        "link":        p.get("productUrl") or f"https://prod.danawa.com/info/?pcode={pid}",
+        "mallName":    "다나와 최저가비교",
+        "reviewCount": 0,     # 목록 페이지에는 상품평 수가 없다
+        "reviewScore": 0.0,
+        "release":     _release_ym(str(p.get("registerDate") or "").rstrip(".")),
+        "categories":  [_clean(c) for c in cats if isinstance(c, str)],
+    }
+
+
+def _parse_list_html(html: str) -> list[dict]:
+    return [it for it in (_list_item_from_json(p) for p in _extract_products_json(html) if isinstance(p, dict)) if it]
+
+
+async def fetch_category_list(category: str) -> list[dict] | None:
+    """품목 목록 페이지에서 인기순 상품을 실시간으로. 모르는 품목이면 None · 목록 페이지도 안 되면 에러를 올린다."""
+    codes = CATEGORY_LIST_CODES.get((category or "").strip())
+    if not codes:
+        return None
+    key = category.strip()
+    cached = _LIST_CACHE.get(key)
+    if cached and time.time() - cached[0] < _CACHE_TTL:
+        return cached[1]
+
+    per_code: list[list[dict]] = []
+    last_err: Exception | None = None
+    for code in codes:
+        try:
+            async with (_BG_FETCH_SEM if background_fetch.get() else _FETCH_SEM):
+                async with httpx.AsyncClient(timeout=8.0, follow_redirects=True) as client:
+                    resp = await client.get("https://prod.danawa.com/list/", params={"cate": code}, headers=_DANAWA_HEADERS)
+                resp.raise_for_status()
+                _check_list_page(resp)
+                per_code.append(await asyncio.to_thread(_parse_list_html, resp.text))
+                del resp
+        except Exception as e:   # 칸 하나가 안 돼도 나머지 칸으로 보여 준다
+            print(f"[danawa] '{key}' 목록 칸 {code} 실패: {type(e).__name__} {e}")
+            last_err = e
+
+    # 칸마다 1등 · 2등 … 순서로 번갈아 섞고 같은 상품은 한 번만
+    items: list[dict] = []
+    seen: set[str] = set()
+    for rank in range(max((len(x) for x in per_code), default=0)):
+        for lst in per_code:
+            if rank < len(lst) and lst[rank]["id"] not in seen:
+                seen.add(lst[rank]["id"])
+                items.append(lst[rank])
+    if not items:
+        if last_err:
+            raise last_err
+        return []
+    _LIST_CACHE[key] = (time.time(), items)
+    from app.services.search_store import save_items_background
+    save_items_background(key, items)   # 목록 페이지까지 막히는 날을 위해 저장된 정보도 새로 둔다
+    print(f"[danawa] '{key}' 검색 대신 품목 목록 페이지에서 {len(items)}개")
+    return items
+
+
 async def _fetch_items_or_stored(query: str) -> tuple[list[dict], float | None]:
     """다나와 결과와 None. 다나와가 안 되면 DB에 저장해 둔 결과와 그 저장 시각.
     저장된 것도 없으면 원래 에러를 그대로 올린다 (라우터가 503 안내 문구로 바꾼다)."""
     try:
         return await _fetch_raw_items(query), None
     except Exception as e:
+        # 품목 요청이면 목록 페이지에서 실시간으로 (검색만 막히고 목록은 되는 경우 · 2026-11-28 다나와 공지)
+        try:
+            listed = await fetch_category_list(query)
+        except Exception as le:
+            print(f"[danawa] '{query}' 목록 페이지도 실패: {type(le).__name__}")
+            listed = None
+        if listed:
+            return listed, None
         from app.services.search_store import load_fallback
         stored = await load_fallback(query)
         if stored:
