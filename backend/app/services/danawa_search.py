@@ -292,6 +292,9 @@ CATEGORY_LIST_CODES["인덕션"] = CATEGORY_LIST_CODES["전기레인지"]
 CATEGORY_LIST_CODES["히터"] = CATEGORY_LIST_CODES["전기히터"]
 
 _LIST_CACHE: dict[str, tuple[float, list[dict]]] = {}
+# 막힌 칸(403 등)은 10분 동안 다시 부르지 않는다 — 요청마다 막힌 칸을 다 두드려 응답이 느려지고 다나와에도 부담을 주던 문제
+_LIST_FAIL_TTL = 600
+_LIST_FAILED: dict[str, float] = {}
 
 
 def _check_list_page(resp) -> None:
@@ -346,6 +349,10 @@ async def fetch_category_list(category: str) -> list[dict] | None:
     per_code: list[list[dict]] = []
     last_err: Exception | None = None
     for code in codes:
+        failed_at = _LIST_FAILED.get(code)
+        if failed_at and time.time() - failed_at < _LIST_FAIL_TTL:
+            last_err = last_err or DanawaUnavailable(f"다나와 목록 칸 {code} 최근 실패로 잠시 쉬는 중")
+            continue
         try:
             async with (_BG_FETCH_SEM if background_fetch.get() else _FETCH_SEM):
                 async with httpx.AsyncClient(timeout=8.0, follow_redirects=True) as client:
@@ -354,7 +361,9 @@ async def fetch_category_list(category: str) -> list[dict] | None:
                 _check_list_page(resp)
                 per_code.append(await asyncio.to_thread(_parse_list_html, resp.text))
                 del resp
+            _LIST_FAILED.pop(code, None)
         except Exception as e:   # 칸 하나가 안 돼도 나머지 칸으로 보여 준다
+            _LIST_FAILED[code] = time.time()
             print(f"[danawa] '{key}' 목록 칸 {code} 실패: {type(e).__name__} {e}")
             last_err = e
 

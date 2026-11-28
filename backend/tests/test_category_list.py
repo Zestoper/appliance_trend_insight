@@ -59,6 +59,7 @@ class FakeClient:
 
 def setup(monkeypatch, pages, search_down=True):
     d._LIST_CACHE.clear()
+    d._LIST_FAILED.clear()
     d._CACHE.clear()
     FakeClient.pages = pages
     FakeClient.calls = []
@@ -150,3 +151,13 @@ def test_헤어드라이어_칸_이름_드라이기도_품목으로_인정():
     from app.utils.danawa_category import in_category, is_appliance_category
     it = {"categories": ["생활가전", "헤어기기", "드라이기"]}
     assert in_category(it, "헤어드라이어") and is_appliance_category(it)
+
+
+def test_막힌_칸은_잠시_다시_부르지_않음(monkeypatch):
+    setup(monkeypatch, {"102110": httpx.ConnectError("403")})
+    for _ in range(3):
+        try:
+            run(d.fetch_category_list("냉장고"))
+        except Exception:
+            pass
+    assert FakeClient.calls == ["102110"]   # 첫 실패 뒤 10분 동안은 다시 부르지 않는다
